@@ -1,0 +1,29 @@
+import './Screens.css'
+
+interface Props {
+  hasSave: boolean
+  onContinue: () => void
+  onNewGame: () => void
+}
+
+export function TitleScreen({ hasSave, onContinue, onNewGame }: Props) {
+  return (
+    <div className="title-screen screen">
+      <div className="title-box">
+        <h1 className="game-title">
+          AI<span className="accent">TYCOON</span>
+        </h1>
+        <p className="subtitle">Build the world's most-used AI</p>
+        {hasSave && (
+          <button className="big-button" onClick={onContinue}>
+            Continue
+          </button>
+        )}
+        <button className="big-button" onClick={onNewGame}>
+          New Game
+        </button>
+        <p className="hint">Start your company in 2022 with $1,000,000</p>
+      </div>
+    </div>
+  )
+}

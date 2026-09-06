@@ -1,0 +1,88 @@
+.dev-toggle {
+  position: fixed;
+  right: 12px;
+  bottom: 72px;
+  width: 40px;
+  height: 40px;
+  font-size: 16px;
+  border-radius: 4px;
+  z-index: 1000;
+}
+
+.dev-console {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: 12px;
+  max-width: 720px;
+  margin: 0 auto;
+  background: #0b0c11;
+  border: 3px solid var(--accent);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  max-height: 50vh;
+}
+
+.dev-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: var(--panel);
+  border-bottom: 2px solid var(--border-dark);
+  font-family: var(--pixel-font);
+  font-size: 10px;
+  color: var(--accent);
+}
+
+.dev-close {
+  padding: 2px 8px;
+  font-size: 10px;
+}
+
+.dev-history {
+  padding: 8px 12px;
+  overflow-y: auto;
+  font-size: 16px;
+  line-height: 1.4;
+  min-height: 60px;
+}
+
+.dev-history pre {
+  margin: 0;
+  white-space: pre-wrap;
+  font-family: var(--mono);
+  color: var(--text);
+}
+
+.dev-hint {
+  color: var(--text-dim);
+  margin: 0;
+}
+
+.dev-input-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-top: 2px solid var(--border-dark);
+}
+
+.dev-prompt {
+  font-family: var(--pixel-font);
+  color: var(--accent);
+  font-size: 12px;
+}
+
+.dev-input-row input {
+  flex: 1;
+  font-size: 20px;
+  background: transparent;
+  border: none;
+  padding: 4px;
+}
+
+.dev-input-row input:focus {
+  border: none;
+}
