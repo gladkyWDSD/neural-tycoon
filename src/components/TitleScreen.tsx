@@ -22,7 +22,7 @@ export function TitleScreen({ hasSave, onContinue, onNewGame }: Props) {
         <button className="big-button" onClick={onNewGame}>
           New Game
         </button>
-        <p className="hint">Start your company in 2022 with $1,000,000</p>
+        <p className="hint">Start your company in 2022 with $3,500,000</p>
       </div>
     </div>
   )

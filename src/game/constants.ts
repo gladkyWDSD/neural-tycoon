@@ -1,6 +1,6 @@
 import type { GameDate, Nationality } from './types'
 
-export const START_MONEY = 1_000_000
+export const START_MONEY = 3_500_000
 export const START_YEAR = 2022
 export const WEEKS_PER_YEAR = 52
 
