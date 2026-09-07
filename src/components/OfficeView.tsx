@@ -176,13 +176,13 @@ export function OfficeView({ staff, desks, researchProgress, trainingProgress }:
     if (!ctx) return
     ctx.imageSmoothingEnabled = false
 
-    const drawBar = (x: number, y: number, w: number, h: number, progress: number, color: string) => {
+    const drawBar = (x: number, y: number, w: number, h: number, fillPx: number, color: string) => {
       ctx.fillStyle = '#0b0c11'
       ctx.fillRect(x - 1, y - 1, w + 2, h + 2)
       ctx.fillStyle = '#3a3f52'
       ctx.fillRect(x, y, w, h)
       ctx.fillStyle = color
-      ctx.fillRect(x, y, Math.round(w * Math.max(0, Math.min(1, progress))), h)
+      ctx.fillRect(x, y, Math.max(0, Math.min(w, Math.round(fillPx))), h)
     }
 
     const drawScene = () => {
@@ -231,7 +231,7 @@ export function OfficeView({ staff, desks, researchProgress, trainingProgress }:
       // flying progress balls
       for (const b of balls.current) {
         const prog = b.color === '#3ddc84' ? vis.current.research : vis.current.training
-        const tx = BAR_X + BAR_W * prog
+        const tx = BAR_X + prog
         const ty = BAR_Y + BAR_H / 2
         const tt = Math.min(1, b.t)
         const x = b.x + (tx - b.x) * tt
@@ -255,9 +255,10 @@ export function OfficeView({ staff, desks, researchProgress, trainingProgress }:
 
       // ease the visible fill toward the real progress
       if (researchProgress === null) vis.current.research = 0
-      else vis.current.research += (researchProgress - vis.current.research) * Math.min(1, dt * 2)
       if (trainingProgress === null) vis.current.training = 0
-      else vis.current.training += (trainingProgress - vis.current.training) * Math.min(1, dt * 2)
+
+      const targetResearchPx = researchProgress === null ? 0 : Math.round(researchProgress * BAR_W)
+      const targetTrainingPx = trainingProgress === null ? 0 : Math.round(trainingProgress * BAR_W)
 
       // spawn balls from working staff
       if (spawnAcc > 0.2) {
@@ -285,9 +286,14 @@ export function OfficeView({ staff, desks, researchProgress, trainingProgress }:
       }
       balls.current = balls.current.filter((b) => b.t < 1)
       for (const b of landed) {
+        if (b.color === '#3ddc84') {
+          vis.current.research = Math.min(targetResearchPx, vis.current.research + 2)
+        } else {
+          vis.current.training = Math.min(targetTrainingPx, vis.current.training + 2)
+        }
         const prog = b.color === '#3ddc84' ? vis.current.research : vis.current.training
         flashes.current.push({
-          x: BAR_X + BAR_W * prog,
+          x: BAR_X + prog,
           y: BAR_Y + BAR_H / 2,
           t: 0,
           color: b.color,
