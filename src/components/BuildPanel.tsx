@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { AIModel, GameState, PricingModel } from '../game/types'
-import { MODEL_TYPES, PRICING_MODELS, DATA_TIERS, weeklyRevenue } from '../game/research'
+import { MODEL_TYPES, PRICING_MODELS, DATA_TIERS, BOOKS, weeklyRevenue } from '../game/research'
 import { activeCards, gpuQualityFactor, trainDuration, ssdQualityBonus } from '../game/gpu'
 import { DEFAULT_AI_NAMES } from '../game/constants'
 import { validateCompanyName } from '../game/profanity'
@@ -10,6 +10,7 @@ interface Props {
   state: GameState
   onStartModel: (model: AIModel) => void
   onPublish: (id: string, pricing: PricingModel) => void
+  onBuyBook: (id: string) => void
   onClose: () => void
 }
 
@@ -71,7 +72,7 @@ function ModelRow({ model, onPublish }: { model: AIModel; onPublish: (id: string
   )
 }
 
-export function BuildPanel({ state, onStartModel, onPublish, onClose }: Props) {
+export function BuildPanel({ state, onStartModel, onPublish, onBuyBook, onClose }: Props) {
   const unlockedTypes = MODEL_TYPES.filter((t) => isTypeUnlocked(t.id, state.researched))
   const maxGpus = activeCards(state)
   const [typeId, setTypeId] = useState(unlockedTypes[0]?.id ?? '')
@@ -208,6 +209,33 @@ export function BuildPanel({ state, onStartModel, onPublish, onClose }: Props) {
                 {t.label} {t.cost > 0 ? `($${(t.cost / 1000).toFixed(0)}k)` : ''}
               </button>
             ))}
+          </div>
+        </div>
+
+        <div className="filter-group">
+          <label>📚 Books library (permanent quality)</label>
+          <div className="book-list">
+            {BOOKS.map((b) => {
+              const owned = state.books.includes(b.id)
+              return (
+                <div className="book-row" key={b.id}>
+                  <span className="book-name" title={b.description}>
+                    {b.icon} {b.name} (+{b.quality})
+                  </span>
+                  {owned ? (
+                    <span className="book-owned">✓ Owned</span>
+                  ) : (
+                    <button
+                      className="hire-btn"
+                      disabled={state.money < b.cost}
+                      onClick={() => onBuyBook(b.id)}
+                    >
+                      Buy ${(b.cost / 1000).toFixed(0)}k
+                    </button>
+                  )}
+                </div>
+              )
+            })}
           </div>
         </div>
 

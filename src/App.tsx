@@ -71,6 +71,7 @@ export default function App() {
           onUpgradeOffice={() => dispatch({ type: 'UPGRADE_OFFICE' })}
           onIpo={() => dispatch({ type: 'IPO' })}
           onLaunchCampaign={() => dispatch({ type: 'LAUNCH_CAMPAIGN' })}
+          onBuyBook={(id) => dispatch({ type: 'BUY_BOOK', id })}
         />
       )}
       <DevConsole onCommand={runCommand} />

@@ -146,6 +146,7 @@ export interface GameState {
   isPublic: boolean
   campaignWeeksLeft: number
   lastCampaignWeek: number
+  books: string[]
   competitors: Competitor[]
   events: GameEvent[]
   pendingEvent: PendingEvent | null

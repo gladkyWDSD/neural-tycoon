@@ -881,6 +881,33 @@
   gap: 10px;
 }
 
+.book-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.book-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 8px;
+  background: var(--panel-2);
+  border: 2px solid var(--border-dark);
+}
+
+.book-name {
+  font-size: 16px;
+  color: var(--text);
+}
+
+.book-owned {
+  font-family: var(--pixel-font);
+  font-size: 9px;
+  color: var(--accent);
+}
+
 .model-meta {
   color: var(--text-dim);
   font-size: 16px;

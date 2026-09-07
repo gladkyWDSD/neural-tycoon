@@ -1,7 +1,7 @@
 import type { AIModel, GameEvent, GameState, PostType, PricingModel, Staff } from './types'
 import { DESKS_PER_LEVEL, CAMPAIGN_COOLDOWN, CAMPAIGN_COST, CAMPAIGN_DURATION, MAX_OFFICE_LEVEL, OFFICE_UPGRADE_BASE_COST, START_DATE, START_MONEY, START_YEAR, WEEKS_PER_YEAR } from './constants'
 import { advanceWeek } from './date'
-import { DATA_TIER_MAP, MODEL_TYPE_MAP, PRICING_MAP, RESEARCH_ITEMS, RESEARCH_MAP } from './research'
+import { DATA_TIER_MAP, BOOK_MAP, MODEL_TYPE_MAP, PRICING_MAP, RESEARCH_ITEMS, RESEARCH_MAP } from './research'
 import { POST_TYPE_MAP, followerBoost, followerGain } from './social'
 import { DATACENTER_BUILD_WEEKS, DATACENTER_COST, ELECTRICITY_PER_CARD_WEEK, GPU_CARD_COST, RAM_COST, RENT_DISPUTE_CHANCE, RENT_WEEKLY_FEE, SSD_COST, activeCards, gpuQualityFactor, ssdQualityBonus } from './gpu'
 import { COMPETITOR_SEED, generateCompetitorModel, marketSaturation } from './competitors'
@@ -48,6 +48,7 @@ export function initialState(): GameState {
     isPublic: false,
     campaignWeeksLeft: 0,
     lastCampaignWeek: -CAMPAIGN_COOLDOWN,
+    books: [],
     competitors: COMPETITOR_SEED.map((c) => ({ ...c, models: c.models.map((m) => ({ ...m })) })),
     events: [],
     pendingEvent: null,
@@ -76,6 +77,7 @@ export type Action =
   | { type: 'UPGRADE_OFFICE' }
   | { type: 'IPO' }
   | { type: 'LAUNCH_CAMPAIGN' }
+  | { type: 'BUY_BOOK'; id: string }
   | { type: 'SET_GPU'; count: number }
   | { type: 'SET_DATACENTERS'; count: number }
   | { type: 'SET_WEEK'; week: number }
@@ -138,6 +140,7 @@ export function migrateState(raw: Partial<GameState>): GameState {
     isPublic: raw.isPublic ?? false,
     campaignWeeksLeft: raw.campaignWeeksLeft ?? 0,
     lastCampaignWeek: raw.lastCampaignWeek ?? -CAMPAIGN_COOLDOWN,
+    books: raw.books ?? [],
   }
 }
 
@@ -147,9 +150,10 @@ function computeQuality(state: GameState, gpus: number, dataTier?: string): numb
   const factor = gpuQualityFactor(gpus)
   const techBonus = state.researched.reduce((sum, id) => sum + (RESEARCH_MAP[id]?.qualityBonus ?? 0), 0)
   const dataQuality = dataTier ? (DATA_TIER_MAP[dataTier]?.quality ?? 0) : 0
+  const booksBonus = state.books.reduce((sum, id) => sum + (BOOK_MAP[id]?.quality ?? 0), 0)
   const ceiling = 40 + avgResearcher * 0.3
   const realization = 0.5 + avgEngineer / 400
-  const q = ceiling * realization * factor + techBonus + dataQuality + ssdQualityBonus(state.ssd)
+  const q = ceiling * realization * factor + techBonus + dataQuality + ssdQualityBonus(state.ssd) + booksBonus
   return Math.max(0, Math.min(100, Math.round(q)))
 }
 
@@ -518,6 +522,12 @@ export function reducer(state: GameState, action: Action): GameState {
         lastCampaignWeek: week,
         events,
       }
+    }
+    case 'BUY_BOOK': {
+      const book = BOOK_MAP[action.id]
+      if (!book || state.books.includes(action.id)) return state
+      if (state.money < book.cost) return state
+      return { ...state, money: state.money - book.cost, books: [...state.books, action.id] }
     }
     case 'SET_GPU':
       return { ...state, gpuCards: Math.max(0, action.count) }

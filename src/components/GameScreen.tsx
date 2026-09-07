@@ -41,6 +41,7 @@ interface Props {
   onUpgradeOffice: () => void
   onIpo: () => void
   onLaunchCampaign: () => void
+  onBuyBook: (id: string) => void
 }
 
 export function GameScreen({
@@ -61,6 +62,7 @@ export function GameScreen({
   onUpgradeOffice,
   onIpo,
   onLaunchCampaign,
+  onBuyBook,
 }: Props) {
   const [panel, setPanel] = useState<PanelId>(null)
 
@@ -121,6 +123,7 @@ export function GameScreen({
             state={state}
             onStartModel={onStartModel}
             onPublish={onPublish}
+            onBuyBook={onBuyBook}
             onClose={() => setPanel(null)}
           />
         )}
