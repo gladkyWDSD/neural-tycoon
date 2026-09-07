@@ -44,7 +44,7 @@ export interface ModelType {
 
 export type ModelStatus = 'training' | 'ready' | 'published'
 
-export type PricingModel = 'api' | 'subscription'
+export type PricingModel = 'api' | 'subscription' | 'opensource'
 
 export type PostType = 'announcement' | 'update' | 'hype' | 'meme' | 'devlog' | 'opensource'
 

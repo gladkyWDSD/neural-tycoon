@@ -175,6 +175,7 @@ function advanceOneWeek(state: GameState): GameState {
   let models = state.models
   let datacenters = state.datacenters
   let datacenterBuilds = state.datacenterBuilds
+  let followers = state.followers
 
   // salaries (paid weekly)
   money -= state.staff.reduce((sum, s) => sum + s.salary, 0)
@@ -278,7 +279,11 @@ function advanceOneWeek(state: GameState): GameState {
           sat,
       )
       const customers = m.customers + growth
-      money += customers * pricing.revPerCustomerPerWeek
+      if (m.pricing === 'opensource') {
+        followers += Math.round(customers * 0.005)
+      } else {
+        money += customers * pricing.revPerCustomerPerWeek
+      }
       return { ...m, customers }
     }
     return m
@@ -343,7 +348,7 @@ function advanceOneWeek(state: GameState): GameState {
     events = [...newEvents, ...state.events].slice(0, 20)
   }
 
-  const next = { ...state, date, money, researched, researching, models, datacenters, datacenterBuilds, rentedDatacenters, competitors, events }
+  const next = { ...state, date, money, researched, researching, models, datacenters, datacenterBuilds, rentedDatacenters, competitors, followers, events }
 
   if (!next.pendingEvent && Math.random() < 0.25) {
     next.pendingEvent = pickRandomEvent(next)

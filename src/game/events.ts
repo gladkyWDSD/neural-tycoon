@@ -8,7 +8,7 @@ export function pickRandomEvent(state: GameState): PendingEvent | null {
   const canHire = state.staff.length < state.officeLevel * DESKS_PER_LEVEL
 
   const options: (() => PendingEvent)[] = [
-    () => investorEvent(),
+    () => investorEvent(state.money),
     () => gpuDealEvent(),
   ]
   if (hasModels) options.push(() => lawsuitEvent(lawyerCount))
@@ -119,18 +119,19 @@ function headhunterEvent(): PendingEvent {
   }
 }
 
-function investorEvent(): PendingEvent {
+function investorEvent(money: number): PendingEvent {
+  const offer = Math.max(1000000, Math.round(money * 0.6))
   return {
     id: id(),
     icon: '💰',
     title: 'Investor meeting',
-    text: 'A VC fund offers $2,000,000 for 20% of your company.',
+    text: `A VC fund offers $${offer.toLocaleString()} for 20% of your company.`,
     choices: [
       {
-        label: 'Take the money (+$2M)',
+        label: `Take the money (+$${offer.toLocaleString()})`,
         hint: 'Instant cash injection.',
-        news: 'You took $2M in funding!',
-        effects: { money: 2000000 },
+        news: `You took $${offer.toLocaleString()} in funding!`,
+        effects: { money: offer },
       },
       {
         label: 'Decline',

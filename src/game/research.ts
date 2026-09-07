@@ -26,6 +26,14 @@ export const PRICING_MODELS: PricingInfo[] = [
     revPerCustomerPerWeek: 3,
     growthMultiplier: 0.5,
   },
+  {
+    id: 'opensource',
+    label: 'Open Source',
+    icon: '🐙',
+    description: 'Free for everyone. Huge popularity, no direct revenue.',
+    revPerCustomerPerWeek: 0,
+    growthMultiplier: 2.5,
+  },
 ]
 
 export const PRICING_MAP: Record<PricingModel, PricingInfo> = Object.fromEntries(
