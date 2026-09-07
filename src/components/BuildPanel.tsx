@@ -108,6 +108,7 @@ export function BuildPanel({ state, onStartModel, onPublish, onClose }: Props) {
       quality: 0,
       status: 'training',
       weeksRemaining: trainDuration(effGpus, engineerCount, state.ram),
+      totalWeeks: trainDuration(effGpus, engineerCount, state.ram),
       gpus: effGpus,
       customers: 0,
       dataTier,

@@ -32,6 +32,7 @@ export interface ResearchItem {
 export interface ResearchProgress {
   id: string
   weeksRemaining: number
+  totalWeeks: number
 }
 
 export interface ModelType {
@@ -64,6 +65,7 @@ export interface AIModel {
   quality: number
   status: ModelStatus
   weeksRemaining: number
+  totalWeeks: number
   gpus: number
   customers: number
   pricing?: PricingModel

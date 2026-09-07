@@ -64,6 +64,15 @@ export function GameScreen({
 
   const deskCount = Math.min(state.officeLevel * DESKS_PER_LEVEL, 12)
 
+  const researchProgress = state.researching.length > 0
+    ? 1 - Math.min(...state.researching.map((r) => r.weeksRemaining / (r.totalWeeks || 1)))
+    : null
+
+  const trainingModels = state.models.filter((m) => m.status === 'training')
+  const trainingProgress = trainingModels.length > 0
+    ? 1 - Math.min(...trainingModels.map((m) => m.weeksRemaining / (m.totalWeeks || 1)))
+    : null
+
   const menuItems: { id: PanelId; label: string }[] = [
     { id: 'hire', label: 'Hire Staff' },
     { id: 'build', label: 'Build AI' },
@@ -80,7 +89,12 @@ export function GameScreen({
 
       <div className="game-body">
         <div className="office-wrap">
-          <OfficeView staff={state.staff} desks={deskCount} />
+          <OfficeView
+            staff={state.staff}
+            desks={deskCount}
+            researchProgress={researchProgress}
+            trainingProgress={trainingProgress}
+          />
           <NewsFeed state={state} />
         </div>
 

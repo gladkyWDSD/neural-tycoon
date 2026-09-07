@@ -111,14 +111,20 @@ export function migrateState(raw: Partial<GameState>): GameState {
       gpus: old.gpus ?? 4,
       customers: old.customers ?? 0,
       pricing: old.pricing,
+      totalWeeks: old.totalWeeks ?? old.weeksRemaining ?? 6,
     }
   })
+  const researching = (raw.researching ?? []).map((r) => ({
+    ...r,
+    totalWeeks: r.totalWeeks ?? r.weeksRemaining ?? 1,
+  }))
   return {
     ...base,
     ...raw,
     date: raw.date ?? base.date,
     staff: raw.staff ?? base.staff,
     models,
+    researching,
     competitors: (raw.competitors ?? base.competitors).map((c) => ({ ...c, followers: c.followers ?? 100000 })),
     events: raw.events ?? base.events,
     rentedDatacenters: raw.rentedDatacenters ?? 0,
@@ -385,7 +391,7 @@ export function reducer(state: GameState, action: Action): GameState {
       return {
         ...state,
         money: state.money - item.cost,
-        researching: [...state.researching, { id: item.id, weeksRemaining: duration }],
+        researching: [...state.researching, { id: item.id, weeksRemaining: duration, totalWeeks: duration }],
       }
     }
     case 'START_MODEL': {
