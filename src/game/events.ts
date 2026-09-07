@@ -189,25 +189,62 @@ function superstarEvent(): PendingEvent {
   }
 }
 
+interface InterviewQuestion {
+  q: string
+  answers: { text: string; correct: boolean }[]
+}
+
+const INTERVIEW_QUESTIONS: InterviewQuestion[] = [
+  {
+    q: 'Tech Weekly asks: "What does LLM stand for?"',
+    answers: [
+      { text: 'Large Language Model', correct: true },
+      { text: 'Low Latency Machine', correct: false },
+      { text: 'Long Linear Matrix', correct: false },
+    ],
+  },
+  {
+    q: 'Tech Weekly asks: "What powers modern AI image generators?"',
+    answers: [
+      { text: 'Diffusion models', correct: true },
+      { text: 'Ray tracing', correct: false },
+      { text: 'Data compression', correct: false },
+    ],
+  },
+  {
+    q: 'Tech Weekly asks: "What is the biggest cost when training a huge model?"',
+    answers: [
+      { text: 'Compute / GPUs', correct: true },
+      { text: 'Office snacks', correct: false },
+      { text: 'Marketing', correct: false },
+    ],
+  },
+  {
+    q: 'Tech Weekly asks: "What does AGI mean?"',
+    answers: [
+      { text: 'Artificial General Intelligence', correct: true },
+      { text: 'Awesome Gaming Interface', correct: false },
+      { text: 'Advanced Graphics Integration', correct: false },
+    ],
+  },
+]
+
 function mediaEvent(): PendingEvent {
+  const q = INTERVIEW_QUESTIONS[Math.floor(Math.random() * INTERVIEW_QUESTIONS.length)]
   return {
     id: id(),
     icon: '🎤',
     title: 'Media interview',
-    text: 'Tech Weekly wants to interview you about your AI.',
-    choices: [
-      {
-        label: 'Accept the interview',
-        hint: 'Free publicity.',
-        news: 'The interview boosted your reputation!',
-        effects: { followers: 2000, customersPct: 3 },
-      },
-      {
-        label: 'Decline',
-        hint: 'No publicity.',
-        news: 'You politely declined the interview.',
-        effects: {},
-      },
-    ],
+    text: q.q,
+    choices: q.answers.map((a) => ({
+      label: a.text,
+      hint: a.correct ? undefined : 'Answer carefully...',
+      news: a.correct
+        ? 'Great answer! Your reputation soared.'
+        : 'That was the wrong answer — the internet noticed.',
+      effects: a.correct
+        ? { followers: 4000, customersPct: 5 }
+        : { followers: 200 },
+    })),
   }
 }
