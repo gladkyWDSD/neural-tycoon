@@ -9,7 +9,7 @@ export const MARKET_CAP_BASE: Record<string, number> = {
 
 export function marketCap(typeId: string, week: number): number {
   const base = MARKET_CAP_BASE[typeId] ?? 1_000_000
-  return Math.round(base * (1 + week * 0.02))
+  return Math.round(base * (1 + week * 0.04))
 }
 
 export function competitorCustomers(competitors: Competitor[], typeId: string, week: number): number {
@@ -56,62 +56,62 @@ function model(id: string, name: string, icon: string, typeId: string, quality: 
 export const COMPETITOR_SEED: Competitor[] = [
   {
     id: 'closedai',
-    followers: 1500000,
+    followers: 300000,
     name: 'ClosedAI',
     icon: '🔒',
     models: [
-      model('chatpt', 'ChatPT', '💬', 'general', 90, 220000, 12000, 1),
-      model('dolle', 'Doll-E', '🎨', 'image', 82, 90000, 8000, 1),
+      model('chatpt', 'ChatPT', '💬', 'general', 90, 180000, 12000, 1),
+      model('dolle', 'Doll-E', '🎨', 'image', 82, 70000, 8000, 1),
       model('chatpt5', 'ChatPT 5', '💬', 'general', 96, 0, 15000, 40),
     ],
   },
   {
     id: 'gargle',
-    followers: 1200000,
+    followers: 250000,
     name: 'Gargle Brain',
     icon: '🧠',
     models: [
-      model('geminix', 'Geminix', '♊', 'general', 85, 180000, 10000, 1),
+      model('geminix', 'Geminix', '♊', 'general', 85, 140000, 10000, 1),
       model('geminixpro', 'Geminix Pro', '♊', 'general', 93, 0, 13000, 30),
     ],
   },
   {
     id: 'anpolus',
-    followers: 800000,
+    followers: 200000,
     name: 'Anpolus',
     icon: '🐝',
     models: [
-      model('clawd', 'Clawd', '🤝', 'general', 88, 150000, 9000, 1),
+      model('clawd', 'Clawd', '🤝', 'general', 88, 120000, 9000, 1),
       model('clawd2', 'Clawd 2', '🤝', 'general', 95, 0, 14000, 45),
     ],
   },
   {
     id: 'deeppeek',
-    followers: 600000,
+    followers: 150000,
     name: 'DeepPeek',
     icon: '🔍',
     models: [
-      model('deeppeekcoder', 'DeepPeek-Coder', '💻', 'coding', 80, 70000, 7000, 1),
-      model('deeppeekv', 'DeepPeek-V', '🔍', 'general', 82, 60000, 8000, 1),
+      model('deeppeekcoder', 'DeepPeek-Coder', '💻', 'coding', 80, 50000, 7000, 1),
+      model('deeppeekv', 'DeepPeek-V', '🔍', 'general', 82, 40000, 8000, 1),
       model('deeppeekr', 'DeepPeek-R', '🔍', 'general', 90, 0, 12000, 35),
     ],
   },
   {
     id: 'mistrall',
-    followers: 300000,
+    followers: 80000,
     name: 'Mistrall',
     icon: '🌬️',
     models: [
-      model('mistralllarge', 'Mistrall Large', '💨', 'general', 78, 50000, 6000, 1),
+      model('mistralllarge', 'Mistrall Large', '💨', 'general', 78, 30000, 6000, 1),
     ],
   },
   {
     id: 'xlab',
-    followers: 250000,
+    followers: 60000,
     name: 'xLab',
     icon: '🚀',
     models: [
-      model('grak', 'Grak', '🛰️', 'general', 75, 40000, 5000, 1),
+      model('grak', 'Grak', '🛰️', 'general', 75, 20000, 5000, 1),
     ],
   },
 ]

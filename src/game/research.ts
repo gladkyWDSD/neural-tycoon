@@ -155,10 +155,10 @@ export const RESEARCH_MAP: Record<string, ResearchItem> = Object.fromEntries(
 )
 
 export const MODEL_TYPES: ModelType[] = [
-  { id: 'general', name: 'General Chatbot', icon: '🤖', requires: ['llm'], growthBase: 5000 },
-  { id: 'coding', name: 'Coding Assistant', icon: '💻', requires: ['llm'], growthBase: 4000 },
-  { id: 'image', name: 'Image Generator', icon: '🎨', requires: ['diffusion'], growthBase: 6000 },
-  { id: 'agent', name: 'AI Agent', icon: '🧠', requires: ['agents'], growthBase: 9000 },
+  { id: 'general', name: 'General Chatbot', icon: '🤖', requires: ['llm'], growthBase: 8000 },
+  { id: 'coding', name: 'Coding Assistant', icon: '💻', requires: ['llm'], growthBase: 6500 },
+  { id: 'image', name: 'Image Generator', icon: '🎨', requires: ['diffusion'], growthBase: 9000 },
+  { id: 'agent', name: 'AI Agent', icon: '🧠', requires: ['agents'], growthBase: 14000 },
 ]
 
 export const MODEL_TYPE_MAP: Record<string, ModelType> = Object.fromEntries(

@@ -244,7 +244,7 @@ function advanceOneWeek(state: GameState): GameState {
     models: c.models.map((cm) => {
       if (cm.releaseWeek > week) return cm
       const sat = marketSaturation(cm.typeId, week, playerCustomersIn(cm.typeId), state.competitors)
-      const followerFactor = 1 + c.followers / 500000
+      const followerFactor = 1 + c.followers / 2000000
       const growth = Math.round(cm.growthBase * (cm.quality / 100) * sat * followerFactor)
       return { ...cm, customers: cm.customers + growth, quality: Math.min(99, cm.quality + 0.2) }
     }),
