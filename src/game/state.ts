@@ -288,10 +288,9 @@ function advanceOneWeek(state: GameState): GameState {
           sat,
       )
       const customers = m.customers + growth
+      money += customers * pricing.revPerCustomerPerWeek
       if (m.pricing === 'opensource') {
         followers += Math.round(customers * 0.005)
-      } else {
-        money += customers * pricing.revPerCustomerPerWeek
       }
       return { ...m, customers }
     }

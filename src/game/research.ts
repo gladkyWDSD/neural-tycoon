@@ -30,9 +30,9 @@ export const PRICING_MODELS: PricingInfo[] = [
     id: 'opensource',
     label: 'Open Source',
     icon: '🐙',
-    description: 'Free for everyone. Huge popularity, no direct revenue.',
-    revPerCustomerPerWeek: 0,
-    growthMultiplier: 2.5,
+    description: 'Paid, but the community builds plugins. Huge popularity.',
+    revPerCustomerPerWeek: 0.35,
+    growthMultiplier: 1.8,
   },
 ]
 
