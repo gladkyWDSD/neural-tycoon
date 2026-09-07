@@ -1,10 +1,12 @@
 import type { AIModel, GameEvent, GameState, PostType, PricingModel, Staff } from './types'
 import { DESKS_PER_LEVEL, MAX_OFFICE_LEVEL, OFFICE_UPGRADE_BASE_COST, START_DATE, START_MONEY, START_YEAR, WEEKS_PER_YEAR } from './constants'
 import { advanceWeek } from './date'
-import { MODEL_TYPE_MAP, PRICING_MAP, RESEARCH_ITEMS, RESEARCH_MAP } from './research'
+import { DATA_TIER_MAP, MODEL_TYPE_MAP, PRICING_MAP, RESEARCH_ITEMS, RESEARCH_MAP } from './research'
 import { POST_TYPE_MAP, followerBoost, followerGain } from './social'
-import { DATACENTER_BUILD_WEEKS, DATACENTER_COST, ELECTRICITY_PER_CARD_WEEK, GPU_CARD_COST, RENT_DISPUTE_CHANCE, RENT_WEEKLY_FEE, activeCards, gpuQualityFactor } from './gpu'
+import { DATACENTER_BUILD_WEEKS, DATACENTER_COST, ELECTRICITY_PER_CARD_WEEK, GPU_CARD_COST, RAM_COST, RENT_DISPUTE_CHANCE, RENT_WEEKLY_FEE, SSD_COST, activeCards, gpuQualityFactor, ssdQualityBonus } from './gpu'
 import { COMPETITOR_SEED, generateCompetitorModel, marketSaturation } from './competitors'
+import { pickRandomEvent } from './events'
+import { generateCandidate } from './hiring'
 
 const FLAVOR_NEWS = [
   '🚀 AI hype is surging — the whole market keeps growing.',
@@ -39,9 +41,13 @@ export function initialState(): GameState {
     datacenters: 0,
     datacenterBuilds: [],
     rentedDatacenters: 0,
+    ram: 0,
+    ssd: 0,
+    poached: [],
     officeLevel: 1,
     competitors: COMPETITOR_SEED.map((c) => ({ ...c, models: c.models.map((m) => ({ ...m })) })),
     events: [],
+    pendingEvent: null,
   }
 }
 
@@ -57,7 +63,11 @@ export type Action =
   | { type: 'PUBLISH_MODEL'; id: string; pricing: PricingModel }
   | { type: 'MAKE_POST'; text: string; postType: PostType }
   | { type: 'SMEAR'; competitorId: string }
+  | { type: 'RESOLVE_EVENT'; id: string; choiceIndex: number }
   | { type: 'BUY_GPU'; count: number }
+  | { type: 'BUY_RAM'; count: number }
+  | { type: 'BUY_SSD'; count: number }
+  | { type: 'POACH'; competitorId: string }
   | { type: 'BUILD_DATACENTER' }
   | { type: 'RENT_DATACENTER' }
   | { type: 'UPGRADE_OFFICE' }
@@ -107,22 +117,32 @@ export function migrateState(raw: Partial<GameState>): GameState {
     date: raw.date ?? base.date,
     staff: raw.staff ?? base.staff,
     models,
-    competitors: raw.competitors ?? base.competitors,
+    competitors: (raw.competitors ?? base.competitors).map((c) => ({ ...c, followers: c.followers ?? 100000 })),
     events: raw.events ?? base.events,
     rentedDatacenters: raw.rentedDatacenters ?? 0,
+    ram: raw.ram ?? 0,
+    ssd: raw.ssd ?? 0,
+    poached: raw.poached ?? [],
     officeLevel: raw.officeLevel ?? 1,
   }
 }
 
-function computeQuality(state: GameState, gpus: number): number {
+function computeQuality(state: GameState, gpus: number, dataTier?: string): number {
   const avgResearcher = avgScoreByRole(state.staff, 'researcher')
   const avgEngineer = avgScoreByRole(state.staff, 'engineer')
   const factor = gpuQualityFactor(gpus)
   const techBonus = state.researched.reduce((sum, id) => sum + (RESEARCH_MAP[id]?.qualityBonus ?? 0), 0)
+  const dataQuality = dataTier ? (DATA_TIER_MAP[dataTier]?.quality ?? 0) : 0
   const ceiling = 40 + avgResearcher * 0.3
   const realization = 0.5 + avgEngineer / 400
-  const q = ceiling * realization * factor + techBonus
+  const q = ceiling * realization * factor + techBonus + dataQuality + ssdQualityBonus(state.ssd)
   return Math.max(0, Math.min(100, Math.round(q)))
+}
+
+export function companyEfficiency(state: GameState): number {
+  const avgEngineer = avgScoreByRole(state.staff, 'engineer')
+  const researchBonus = state.researched.reduce((sum, id) => sum + (RESEARCH_MAP[id]?.efficiencyBonus ?? 0), 0)
+  return Math.min(0.6, (avgEngineer > 0 ? avgEngineer * 0.001 : 0) + researchBonus)
 }
 
 function ecoProtest(state: GameState, chance: number, message: string): GameState {
@@ -160,7 +180,7 @@ function advanceOneWeek(state: GameState): GameState {
   money -= state.staff.reduce((sum, s) => sum + s.salary, 0)
 
   // electricity for active GPU cards
-  money -= activeCards(state) * ELECTRICITY_PER_CARD_WEEK
+  money -= Math.round(activeCards(state) * ELECTRICITY_PER_CARD_WEEK * (1 - companyEfficiency(state)))
 
   // rental fees
   money -= state.rentedDatacenters * RENT_WEEKLY_FEE
@@ -207,20 +227,22 @@ function advanceOneWeek(state: GameState): GameState {
     )
   }
 
-  // competitors grow their own models + improve quality
+  // competitors grow their own models + improve quality + gain followers
   let competitors = state.competitors.map((c) => ({
     ...c,
+    followers: c.followers + Math.round(c.followers * 0.002),
     models: c.models.map((cm) => {
       if (cm.releaseWeek > week) return cm
       const sat = marketSaturation(cm.typeId, week, playerCustomersIn(cm.typeId), state.competitors)
-      const growth = Math.round(cm.growthBase * (cm.quality / 100) * sat)
-      return { ...cm, customers: cm.customers + growth, quality: Math.min(99, cm.quality + 0.15) }
+      const followerFactor = 1 + c.followers / 500000
+      const growth = Math.round(cm.growthBase * (cm.quality / 100) * sat * followerFactor)
+      return { ...cm, customers: cm.customers + growth, quality: Math.min(99, cm.quality + 0.3) }
     }),
   }))
 
   // competitors occasionally release new models
   let releaseEvent: string | null = null
-  if (Math.random() < 0.12) {
+  if (Math.random() < 0.18) {
     const idx = Math.floor(Math.random() * state.competitors.length)
     const c = competitors[idx]
     const newModel = generateCompetitorModel(c, week)
@@ -237,7 +259,7 @@ function advanceOneWeek(state: GameState): GameState {
       const weeksRemaining = m.weeksRemaining - 1
       if (weeksRemaining <= 0) {
         finishedModels.push(m.name)
-        const quality = computeQuality(state, m.gpus)
+        const quality = computeQuality(state, m.gpus, m.dataTier)
         return { ...m, status: 'ready', weeksRemaining: 0, customers: 0, quality }
       }
       return { ...m, weeksRemaining }
@@ -321,7 +343,13 @@ function advanceOneWeek(state: GameState): GameState {
     events = [...newEvents, ...state.events].slice(0, 20)
   }
 
-  return { ...state, date, money, researched, researching, models, datacenters, datacenterBuilds, rentedDatacenters, competitors, events }
+  const next = { ...state, date, money, researched, researching, models, datacenters, datacenterBuilds, rentedDatacenters, competitors, events }
+
+  if (!next.pendingEvent && Math.random() < 0.25) {
+    next.pendingEvent = pickRandomEvent(next)
+  }
+
+  return next
 }
 
 export function reducer(state: GameState, action: Action): GameState {
@@ -352,14 +380,61 @@ export function reducer(state: GameState, action: Action): GameState {
         researching: [...state.researching, { id: item.id, weeksRemaining: duration }],
       }
     }
-    case 'START_MODEL':
-      return { ...state, models: [...state.models, action.model] }
+    case 'START_MODEL': {
+      const dataCost = action.model.dataTier ? (DATA_TIER_MAP[action.model.dataTier]?.cost ?? 0) : 0
+      return { ...state, models: [...state.models, action.model], money: state.money - dataCost }
+    }
     case 'BUY_GPU': {
       const count = Math.max(1, action.count)
       const cost = GPU_CARD_COST * count
       if (state.money < cost) return state
       const next = { ...state, money: state.money - cost, gpuCards: state.gpuCards + count }
       return ecoProtest(next, 0.1, 'Eco activists criticized your GPU purchase!')
+    }
+    case 'BUY_RAM': {
+      const count = Math.max(1, action.count)
+      const cost = RAM_COST * count
+      if (state.money < cost) return state
+      return { ...state, money: state.money - cost, ram: state.ram + count }
+    }
+    case 'BUY_SSD': {
+      const count = Math.max(1, action.count)
+      const cost = SSD_COST * count
+      if (state.money < cost) return state
+      return { ...state, money: state.money - cost, ssd: state.ssd + count }
+    }
+    case 'POACH': {
+      if (state.poached.includes(action.competitorId)) return state
+      const cost = 200000
+      if (state.money < cost) return state
+      if (state.staff.length >= maxStaff(state)) return state
+      const role: Staff['role'] = Math.random() < 0.5 ? 'researcher' : 'engineer'
+      const nat = role === 'researcher' ? 'china' : 'europe'
+      const hire = generateCandidate(nat, role, 190, 200)
+      const competitors = state.competitors.map((c) => {
+        if (c.id !== action.competitorId) return c
+        return {
+          ...c,
+          models: c.models.map((m) => ({ ...m, quality: Math.max(50, m.quality - 5) })),
+        }
+      })
+      const target = state.competitors.find((c) => c.id === action.competitorId)
+      const events = [
+        {
+          id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          text: `🤝 You poached a top ${role} from ${target?.icon ?? ''} ${target?.name ?? ''}! (score ${hire.examScore})`,
+          week: globalWeek(state),
+        },
+        ...state.events,
+      ].slice(0, 20)
+      return {
+        ...state,
+        money: state.money - cost,
+        staff: [...state.staff, hire],
+        poached: [...state.poached, action.competitorId],
+        competitors,
+        events,
+      }
     }
     case 'BUILD_DATACENTER': {
       if (state.money < DATACENTER_COST) return state
@@ -407,19 +482,33 @@ export function reducer(state: GameState, action: Action): GameState {
       const info = POST_TYPE_MAP[action.postType]
       if (!info) return state
       const totalCustomers = state.models.reduce((sum, m) => sum + m.customers, 0)
-      const gained = followerGain(info, state.followers, totalCustomers)
+      let gained = followerGain(info, state.followers, totalCustomers)
+      const viral = Math.random() < 0.15
+      if (viral) gained = Math.round(gained * 3)
       const post = {
         id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
         text: action.text.trim(),
         type: action.postType,
         week: currentWeek,
         followersGained: gained,
+        viral,
       }
+      const events = viral
+        ? [
+            {
+              id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+              text: `🔥 Your post went viral! +${gained.toLocaleString()} followers.`,
+              week: currentWeek,
+            },
+            ...state.events,
+          ].slice(0, 20)
+        : state.events
       return {
         ...state,
         followers: state.followers + gained,
         posts: [post, ...state.posts],
         lastPostWeek: currentWeek,
+        events,
       }
     }
     case 'SMEAR': {
@@ -457,8 +546,71 @@ export function reducer(state: GameState, action: Action): GameState {
         events,
       }
     }
+    case 'RESOLVE_EVENT': {
+      const ev = state.pendingEvent
+      if (!ev || ev.id !== action.id) return state
+      const choice = ev.choices[action.choiceIndex]
+      if (!choice) return state
+      const e = choice.effects
+
+      let money = state.money + (e.money ?? 0)
+      let followers = state.followers + (e.followers ?? 0)
+      let gpuCards = state.gpuCards + (e.gpus ?? 0)
+      let staff = state.staff
+      let models = state.models
+      let customersPct = e.customersPct ?? 0
+
+      if (e.lawsuit) {
+        const lawyers = state.staff.filter((s) => s.role === 'lawyer').length
+        if (lawyers >= 1) {
+          money -= 40000
+        } else {
+          money -= 150000
+          customersPct -= 10
+        }
+      }
+
+      if (e.loseBestEngineer) {
+        const engineers = staff.filter((s) => s.role === 'engineer')
+        if (engineers.length > 0) {
+          const best = engineers.reduce((a, b) => (a.examScore > b.examScore ? a : b))
+          staff = staff.filter((s) => s.id !== best.id)
+        }
+      }
+
+      if (e.hireRole) {
+        if (staff.length < maxStaff(state)) {
+          const nat = e.hireRole === 'researcher' ? 'china' : e.hireRole === 'engineer' ? 'europe' : 'usa'
+          staff = [...staff, generateCandidate(nat, e.hireRole, 195, 200)]
+        }
+      }
+
+      if (customersPct !== 0) {
+        const factor = 1 + customersPct / 100
+        models = models.map((m) =>
+          m.status === 'published' ? { ...m, customers: Math.round(m.customers * factor) } : m,
+        )
+      }
+
+      const newsEvent = {
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        text: `${ev.icon} ${choice.news}`,
+        week: globalWeek(state),
+      }
+
+      return {
+        ...state,
+        money,
+        followers,
+        gpuCards,
+        staff,
+        models,
+        pendingEvent: null,
+        events: [newsEvent, ...state.events].slice(0, 20),
+      }
+    }
     case 'TICK': {
-      if (state.paused) return state
+      if (state.paused || state.pendingEvent) return state
       return advanceOneWeek(state)
     }
     case 'SET_WEEK': {
@@ -477,7 +629,7 @@ export function reducer(state: GameState, action: Action): GameState {
       const researched = [...state.researched, ...state.researching.map((r) => r.id)]
       const models = state.models.map((m) =>
         m.status === 'training'
-          ? { ...m, status: 'ready' as const, weeksRemaining: 0, customers: 0, quality: computeQuality(state, m.gpus) }
+          ? { ...m, status: 'ready' as const, weeksRemaining: 0, customers: 0, quality: computeQuality(state, m.gpus, m.dataTier) }
           : m,
       )
       return { ...state, researched, researching: [], models }

@@ -1,0 +1,70 @@
+.event-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+
+.event-modal {
+  background: var(--panel);
+  border: 3px solid var(--gold);
+  padding: 28px;
+  width: 520px;
+  max-width: 92%;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  text-align: center;
+}
+
+.event-icon {
+  font-size: 48px;
+}
+
+.event-title {
+  font-family: var(--pixel-font);
+  font-size: 18px;
+  color: var(--gold);
+  margin: 0;
+}
+
+.event-text {
+  font-size: 20px;
+  color: var(--text);
+  margin: 0;
+  line-height: 1.4;
+}
+
+.event-choices {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.event-choice {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px;
+  font-size: 12px;
+  text-align: left;
+}
+
+.event-choice-label {
+  font-family: var(--pixel-font);
+  font-size: 11px;
+  color: var(--text);
+}
+
+.event-choice:hover .event-choice-label {
+  color: var(--accent);
+}
+
+.event-choice-hint {
+  font-size: 16px;
+  color: var(--text-dim);
+}

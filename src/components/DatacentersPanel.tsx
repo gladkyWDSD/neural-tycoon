@@ -5,8 +5,10 @@ import {
   DATACENTER_COST,
   ELECTRICITY_PER_CARD_WEEK,
   GPU_CARD_COST,
+  RAM_COST,
   RENT_DISPUTE_CHANCE,
   RENT_WEEKLY_FEE,
+  SSD_COST,
   activeCards,
 } from '../game/gpu'
 import './Game.css'
@@ -14,12 +16,14 @@ import './Game.css'
 interface Props {
   state: GameState
   onBuyGpu: (count: number) => void
+  onBuyRam: (count: number) => void
+  onBuySsd: (count: number) => void
   onBuildDatacenter: () => void
   onRentDatacenter: () => void
   onClose: () => void
 }
 
-export function DatacentersPanel({ state, onBuyGpu, onBuildDatacenter, onRentDatacenter, onClose }: Props) {
+export function DatacentersPanel({ state, onBuyGpu, onBuyRam, onBuySsd, onBuildDatacenter, onRentDatacenter, onClose }: Props) {
   const cards = activeCards(state)
   const capacity = (state.datacenters + state.rentedDatacenters) * DATACENTER_CAPACITY
   const idle = Math.max(0, state.gpuCards - capacity)
@@ -112,6 +116,40 @@ export function DatacentersPanel({ state, onBuyGpu, onBuildDatacenter, onRentDat
           <button className="hire-btn" onClick={onRentDatacenter}>
             Rent
           </button>
+        </div>
+
+        <div className="dc-action">
+          <div className="dc-action-info">
+            <span className="dc-action-title">RAM</span>
+            <span className="dc-action-desc">
+              ${(RAM_COST / 1000).toFixed(1)}k each · speeds up training (owned: {state.ram})
+            </span>
+          </div>
+          <div className="dc-action-btns">
+            <button className="hire-btn" disabled={state.money < RAM_COST} onClick={() => onBuyRam(1)}>
+              Buy 1
+            </button>
+            <button className="hire-btn" disabled={state.money < RAM_COST * 10} onClick={() => onBuyRam(10)}>
+              Buy 10
+            </button>
+          </div>
+        </div>
+
+        <div className="dc-action">
+          <div className="dc-action-info">
+            <span className="dc-action-title">SSD</span>
+            <span className="dc-action-desc">
+              ${(SSD_COST / 1000).toFixed(1)}k each · boosts model quality (owned: {state.ssd})
+            </span>
+          </div>
+          <div className="dc-action-btns">
+            <button className="hire-btn" disabled={state.money < SSD_COST} onClick={() => onBuySsd(1)}>
+              Buy 1
+            </button>
+            <button className="hire-btn" disabled={state.money < SSD_COST * 10} onClick={() => onBuySsd(10)}>
+              Buy 10
+            </button>
+          </div>
         </div>
       </div>
 

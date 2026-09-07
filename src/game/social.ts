@@ -13,6 +13,8 @@ export const POST_TYPES: PostTypeInfo[] = [
   { id: 'update', label: 'Update', icon: '🚀', baseFollowers: 400, description: 'Ship an update to your models.' },
   { id: 'hype', label: 'Hype', icon: '🔥', baseFollowers: 500, description: 'Generate excitement.' },
   { id: 'meme', label: 'Meme', icon: '😂', baseFollowers: 800, description: 'Go viral with humor.' },
+  { id: 'devlog', label: 'Devlog', icon: '🛠️', baseFollowers: 450, description: 'Show behind the scenes.' },
+  { id: 'opensource', label: 'Open Source', icon: '🐙', baseFollowers: 700, description: 'Release something for free.' },
 ]
 
 export const POST_TYPE_MAP: Record<PostType, PostTypeInfo> = Object.fromEntries(

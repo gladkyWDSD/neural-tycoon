@@ -32,6 +32,25 @@ export const PRICING_MAP: Record<PricingModel, PricingInfo> = Object.fromEntries
   PRICING_MODELS.map((p) => [p.id, p]),
 ) as Record<PricingModel, PricingInfo>
 
+export interface DataTier {
+  id: string
+  label: string
+  cost: number
+  quality: number
+  description: string
+}
+
+export const DATA_TIERS: DataTier[] = [
+  { id: 'scraped', label: 'Scraped', cost: 0, quality: 0, description: 'Free web data.' },
+  { id: 'public', label: 'Public', cost: 20000, quality: 5, description: 'Curated public datasets.' },
+  { id: 'licensed', label: 'Licensed', cost: 80000, quality: 12, description: 'High-quality licensed data.' },
+  { id: 'premium', label: 'Premium', cost: 200000, quality: 20, description: 'The best data money can buy.' },
+]
+
+export const DATA_TIER_MAP: Record<string, DataTier> = Object.fromEntries(
+  DATA_TIERS.map((t) => [t.id, t]),
+)
+
 export function weeklyRevenue(model: AIModel): number {
   if (model.status !== 'published' || !model.pricing) return 0
   return Math.round(model.customers * PRICING_MAP[model.pricing].revPerCustomerPerWeek)
@@ -100,6 +119,26 @@ export const RESEARCH_ITEMS: ResearchItem[] = [
     weeks: 14,
     requires: ['reasoning', 'agents'],
     qualityBonus: 30,
+  },
+  {
+    id: 'inference',
+    name: 'Inference Optimization',
+    description: 'Run models cheaper and faster. Reduces electricity costs.',
+    cost: 150000,
+    weeks: 4,
+    requires: ['llm'],
+    qualityBonus: 0,
+    efficiencyBonus: 0.15,
+  },
+  {
+    id: 'compression',
+    name: 'Model Compression',
+    description: 'Shrink models without losing quality. Cuts running costs.',
+    cost: 300000,
+    weeks: 6,
+    requires: ['inference'],
+    qualityBonus: 0,
+    efficiencyBonus: 0.15,
   },
 ]
 

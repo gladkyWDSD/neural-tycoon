@@ -26,6 +26,7 @@ export interface ResearchItem {
   weeks: number
   requires: string[]
   qualityBonus: number
+  efficiencyBonus?: number
 }
 
 export interface ResearchProgress {
@@ -45,7 +46,7 @@ export type ModelStatus = 'training' | 'ready' | 'published'
 
 export type PricingModel = 'api' | 'subscription'
 
-export type PostType = 'announcement' | 'update' | 'hype' | 'meme'
+export type PostType = 'announcement' | 'update' | 'hype' | 'meme' | 'devlog' | 'opensource'
 
 export interface Post {
   id: string
@@ -53,6 +54,7 @@ export interface Post {
   type: PostType
   week: number
   followersGained: number
+  viral?: boolean
 }
 
 export interface AIModel {
@@ -65,6 +67,7 @@ export interface AIModel {
   gpus: number
   customers: number
   pricing?: PricingModel
+  dataTier?: string
 }
 
 export interface CompetitorModel {
@@ -82,6 +85,7 @@ export interface Competitor {
   id: string
   name: string
   icon: string
+  followers: number
   models: CompetitorModel[]
 }
 
@@ -89,6 +93,31 @@ export interface GameEvent {
   id: string
   text: string
   week: number
+}
+
+export interface EffectOp {
+  money?: number
+  followers?: number
+  customersPct?: number
+  gpus?: number
+  hireRole?: Role
+  loseBestEngineer?: boolean
+  lawsuit?: boolean
+}
+
+export interface EventChoice {
+  label: string
+  hint?: string
+  news: string
+  effects: EffectOp
+}
+
+export interface PendingEvent {
+  id: string
+  icon: string
+  title: string
+  text: string
+  choices: EventChoice[]
 }
 
 export interface GameState {
@@ -108,7 +137,11 @@ export interface GameState {
   datacenters: number
   datacenterBuilds: number[]
   rentedDatacenters: number
+  ram: number
+  ssd: number
+  poached: string[]
   officeLevel: number
   competitors: Competitor[]
   events: GameEvent[]
+  pendingEvent: PendingEvent | null
 }

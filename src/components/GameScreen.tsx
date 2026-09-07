@@ -33,6 +33,9 @@ interface Props {
   onPost: (text: string, type: PostType) => void
   onSmear: (competitorId: string) => void
   onBuyGpu: (count: number) => void
+  onBuyRam: (count: number) => void
+  onBuySsd: (count: number) => void
+  onPoach: (competitorId: string) => void
   onBuildDatacenter: () => void
   onRentDatacenter: () => void
   onUpgradeOffice: () => void
@@ -48,6 +51,9 @@ export function GameScreen({
   onPost,
   onSmear,
   onBuyGpu,
+  onBuyRam,
+  onBuySsd,
+  onPoach,
   onBuildDatacenter,
   onRentDatacenter,
   onUpgradeOffice,
@@ -97,13 +103,15 @@ export function GameScreen({
           <DatacentersPanel
             state={state}
             onBuyGpu={onBuyGpu}
+            onBuyRam={onBuyRam}
+            onBuySsd={onBuySsd}
             onBuildDatacenter={onBuildDatacenter}
             onRentDatacenter={onRentDatacenter}
             onClose={() => setPanel(null)}
           />
         )}
         {panel === 'competitors' && (
-          <CompetitorsPanel state={state} onClose={() => setPanel(null)} />
+          <CompetitorsPanel state={state} onPoach={onPoach} onClose={() => setPanel(null)} />
         )}
         {panel === 'company' && (
           <CompanyPanel state={state} onUpgradeOffice={onUpgradeOffice} onClose={() => setPanel(null)} />

@@ -5,10 +5,11 @@ import './Game.css'
 
 interface Props {
   state: GameState
+  onPoach: (competitorId: string) => void
   onClose: () => void
 }
 
-export function CompetitorsPanel({ state, onClose }: Props) {
+export function CompetitorsPanel({ state, onPoach, onClose }: Props) {
   const week = globalWeek(state)
   const playerCustomers = state.models.reduce(
     (sum, m) => sum + (m.status === 'published' ? m.customers : 0),
@@ -70,6 +71,7 @@ export function CompetitorsPanel({ state, onClose }: Props) {
               <span className="comp-name">
                 {c.icon} {c.name}
               </span>
+              <span className="comp-model-customers">👥 {c.followers.toLocaleString()}</span>
             </div>
             {c.models.map((m) => {
               const t = MODEL_TYPE_MAP[m.typeId]
@@ -87,6 +89,13 @@ export function CompetitorsPanel({ state, onClose }: Props) {
                 </div>
               )
             })}
+            <button
+              className="hire-btn"
+              disabled={state.poached.includes(c.id) || state.money < 200000}
+              onClick={() => onPoach(c.id)}
+            >
+              {state.poached.includes(c.id) ? 'Poached' : 'Poach talent ($200k)'}
+            </button>
           </div>
         ))}
       </div>

@@ -6,6 +6,7 @@ import { TitleScreen } from './components/TitleScreen'
 import { NamingScreen } from './components/NamingScreen'
 import { GameScreen } from './components/GameScreen'
 import { DevConsole } from './components/DevConsole'
+import { EventModal } from './components/EventModal'
 
 const TICK_MS = 30000 // 1 week = 30s, so 2 weeks = 1 minute
 
@@ -62,12 +63,23 @@ export default function App() {
           onPost={(text, postType) => dispatch({ type: 'MAKE_POST', text, postType })}
           onSmear={(competitorId) => dispatch({ type: 'SMEAR', competitorId })}
           onBuyGpu={(count) => dispatch({ type: 'BUY_GPU', count })}
+          onBuyRam={(count) => dispatch({ type: 'BUY_RAM', count })}
+          onBuySsd={(count) => dispatch({ type: 'BUY_SSD', count })}
+          onPoach={(competitorId) => dispatch({ type: 'POACH', competitorId })}
           onBuildDatacenter={() => dispatch({ type: 'BUILD_DATACENTER' })}
           onRentDatacenter={() => dispatch({ type: 'RENT_DATACENTER' })}
           onUpgradeOffice={() => dispatch({ type: 'UPGRADE_OFFICE' })}
         />
       )}
       <DevConsole onCommand={runCommand} />
+      {state.pendingEvent && (
+        <EventModal
+          event={state.pendingEvent}
+          onResolve={(choiceIndex) =>
+            dispatch({ type: 'RESOLVE_EVENT', id: state.pendingEvent!.id, choiceIndex })
+          }
+        />
+      )}
     </>
   )
 }

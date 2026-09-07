@@ -100,7 +100,10 @@ export function TwitterPanel({ state, onPost, onSmear, onClose }: Props) {
               <span className="post-week">Wk {p.week}</span>
             </div>
             <p className="post-text">{p.text}</p>
-            <span className="post-gain">+{p.followersGained.toLocaleString()} followers</span>
+            <span className="post-gain">
+              {p.viral && '🔥 Viral · '}+{p.followersGained.toLocaleString()} followers · ❤️{' '}
+              {Math.round(p.followersGained * 2).toLocaleString()}
+            </span>
           </div>
         ))}
       </div>

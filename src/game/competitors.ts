@@ -56,6 +56,7 @@ function model(id: string, name: string, icon: string, typeId: string, quality: 
 export const COMPETITOR_SEED: Competitor[] = [
   {
     id: 'closedai',
+    followers: 1500000,
     name: 'ClosedAI',
     icon: '🔒',
     models: [
@@ -66,6 +67,7 @@ export const COMPETITOR_SEED: Competitor[] = [
   },
   {
     id: 'gargle',
+    followers: 1200000,
     name: 'Gargle Brain',
     icon: '🧠',
     models: [
@@ -75,6 +77,7 @@ export const COMPETITOR_SEED: Competitor[] = [
   },
   {
     id: 'anpolus',
+    followers: 800000,
     name: 'Anpolus',
     icon: '🐝',
     models: [
@@ -84,6 +87,7 @@ export const COMPETITOR_SEED: Competitor[] = [
   },
   {
     id: 'deeppeek',
+    followers: 600000,
     name: 'DeepPeek',
     icon: '🔍',
     models: [
@@ -94,6 +98,7 @@ export const COMPETITOR_SEED: Competitor[] = [
   },
   {
     id: 'mistrall',
+    followers: 300000,
     name: 'Mistrall',
     icon: '🌬️',
     models: [
@@ -102,6 +107,7 @@ export const COMPETITOR_SEED: Competitor[] = [
   },
   {
     id: 'xlab',
+    followers: 250000,
     name: 'xLab',
     icon: '🚀',
     models: [

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { AIModel, GameState, PricingModel } from '../game/types'
-import { MODEL_TYPES, PRICING_MODELS, weeklyRevenue } from '../game/research'
-import { activeCards, gpuQualityFactor, trainDuration } from '../game/gpu'
+import { MODEL_TYPES, PRICING_MODELS, DATA_TIERS, weeklyRevenue } from '../game/research'
+import { activeCards, gpuQualityFactor, trainDuration, ssdQualityBonus } from '../game/gpu'
 import { DEFAULT_AI_NAMES } from '../game/constants'
 import { validateCompanyName } from '../game/profanity'
 import './Game.css'
@@ -77,6 +77,7 @@ export function BuildPanel({ state, onStartModel, onPublish, onClose }: Props) {
   const [typeId, setTypeId] = useState(unlockedTypes[0]?.id ?? '')
   const [name, setName] = useState('')
   const [gpus, setGpus] = useState(() => Math.max(1, maxGpus))
+  const [dataTier, setDataTier] = useState('scraped')
   const [error, setError] = useState<string | null>(null)
 
   const hasResearcher = state.staff.some((s) => s.role === 'researcher')
@@ -106,9 +107,10 @@ export function BuildPanel({ state, onStartModel, onPublish, onClose }: Props) {
       typeId: modelType.id,
       quality: 0,
       status: 'training',
-      weeksRemaining: trainDuration(effGpus, engineerCount),
+      weeksRemaining: trainDuration(effGpus, engineerCount, state.ram),
       gpus: effGpus,
       customers: 0,
+      dataTier,
     }
     onStartModel(model)
     setName('')
@@ -186,10 +188,26 @@ export function BuildPanel({ state, onStartModel, onPublish, onClose }: Props) {
                 +
               </button>
               <span className="gpu-info">
-                {trainDuration(effGpus, engineerCount)}wk · ×{gpuQualityFactor(effGpus).toFixed(2)} quality
+                {trainDuration(effGpus, engineerCount, state.ram)}wk · ×{gpuQualityFactor(effGpus).toFixed(2)} quality
               </span>
             </div>
           )}
+        </div>
+
+        <div className="filter-group">
+          <label>Training data quality (+{DATA_TIERS.find((t) => t.id === dataTier)?.quality ?? 0} quality)</label>
+          <div className="filter-buttons">
+            {DATA_TIERS.map((t) => (
+              <button
+                key={t.id}
+                className={`filter-btn ${dataTier === t.id ? 'active' : ''}`}
+                onClick={() => setDataTier(t.id)}
+                title={t.description}
+              >
+                {t.label} {t.cost > 0 ? `($${(t.cost / 1000).toFixed(0)}k)` : ''}
+              </button>
+            ))}
+          </div>
         </div>
 
         <div className="requirements">
@@ -201,6 +219,9 @@ export function BuildPanel({ state, onStartModel, onPublish, onClose }: Props) {
           </span>
           <span className={hasResearcher ? 'ok' : 'dim'}>
             {hasResearcher ? '✓' : '·'} Researchers boost quality
+          </span>
+          <span className="dim">
+            RAM {state.ram} · SSD {state.ssd} (+{ssdQualityBonus(state.ssd)} quality)
           </span>
         </div>
 
