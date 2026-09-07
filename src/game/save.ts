@@ -1,6 +1,6 @@
 import type { GameState } from './types'
 
-const SAVE_KEY = 'ai-tycoon-save'
+const SAVE_KEY = 'neural-tycoon-save'
 
 export function saveState(state: GameState): void {
   try {

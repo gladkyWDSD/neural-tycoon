@@ -11,7 +11,7 @@ export function TitleScreen({ hasSave, onContinue, onNewGame }: Props) {
     <div className="title-screen screen">
       <div className="title-box">
         <h1 className="game-title">
-          AI<span className="accent">TYCOON</span>
+          NEURAL<span className="accent">TYCOON</span>
         </h1>
         <p className="subtitle">Build the world's most-used AI</p>
         {hasSave && (

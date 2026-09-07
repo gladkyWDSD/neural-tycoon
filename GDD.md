@@ -1,4 +1,4 @@
-# AI Tycoon — Game Design Document
+# Neural Tycoon — Game Design Document
 
 A management/strategy game inspired by Game Dev Tycoon, where instead of making
 games you run a company that builds **AI models**. Start in 2022 (the start of
