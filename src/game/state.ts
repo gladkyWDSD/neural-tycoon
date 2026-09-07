@@ -1,5 +1,5 @@
 import type { AIModel, GameEvent, GameState, PostType, PricingModel, Staff } from './types'
-import { DESKS_PER_LEVEL, MAX_OFFICE_LEVEL, OFFICE_UPGRADE_BASE_COST, START_DATE, START_MONEY, START_YEAR, WEEKS_PER_YEAR } from './constants'
+import { DESKS_PER_LEVEL, CAMPAIGN_COOLDOWN, CAMPAIGN_COST, CAMPAIGN_DURATION, MAX_OFFICE_LEVEL, OFFICE_UPGRADE_BASE_COST, START_DATE, START_MONEY, START_YEAR, WEEKS_PER_YEAR } from './constants'
 import { advanceWeek } from './date'
 import { DATA_TIER_MAP, MODEL_TYPE_MAP, PRICING_MAP, RESEARCH_ITEMS, RESEARCH_MAP } from './research'
 import { POST_TYPE_MAP, followerBoost, followerGain } from './social'
@@ -46,6 +46,8 @@ export function initialState(): GameState {
     poached: [],
     officeLevel: 1,
     isPublic: false,
+    campaignWeeksLeft: 0,
+    lastCampaignWeek: -CAMPAIGN_COOLDOWN,
     competitors: COMPETITOR_SEED.map((c) => ({ ...c, models: c.models.map((m) => ({ ...m })) })),
     events: [],
     pendingEvent: null,
@@ -73,6 +75,7 @@ export type Action =
   | { type: 'RENT_DATACENTER' }
   | { type: 'UPGRADE_OFFICE' }
   | { type: 'IPO' }
+  | { type: 'LAUNCH_CAMPAIGN' }
   | { type: 'SET_GPU'; count: number }
   | { type: 'SET_DATACENTERS'; count: number }
   | { type: 'SET_WEEK'; week: number }
@@ -133,6 +136,8 @@ export function migrateState(raw: Partial<GameState>): GameState {
     poached: raw.poached ?? [],
     officeLevel: raw.officeLevel ?? 1,
     isPublic: raw.isPublic ?? false,
+    campaignWeeksLeft: raw.campaignWeeksLeft ?? 0,
+    lastCampaignWeek: raw.lastCampaignWeek ?? -CAMPAIGN_COOLDOWN,
   }
 }
 
@@ -185,6 +190,9 @@ function advanceOneWeek(state: GameState): GameState {
   let datacenters = state.datacenters
   let datacenterBuilds = state.datacenterBuilds
   let followers = state.followers
+  let campaignWeeksLeft = state.campaignWeeksLeft
+
+  if (campaignWeeksLeft > 0) campaignWeeksLeft--
 
   // salaries (paid weekly)
   money -= state.staff.reduce((sum, s) => sum + s.salary, 0)
@@ -279,13 +287,15 @@ function advanceOneWeek(state: GameState): GameState {
       const pricing = PRICING_MAP[m.pricing]
       const marketers = state.staff.filter((s) => s.role === 'marketer').length
       const sat = marketSaturation(m.typeId, week, playerCustomersIn(m.typeId), state.competitors)
+      const campaignMult = state.campaignWeeksLeft > 0 ? 2 : 1
       const growth = Math.round(
         type.growthBase *
           (m.quality / 100) *
           pricing.growthMultiplier *
           (1 + marketers * 0.2) *
           followerBoost(state.followers) *
-          sat,
+          sat *
+          campaignMult,
       )
       const customers = m.customers + growth
       money += customers * pricing.revPerCustomerPerWeek
@@ -356,7 +366,7 @@ function advanceOneWeek(state: GameState): GameState {
     events = [...newEvents, ...state.events].slice(0, 20)
   }
 
-  const next = { ...state, date, money, researched, researching, models, datacenters, datacenterBuilds, rentedDatacenters, competitors, followers, events }
+  const next = { ...state, date, money, researched, researching, models, datacenters, datacenterBuilds, rentedDatacenters, competitors, followers, campaignWeeksLeft, events }
 
   if (!next.pendingEvent && Math.random() < 0.25) {
     next.pendingEvent = pickRandomEvent(next)
@@ -484,6 +494,28 @@ export function reducer(state: GameState, action: Action): GameState {
         isPublic: true,
         money: state.money + payout,
         followers: state.followers + 50000,
+        events,
+      }
+    }
+    case 'LAUNCH_CAMPAIGN': {
+      if (state.campaignWeeksLeft > 0) return state
+      if (state.money < CAMPAIGN_COST) return state
+      if (!state.staff.some((s) => s.role === 'marketer')) return state
+      const week = globalWeek(state)
+      if (week - state.lastCampaignWeek < CAMPAIGN_COOLDOWN) return state
+      const events = [
+        {
+          id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          text: `📣 Marketing campaign launched! 2x customers for ${CAMPAIGN_DURATION} weeks.`,
+          week,
+        },
+        ...state.events,
+      ].slice(0, 20)
+      return {
+        ...state,
+        money: state.money - CAMPAIGN_COST,
+        campaignWeeksLeft: CAMPAIGN_DURATION,
+        lastCampaignWeek: week,
         events,
       }
     }

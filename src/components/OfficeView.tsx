@@ -19,8 +19,22 @@ const SHIRT_COLORS = ['#4aa3ff', '#3ddc84', '#ffd166', '#ff5c5c', '#c084fc', '#f
 
 const BAR_X = 40
 const BAR_W = 240
-const BAR_Y = 6
-const BAR_H = 8
+const BAR_H = 6
+
+type WorkKind = 'research' | 'training' | 'marketing'
+
+const KIND_CONFIG: Record<WorkKind, { y: number; color: string }> = {
+  research: { y: 5, color: '#3ddc84' },
+  training: { y: 14, color: '#4aa3ff' },
+  marketing: { y: 23, color: '#ffd166' },
+}
+
+function roleKind(role: Staff['role']): WorkKind | null {
+  if (role === 'researcher') return 'research'
+  if (role === 'engineer') return 'training'
+  if (role === 'marketer') return 'marketing'
+  return null
+}
 
 interface Desk {
   dx: number
@@ -141,18 +155,45 @@ function drawCharacter(ctx: CanvasRenderingContext2D, staff: Staff, x: number, y
   ctx.fillRect(x + 5, y + 2, 1, 1)
 }
 
-interface Ball {
+function drawParticle(ctx: CanvasRenderingContext2D, x: number, y: number, kind: WorkKind) {
+  const px = Math.round(x)
+  const py = Math.round(y)
+  if (kind === 'research') {
+    // brain
+    ctx.fillStyle = '#f28cb8'
+    ctx.fillRect(px - 3, py - 2, 2, 5)
+    ctx.fillRect(px + 1, py - 2, 2, 5)
+    ctx.fillRect(px - 2, py - 3, 4, 1)
+    ctx.fillRect(px - 2, py + 2, 4, 1)
+    ctx.fillStyle = '#c74a7f'
+    ctx.fillRect(px - 1, py, 1, 2)
+    ctx.fillRect(px + 1, py, 1, 1)
+  } else if (kind === 'training') {
+    ctx.font = 'bold 8px monospace'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillStyle = '#4aa3ff'
+    ctx.fillText('</>', px, py)
+  } else {
+    ctx.font = 'bold 9px monospace'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillStyle = '#ffd166'
+    ctx.fillText('$', px, py)
+  }
+}
+
+interface Particle {
   x: number
   y: number
   t: number
-  color: string
+  kind: WorkKind
 }
 
 interface Flash {
   x: number
   y: number
   t: number
-  color: string
 }
 
 interface Props {
@@ -162,6 +203,8 @@ interface Props {
   trainingProgress: number | null
   researchTotalWeeks: number | null
   trainingTotalWeeks: number | null
+  marketingProgress: number | null
+  marketingTotalWeeks: number | null
 }
 
 export function OfficeView({
@@ -171,13 +214,15 @@ export function OfficeView({
   trainingProgress,
   researchTotalWeeks,
   trainingTotalWeeks,
+  marketingProgress,
+  marketingTotalWeeks,
 }: Props) {
   const ref = useRef<HTMLCanvasElement>(null)
   const deskList = useMemo(() => generateDesks(desks), [desks])
-  const balls = useRef<Ball[]>([])
+  const particles = useRef<Particle[]>([])
   const flashes = useRef<Flash[]>([])
-  const vis = useRef({ research: 0, training: 0 })
-  const startTime = useRef({ research: 0, training: 0 })
+  const vis = useRef<Record<WorkKind, number>>({ research: 0, training: 0, marketing: 0 })
+  const startTime = useRef<Record<WorkKind, number>>({ research: 0, training: 0, marketing: 0 })
 
   useEffect(() => {
     const canvas = ref.current
@@ -185,6 +230,12 @@ export function OfficeView({
     const ctx = canvas.getContext('2d')
     if (!ctx) return
     ctx.imageSmoothingEnabled = false
+
+    const bars: { kind: WorkKind; progress: number | null; totalWeeks: number | null }[] = [
+      { kind: 'research', progress: researchProgress, totalWeeks: researchTotalWeeks },
+      { kind: 'training', progress: trainingProgress, totalWeeks: trainingTotalWeeks },
+      { kind: 'marketing', progress: marketingProgress, totalWeeks: marketingTotalWeeks },
+    ]
 
     const drawBar = (x: number, y: number, w: number, h: number, fillPx: number, color: string) => {
       ctx.fillStyle = '#0b0c11'
@@ -199,7 +250,6 @@ export function OfficeView({
     }
 
     const drawScene = () => {
-      // floor
       for (let row = 1; row < ROWS - 1; row++) {
         for (let col = 1; col < COLS - 1; col++) {
           ctx.fillStyle = (row + col) % 2 === 0 ? FLOOR_A : FLOOR_B
@@ -207,7 +257,6 @@ export function OfficeView({
         }
       }
 
-      // walls
       ctx.fillStyle = WALL
       ctx.fillRect(0, 0, W, TILE)
       ctx.fillRect(0, H - TILE, W, TILE)
@@ -217,44 +266,40 @@ export function OfficeView({
       drawToilet(ctx)
       for (const d of deskList) drawDesk(ctx, d.dx, d.dy)
 
-      // progress bar(s) — filled by the flying balls
-      if (researchProgress !== null) drawBar(BAR_X, BAR_Y, BAR_W, BAR_H, vis.current.research, '#3ddc84')
-      if (trainingProgress !== null) drawBar(BAR_X, BAR_Y + BAR_H + 2, BAR_W, BAR_H, vis.current.training, '#4aa3ff')
+      for (const b of bars) {
+        if (b.progress !== null) {
+          const cfg = KIND_CONFIG[b.kind]
+          drawBar(BAR_X, cfg.y, BAR_W, BAR_H, vis.current[b.kind], cfg.color)
+        }
+      }
 
-      // characters
       staff.forEach((s, i) => {
         const p = staffPosition(i, deskList)
         drawCharacter(ctx, s, p.x, p.y)
       })
 
-      // desk props
       for (let i = 0; i < deskList.length; i++) {
         const s = staff[i]
         if (s) drawDeskProp(ctx, deskList[i].dx, deskList[i].dy, s.role)
       }
 
-      // landing flashes
       for (const f of flashes.current) {
-        const a = 1 - f.t / 0.4
         ctx.fillStyle = '#ffffff'
         ctx.fillRect(Math.round(f.x) - 1, Math.round(f.y) - 1, 3, 3)
-        void a
       }
 
-      // flying progress balls
-      for (const b of balls.current) {
-        const prog = b.color === '#3ddc84' ? vis.current.research : vis.current.training
+      for (const p of particles.current) {
+        const cfg = KIND_CONFIG[p.kind]
+        const prog = vis.current[p.kind]
         const tx = BAR_X + prog
-        const ty = BAR_Y + BAR_H / 2
-        const tt = Math.min(1, b.t)
-        const x = b.x + (tx - b.x) * tt
-        const y = b.y + (ty - b.y) * tt - Math.sin(tt * Math.PI) * 18
-        ctx.fillStyle = b.color
-        ctx.fillRect(Math.round(x), Math.round(y), 2, 2)
+        const ty = cfg.y + BAR_H / 2
+        const tt = Math.min(1, p.t)
+        const x = p.x + (tx - p.x) * tt
+        const y = p.y + (ty - p.y) * tt - Math.sin(tt * Math.PI) * 18
+        drawParticle(ctx, x, y, p.kind)
       }
     }
 
-    // draw the base scene synchronously so it's never blank
     drawScene()
 
     let raf = 0
@@ -266,62 +311,44 @@ export function OfficeView({
       last = now
       spawnAcc += dt
 
-      // continuous time-based fill: full bar over totalWeeks * 30s
-      if (researchProgress === null) {
-        vis.current.research = 0
-        startTime.current.research = 0
-      } else if (researchTotalWeeks != null) {
-        if (startTime.current.research === 0) startTime.current.research = now
-        const elapsed = (now - startTime.current.research) / 1000
-        const frac = Math.min(1, elapsed / (researchTotalWeeks * 30))
-        vis.current.research = frac * BAR_W
-      }
-      if (trainingProgress === null) {
-        vis.current.training = 0
-        startTime.current.training = 0
-      } else if (trainingTotalWeeks != null) {
-        if (startTime.current.training === 0) startTime.current.training = now
-        const elapsed = (now - startTime.current.training) / 1000
-        const frac = Math.min(1, elapsed / (trainingTotalWeeks * 30))
-        vis.current.training = frac * BAR_W
+      for (const b of bars) {
+        if (b.progress === null) {
+          vis.current[b.kind] = 0
+          startTime.current[b.kind] = 0
+        } else if (b.totalWeeks != null) {
+          if (startTime.current[b.kind] === 0) startTime.current[b.kind] = now
+          const elapsed = (now - startTime.current[b.kind]) / 1000
+          vis.current[b.kind] = Math.min(1, elapsed / (b.totalWeeks * 30)) * BAR_W
+        }
       }
 
-      // spawn balls from working staff
       if (spawnAcc > 0.2) {
         spawnAcc = 0
         staff.forEach((s, i) => {
-          const busy =
-            (s.role === 'researcher' && researchProgress !== null) ||
-            (s.role === 'engineer' && trainingProgress !== null)
-          if (!busy) return
+          const kind = roleKind(s.role)
+          if (!kind) return
+          const bar = bars.find((b) => b.kind === kind)
+          if (!bar || bar.progress === null) return
           const p = staffPosition(i, deskList)
-          balls.current.push({
-            x: p.x + 4,
-            y: p.y,
-            t: 0,
-            color: s.role === 'researcher' ? '#3ddc84' : '#4aa3ff',
-          })
+          particles.current.push({ x: p.x + 4, y: p.y, t: 0, kind })
         })
       }
 
-      // advance balls & handle landings
-      const landed: Ball[] = []
-      for (const b of balls.current) {
-        b.t += dt * 1.4
-        if (b.t >= 1) landed.push(b)
+      const landed: Particle[] = []
+      for (const p of particles.current) {
+        p.t += dt * 1.4
+        if (p.t >= 1) landed.push(p)
       }
-      balls.current = balls.current.filter((b) => b.t < 1)
-      for (const b of landed) {
-        const prog = b.color === '#3ddc84' ? vis.current.research : vis.current.training
+      particles.current = particles.current.filter((p) => p.t < 1)
+      for (const p of landed) {
+        const cfg = KIND_CONFIG[p.kind]
         flashes.current.push({
-          x: BAR_X + prog,
-          y: BAR_Y + BAR_H / 2,
+          x: BAR_X + vis.current[p.kind],
+          y: cfg.y + BAR_H / 2,
           t: 0,
-          color: b.color,
         })
       }
 
-      // fade flashes
       for (const f of flashes.current) f.t += dt
       flashes.current = flashes.current.filter((f) => f.t < 0.4)
 
@@ -331,7 +358,16 @@ export function OfficeView({
 
     raf = requestAnimationFrame(loop)
     return () => cancelAnimationFrame(raf)
-  }, [staff, deskList, researchProgress, trainingProgress, researchTotalWeeks, trainingTotalWeeks])
+  }, [
+    staff,
+    deskList,
+    researchProgress,
+    trainingProgress,
+    researchTotalWeeks,
+    trainingTotalWeeks,
+    marketingProgress,
+    marketingTotalWeeks,
+  ])
 
   return (
     <canvas

@@ -75,3 +75,7 @@ export const MIN_SCORE = 0
 export const DESKS_PER_LEVEL = 6
 export const OFFICE_UPGRADE_BASE_COST = 200000
 export const MAX_OFFICE_LEVEL = 4
+
+export const CAMPAIGN_DURATION = 4
+export const CAMPAIGN_COOLDOWN = 10
+export const CAMPAIGN_COST = 40000

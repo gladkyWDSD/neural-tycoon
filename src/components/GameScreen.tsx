@@ -10,7 +10,7 @@ import { DatacentersPanel } from './DatacentersPanel'
 import { CompetitorsPanel } from './CompetitorsPanel'
 import { CompanyPanel } from './CompanyPanel'
 import { NewsFeed } from './NewsFeed'
-import { DESKS_PER_LEVEL } from '../game/constants'
+import { DESKS_PER_LEVEL, CAMPAIGN_DURATION } from '../game/constants'
 import './Game.css'
 
 type PanelId =
@@ -40,6 +40,7 @@ interface Props {
   onRentDatacenter: () => void
   onUpgradeOffice: () => void
   onIpo: () => void
+  onLaunchCampaign: () => void
 }
 
 export function GameScreen({
@@ -59,6 +60,7 @@ export function GameScreen({
   onRentDatacenter,
   onUpgradeOffice,
   onIpo,
+  onLaunchCampaign,
 }: Props) {
   const [panel, setPanel] = useState<PanelId>(null)
 
@@ -75,6 +77,9 @@ export function GameScreen({
 
   const researchTotalWeeks = state.researching.length > 0 ? state.researching[0].totalWeeks : null
   const trainingTotalWeeks = trainingModels.length > 0 ? trainingModels[0].totalWeeks : null
+
+  const campaignActive = state.campaignWeeksLeft > 0
+  const campaignProgress = campaignActive ? 1 - state.campaignWeeksLeft / CAMPAIGN_DURATION : null
 
   const menuItems: { id: PanelId; label: string }[] = [
     { id: 'hire', label: 'Hire Staff' },
@@ -99,6 +104,8 @@ export function GameScreen({
             trainingProgress={trainingProgress}
             researchTotalWeeks={researchTotalWeeks}
             trainingTotalWeeks={trainingTotalWeeks}
+            marketingProgress={campaignProgress}
+            marketingTotalWeeks={campaignActive ? CAMPAIGN_DURATION : null}
           />
           <NewsFeed state={state} />
         </div>
@@ -118,7 +125,13 @@ export function GameScreen({
           />
         )}
         {panel === 'twitter' && (
-          <TwitterPanel state={state} onPost={onPost} onSmear={onSmear} onClose={() => setPanel(null)} />
+          <TwitterPanel
+            state={state}
+            onPost={onPost}
+            onSmear={onSmear}
+            onLaunchCampaign={onLaunchCampaign}
+            onClose={() => setPanel(null)}
+          />
         )}
         {panel === 'datacenters' && (
           <DatacentersPanel

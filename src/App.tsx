@@ -70,6 +70,7 @@ export default function App() {
           onRentDatacenter={() => dispatch({ type: 'RENT_DATACENTER' })}
           onUpgradeOffice={() => dispatch({ type: 'UPGRADE_OFFICE' })}
           onIpo={() => dispatch({ type: 'IPO' })}
+          onLaunchCampaign={() => dispatch({ type: 'LAUNCH_CAMPAIGN' })}
         />
       )}
       <DevConsole onCommand={runCommand} />

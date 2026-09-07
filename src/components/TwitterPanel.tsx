@@ -2,22 +2,29 @@ import { useState } from 'react'
 import type { GameState, PostType } from '../game/types'
 import { POST_TYPES, POST_TYPE_MAP, followerBoost } from '../game/social'
 import { globalWeek } from '../game/state'
+import { CAMPAIGN_COOLDOWN, CAMPAIGN_COST } from '../game/constants'
 import './Game.css'
 
 interface Props {
   state: GameState
   onPost: (text: string, type: PostType) => void
   onSmear: (competitorId: string) => void
+  onLaunchCampaign: () => void
   onClose: () => void
 }
 
-export function TwitterPanel({ state, onPost, onSmear, onClose }: Props) {
+export function TwitterPanel({ state, onPost, onSmear, onLaunchCampaign, onClose }: Props) {
   const [text, setText] = useState('')
   const [postType, setPostType] = useState<PostType>('announcement')
 
   const currentWeek = globalWeek(state)
   const onCooldown = currentWeek <= state.lastPostWeek
   const boost = followerBoost(state.followers)
+
+  const hasMarketer = state.staff.some((s) => s.role === 'marketer')
+  const campaignActive = state.campaignWeeksLeft > 0
+  const weeksSinceCampaign = currentWeek - state.lastCampaignWeek
+  const campaignReady = hasMarketer && !campaignActive && weeksSinceCampaign >= CAMPAIGN_COOLDOWN
 
   function post() {
     if (!text.trim() || onCooldown) return
@@ -84,6 +91,33 @@ export function TwitterPanel({ state, onPost, onSmear, onClose }: Props) {
             </div>
           ))}
         </div>
+      </div>
+
+      <div className="smear-section">
+        <h4 className="model-list-title">📣 Marketing Campaign</h4>
+        {campaignActive ? (
+          <p className="placeholder">
+            Campaign running: 2x customers for {state.campaignWeeksLeft} more week
+            {state.campaignWeeksLeft > 1 ? 's' : ''}.
+          </p>
+        ) : (
+          <div className="smear-row">
+            <span className="smear-name">
+              {!hasMarketer
+                ? 'Need a marketer'
+                : weeksSinceCampaign < CAMPAIGN_COOLDOWN
+                  ? `Cooldown: ${CAMPAIGN_COOLDOWN - weeksSinceCampaign}wk`
+                  : '2x customers for 4 weeks'}
+            </span>
+            <button
+              className="hire-btn"
+              disabled={!campaignReady || state.money < CAMPAIGN_COST}
+              onClick={onLaunchCampaign}
+            >
+              Launch (${(CAMPAIGN_COST / 1000).toFixed(0)}k)
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="twitter-feed">

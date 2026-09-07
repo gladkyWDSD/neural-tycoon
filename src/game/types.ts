@@ -144,6 +144,8 @@ export interface GameState {
   poached: string[]
   officeLevel: number
   isPublic: boolean
+  campaignWeeksLeft: number
+  lastCampaignWeek: number
   competitors: Competitor[]
   events: GameEvent[]
   pendingEvent: PendingEvent | null
