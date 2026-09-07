@@ -45,6 +45,7 @@ export function initialState(): GameState {
     ssd: 0,
     poached: [],
     officeLevel: 1,
+    isPublic: false,
     competitors: COMPETITOR_SEED.map((c) => ({ ...c, models: c.models.map((m) => ({ ...m })) })),
     events: [],
     pendingEvent: null,
@@ -71,6 +72,7 @@ export type Action =
   | { type: 'BUILD_DATACENTER' }
   | { type: 'RENT_DATACENTER' }
   | { type: 'UPGRADE_OFFICE' }
+  | { type: 'IPO' }
   | { type: 'SET_GPU'; count: number }
   | { type: 'SET_DATACENTERS'; count: number }
   | { type: 'SET_WEEK'; week: number }
@@ -124,6 +126,7 @@ export function migrateState(raw: Partial<GameState>): GameState {
     ssd: raw.ssd ?? 0,
     poached: raw.poached ?? [],
     officeLevel: raw.officeLevel ?? 1,
+    isPublic: raw.isPublic ?? false,
   }
 }
 
@@ -231,13 +234,13 @@ function advanceOneWeek(state: GameState): GameState {
   // competitors grow their own models + improve quality + gain followers
   let competitors = state.competitors.map((c) => ({
     ...c,
-    followers: c.followers + Math.round(c.followers * 0.002),
+    followers: c.followers + Math.round(c.followers * 0.0015),
     models: c.models.map((cm) => {
       if (cm.releaseWeek > week) return cm
       const sat = marketSaturation(cm.typeId, week, playerCustomersIn(cm.typeId), state.competitors)
       const followerFactor = 1 + c.followers / 500000
       const growth = Math.round(cm.growthBase * (cm.quality / 100) * sat * followerFactor)
-      return { ...cm, customers: cm.customers + growth, quality: Math.min(99, cm.quality + 0.3) }
+      return { ...cm, customers: cm.customers + growth, quality: Math.min(99, cm.quality + 0.2) }
     }),
   }))
 
@@ -457,6 +460,27 @@ export function reducer(state: GameState, action: Action): GameState {
       const cost = OFFICE_UPGRADE_BASE_COST * state.officeLevel
       if (state.money < cost) return state
       return { ...state, money: state.money - cost, officeLevel: state.officeLevel + 1 }
+    }
+    case 'IPO': {
+      if (state.isPublic) return state
+      const totalCustomers = state.models.reduce((sum, m) => sum + (m.status === 'published' ? m.customers : 0), 0)
+      if (totalCustomers < 250000) return state
+      const payout = totalCustomers * 15
+      const events = [
+        {
+          id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          text: `📈 ${state.companyName} went public! You raised $${payout.toLocaleString()}.`,
+          week: globalWeek(state),
+        },
+        ...state.events,
+      ].slice(0, 20)
+      return {
+        ...state,
+        isPublic: true,
+        money: state.money + payout,
+        followers: state.followers + 50000,
+        events,
+      }
     }
     case 'SET_GPU':
       return { ...state, gpuCards: Math.max(0, action.count) }

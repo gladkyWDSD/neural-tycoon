@@ -60,8 +60,8 @@ export const COMPETITOR_SEED: Competitor[] = [
     name: 'ClosedAI',
     icon: '🔒',
     models: [
-      model('chatpt', 'ChatPT', '💬', 'general', 90, 400000, 12000, 1),
-      model('dolle', 'Doll-E', '🎨', 'image', 82, 180000, 8000, 1),
+      model('chatpt', 'ChatPT', '💬', 'general', 90, 220000, 12000, 1),
+      model('dolle', 'Doll-E', '🎨', 'image', 82, 90000, 8000, 1),
       model('chatpt5', 'ChatPT 5', '💬', 'general', 96, 0, 15000, 40),
     ],
   },
@@ -71,7 +71,7 @@ export const COMPETITOR_SEED: Competitor[] = [
     name: 'Gargle Brain',
     icon: '🧠',
     models: [
-      model('geminix', 'Geminix', '♊', 'general', 85, 350000, 10000, 1),
+      model('geminix', 'Geminix', '♊', 'general', 85, 180000, 10000, 1),
       model('geminixpro', 'Geminix Pro', '♊', 'general', 93, 0, 13000, 30),
     ],
   },
@@ -81,7 +81,7 @@ export const COMPETITOR_SEED: Competitor[] = [
     name: 'Anpolus',
     icon: '🐝',
     models: [
-      model('clawd', 'Clawd', '🤝', 'general', 88, 300000, 9000, 1),
+      model('clawd', 'Clawd', '🤝', 'general', 88, 150000, 9000, 1),
       model('clawd2', 'Clawd 2', '🤝', 'general', 95, 0, 14000, 45),
     ],
   },
@@ -91,8 +91,8 @@ export const COMPETITOR_SEED: Competitor[] = [
     name: 'DeepPeek',
     icon: '🔍',
     models: [
-      model('deeppeekcoder', 'DeepPeek-Coder', '💻', 'coding', 80, 150000, 7000, 1),
-      model('deeppeekv', 'DeepPeek-V', '🔍', 'general', 82, 120000, 8000, 1),
+      model('deeppeekcoder', 'DeepPeek-Coder', '💻', 'coding', 80, 70000, 7000, 1),
+      model('deeppeekv', 'DeepPeek-V', '🔍', 'general', 82, 60000, 8000, 1),
       model('deeppeekr', 'DeepPeek-R', '🔍', 'general', 90, 0, 12000, 35),
     ],
   },
@@ -102,7 +102,7 @@ export const COMPETITOR_SEED: Competitor[] = [
     name: 'Mistrall',
     icon: '🌬️',
     models: [
-      model('mistralllarge', 'Mistrall Large', '💨', 'general', 78, 100000, 6000, 1),
+      model('mistralllarge', 'Mistrall Large', '💨', 'general', 78, 50000, 6000, 1),
     ],
   },
   {
@@ -111,7 +111,7 @@ export const COMPETITOR_SEED: Competitor[] = [
     name: 'xLab',
     icon: '🚀',
     models: [
-      model('grak', 'Grak', '🛰️', 'general', 75, 80000, 5000, 1),
+      model('grak', 'Grak', '🛰️', 'general', 75, 40000, 5000, 1),
     ],
   },
 ]

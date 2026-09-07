@@ -39,6 +39,7 @@ interface Props {
   onBuildDatacenter: () => void
   onRentDatacenter: () => void
   onUpgradeOffice: () => void
+  onIpo: () => void
 }
 
 export function GameScreen({
@@ -57,6 +58,7 @@ export function GameScreen({
   onBuildDatacenter,
   onRentDatacenter,
   onUpgradeOffice,
+  onIpo,
 }: Props) {
   const [panel, setPanel] = useState<PanelId>(null)
 
@@ -114,7 +116,12 @@ export function GameScreen({
           <CompetitorsPanel state={state} onPoach={onPoach} onClose={() => setPanel(null)} />
         )}
         {panel === 'company' && (
-          <CompanyPanel state={state} onUpgradeOffice={onUpgradeOffice} onClose={() => setPanel(null)} />
+          <CompanyPanel
+            state={state}
+            onUpgradeOffice={onUpgradeOffice}
+            onIpo={onIpo}
+            onClose={() => setPanel(null)}
+          />
         )}
       </div>
 

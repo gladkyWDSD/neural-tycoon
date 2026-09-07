@@ -141,6 +141,7 @@ export interface GameState {
   ssd: number
   poached: string[]
   officeLevel: number
+  isPublic: boolean
   competitors: Competitor[]
   events: GameEvent[]
   pendingEvent: PendingEvent | null

@@ -6,14 +6,21 @@ import './Game.css'
 interface Props {
   state: GameState
   onUpgradeOffice: () => void
+  onIpo: () => void
   onClose: () => void
 }
 
-export function CompanyPanel({ state, onUpgradeOffice, onClose }: Props) {
+export function CompanyPanel({ state, onUpgradeOffice, onIpo, onClose }: Props) {
   const staffCount = state.staff.length
   const max = maxStaff(state)
   const maxed = state.officeLevel >= MAX_OFFICE_LEVEL
   const upgradeCost = OFFICE_UPGRADE_BASE_COST * state.officeLevel
+  const totalCustomers = state.models.reduce(
+    (sum, m) => sum + (m.status === 'published' ? m.customers : 0),
+    0,
+  )
+  const canIpo = !state.isPublic && totalCustomers >= 250000
+  const ipoValue = totalCustomers * 15
 
   return (
     <div className="panel">
@@ -57,6 +64,25 @@ export function CompanyPanel({ state, onUpgradeOffice, onClose }: Props) {
                 Upgrade Office (${upgradeCost.toLocaleString()})
               </button>
             </>
+          )}
+        </div>
+
+        <div className="office-upgrade">
+          {state.isPublic ? (
+            <p className="placeholder">📈 {state.companyName} is a public company.</p>
+          ) : canIpo ? (
+            <>
+              <p className="placeholder">
+                Go public! Raise ${ipoValue.toLocaleString()} (needs 250k customers).
+              </p>
+              <button className="big-button" onClick={onIpo}>
+                📈 Go Public (IPO)
+              </button>
+            </>
+          ) : (
+            <p className="placeholder">
+              IPO unlocks at 250,000 customers (now {totalCustomers.toLocaleString()}).
+            </p>
           )}
         </div>
       </div>
