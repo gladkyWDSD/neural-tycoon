@@ -144,8 +144,13 @@ function drawCharacter(ctx: CanvasRenderingContext2D, staff: Staff, x: number, y
 interface Ball {
   x: number
   y: number
-  tx: number
-  ty: number
+  t: number
+  color: string
+}
+
+interface Flash {
+  x: number
+  y: number
   t: number
   color: string
 }
@@ -161,6 +166,8 @@ export function OfficeView({ staff, desks, researchProgress, trainingProgress }:
   const ref = useRef<HTMLCanvasElement>(null)
   const deskList = useMemo(() => generateDesks(desks), [desks])
   const balls = useRef<Ball[]>([])
+  const flashes = useRef<Flash[]>([])
+  const vis = useRef({ research: 0, training: 0 })
 
   useEffect(() => {
     const canvas = ref.current
@@ -197,9 +204,9 @@ export function OfficeView({ staff, desks, researchProgress, trainingProgress }:
       drawToilet(ctx)
       for (const d of deskList) drawDesk(ctx, d.dx, d.dy)
 
-      // progress bar(s) at the top
-      if (researchProgress !== null) drawBar(BAR_X, BAR_Y, BAR_W, BAR_H, researchProgress, '#3ddc84')
-      if (trainingProgress !== null) drawBar(BAR_X, BAR_Y + BAR_H + 2, BAR_W, BAR_H, trainingProgress, '#4aa3ff')
+      // progress bar(s) — filled by the flying balls
+      if (researchProgress !== null) drawBar(BAR_X, BAR_Y, BAR_W, BAR_H, vis.current.research, '#3ddc84')
+      if (trainingProgress !== null) drawBar(BAR_X, BAR_Y + BAR_H + 2, BAR_W, BAR_H, vis.current.training, '#4aa3ff')
 
       // characters
       staff.forEach((s, i) => {
@@ -213,11 +220,22 @@ export function OfficeView({ staff, desks, researchProgress, trainingProgress }:
         if (s) drawDeskProp(ctx, deskList[i].dx, deskList[i].dy, s.role)
       }
 
+      // landing flashes
+      for (const f of flashes.current) {
+        const a = 1 - f.t / 0.4
+        ctx.fillStyle = '#ffffff'
+        ctx.fillRect(Math.round(f.x) - 1, Math.round(f.y) - 1, 3, 3)
+        void a
+      }
+
       // flying progress balls
       for (const b of balls.current) {
+        const prog = b.color === '#3ddc84' ? vis.current.research : vis.current.training
+        const tx = BAR_X + BAR_W * prog
+        const ty = BAR_Y + BAR_H / 2
         const tt = Math.min(1, b.t)
-        const x = b.x + (b.tx - b.x) * tt
-        const y = b.y + (b.ty - b.y) * tt - Math.sin(tt * Math.PI) * 18
+        const x = b.x + (tx - b.x) * tt
+        const y = b.y + (ty - b.y) * tt - Math.sin(tt * Math.PI) * 18
         ctx.fillStyle = b.color
         ctx.fillRect(Math.round(x), Math.round(y), 2, 2)
       }
@@ -235,8 +253,14 @@ export function OfficeView({ staff, desks, researchProgress, trainingProgress }:
       last = now
       spawnAcc += dt
 
+      // ease the visible fill toward the real progress
+      if (researchProgress === null) vis.current.research = 0
+      else vis.current.research += (researchProgress - vis.current.research) * Math.min(1, dt * 2)
+      if (trainingProgress === null) vis.current.training = 0
+      else vis.current.training += (trainingProgress - vis.current.training) * Math.min(1, dt * 2)
+
       // spawn balls from working staff
-      if (spawnAcc > 0.25) {
+      if (spawnAcc > 0.2) {
         spawnAcc = 0
         staff.forEach((s, i) => {
           const busy =
@@ -244,22 +268,35 @@ export function OfficeView({ staff, desks, researchProgress, trainingProgress }:
             (s.role === 'engineer' && trainingProgress !== null)
           if (!busy) return
           const p = staffPosition(i, deskList)
-          const progress = s.role === 'researcher' ? researchProgress : trainingProgress
-          const tx = BAR_X + Math.round(BAR_W * (progress ?? 0))
           balls.current.push({
             x: p.x + 4,
             y: p.y,
-            tx,
-            ty: BAR_Y + BAR_H / 2,
             t: 0,
             color: s.role === 'researcher' ? '#3ddc84' : '#4aa3ff',
           })
         })
       }
 
-      // advance & prune balls
+      // advance balls & handle landings
+      const landed: Ball[] = []
+      for (const b of balls.current) {
+        b.t += dt * 1.4
+        if (b.t >= 1) landed.push(b)
+      }
       balls.current = balls.current.filter((b) => b.t < 1)
-      for (const b of balls.current) b.t += dt * 1.4
+      for (const b of landed) {
+        const prog = b.color === '#3ddc84' ? vis.current.research : vis.current.training
+        flashes.current.push({
+          x: BAR_X + BAR_W * prog,
+          y: BAR_Y + BAR_H / 2,
+          t: 0,
+          color: b.color,
+        })
+      }
+
+      // fade flashes
+      for (const f of flashes.current) f.t += dt
+      flashes.current = flashes.current.filter((f) => f.t < 0.4)
 
       drawScene()
       raf = requestAnimationFrame(loop)
