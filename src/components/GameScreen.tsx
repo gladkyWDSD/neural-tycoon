@@ -73,6 +73,9 @@ export function GameScreen({
     ? 1 - Math.min(...trainingModels.map((m) => m.weeksRemaining / (m.totalWeeks || 1)))
     : null
 
+  const researchTotalWeeks = state.researching.length > 0 ? state.researching[0].totalWeeks : null
+  const trainingTotalWeeks = trainingModels.length > 0 ? trainingModels[0].totalWeeks : null
+
   const menuItems: { id: PanelId; label: string }[] = [
     { id: 'hire', label: 'Hire Staff' },
     { id: 'build', label: 'Build AI' },
@@ -94,6 +97,8 @@ export function GameScreen({
             desks={deskCount}
             researchProgress={researchProgress}
             trainingProgress={trainingProgress}
+            researchTotalWeeks={researchTotalWeeks}
+            trainingTotalWeeks={trainingTotalWeeks}
           />
           <NewsFeed state={state} />
         </div>

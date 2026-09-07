@@ -20,7 +20,7 @@ const SHIRT_COLORS = ['#4aa3ff', '#3ddc84', '#ffd166', '#ff5c5c', '#c084fc', '#f
 const BAR_X = 40
 const BAR_W = 240
 const BAR_Y = 6
-const BAR_H = 6
+const BAR_H = 8
 
 interface Desk {
   dx: number
@@ -160,14 +160,24 @@ interface Props {
   desks: number
   researchProgress: number | null
   trainingProgress: number | null
+  researchTotalWeeks: number | null
+  trainingTotalWeeks: number | null
 }
 
-export function OfficeView({ staff, desks, researchProgress, trainingProgress }: Props) {
+export function OfficeView({
+  staff,
+  desks,
+  researchProgress,
+  trainingProgress,
+  researchTotalWeeks,
+  trainingTotalWeeks,
+}: Props) {
   const ref = useRef<HTMLCanvasElement>(null)
   const deskList = useMemo(() => generateDesks(desks), [desks])
   const balls = useRef<Ball[]>([])
   const flashes = useRef<Flash[]>([])
   const vis = useRef({ research: 0, training: 0 })
+  const startTime = useRef({ research: 0, training: 0 })
 
   useEffect(() => {
     const canvas = ref.current
@@ -179,10 +189,13 @@ export function OfficeView({ staff, desks, researchProgress, trainingProgress }:
     const drawBar = (x: number, y: number, w: number, h: number, fillPx: number, color: string) => {
       ctx.fillStyle = '#0b0c11'
       ctx.fillRect(x - 1, y - 1, w + 2, h + 2)
-      ctx.fillStyle = '#3a3f52'
+      ctx.fillStyle = '#2a2d3a'
       ctx.fillRect(x, y, w, h)
       ctx.fillStyle = color
-      ctx.fillRect(x, y, Math.max(0, Math.min(w, Math.round(fillPx))), h)
+      const f = Math.max(0, Math.min(w, Math.round(fillPx)))
+      ctx.fillRect(x, y, f, h)
+      ctx.fillStyle = '#ffffff'
+      ctx.fillRect(x + f - 1, y, 1, h)
     }
 
     const drawScene = () => {
@@ -253,12 +266,25 @@ export function OfficeView({ staff, desks, researchProgress, trainingProgress }:
       last = now
       spawnAcc += dt
 
-      // ease the visible fill toward the real progress
-      if (researchProgress === null) vis.current.research = 0
-      if (trainingProgress === null) vis.current.training = 0
-
-      const targetResearchPx = researchProgress === null ? 0 : Math.round(researchProgress * BAR_W)
-      const targetTrainingPx = trainingProgress === null ? 0 : Math.round(trainingProgress * BAR_W)
+      // continuous time-based fill: full bar over totalWeeks * 30s
+      if (researchProgress === null) {
+        vis.current.research = 0
+        startTime.current.research = 0
+      } else if (researchTotalWeeks != null) {
+        if (startTime.current.research === 0) startTime.current.research = now
+        const elapsed = (now - startTime.current.research) / 1000
+        const frac = Math.min(1, elapsed / (researchTotalWeeks * 30))
+        vis.current.research = frac * BAR_W
+      }
+      if (trainingProgress === null) {
+        vis.current.training = 0
+        startTime.current.training = 0
+      } else if (trainingTotalWeeks != null) {
+        if (startTime.current.training === 0) startTime.current.training = now
+        const elapsed = (now - startTime.current.training) / 1000
+        const frac = Math.min(1, elapsed / (trainingTotalWeeks * 30))
+        vis.current.training = frac * BAR_W
+      }
 
       // spawn balls from working staff
       if (spawnAcc > 0.2) {
@@ -286,11 +312,6 @@ export function OfficeView({ staff, desks, researchProgress, trainingProgress }:
       }
       balls.current = balls.current.filter((b) => b.t < 1)
       for (const b of landed) {
-        if (b.color === '#3ddc84') {
-          vis.current.research = Math.min(targetResearchPx, vis.current.research + 2)
-        } else {
-          vis.current.training = Math.min(targetTrainingPx, vis.current.training + 2)
-        }
         const prog = b.color === '#3ddc84' ? vis.current.research : vis.current.training
         flashes.current.push({
           x: BAR_X + prog,
@@ -310,7 +331,7 @@ export function OfficeView({ staff, desks, researchProgress, trainingProgress }:
 
     raf = requestAnimationFrame(loop)
     return () => cancelAnimationFrame(raf)
-  }, [staff, deskList, researchProgress, trainingProgress])
+  }, [staff, deskList, researchProgress, trainingProgress, researchTotalWeeks, trainingTotalWeeks])
 
   return (
     <canvas
