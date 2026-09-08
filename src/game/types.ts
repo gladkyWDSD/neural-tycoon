@@ -56,6 +56,7 @@ export interface Post {
   week: number
   followersGained: number
   viral?: boolean
+  trending?: boolean
 }
 
 export interface AIModel {
@@ -135,6 +136,8 @@ export interface GameState {
   followers: number
   posts: Post[]
   lastPostWeek: number
+  trendingHashtag: string
+  trendingSetWeek: number
   gpuCards: number
   datacenters: number
   datacenterBuilds: number[]

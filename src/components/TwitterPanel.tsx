@@ -35,7 +35,7 @@ export function TwitterPanel({ state, onPost, onSmear, onLaunchCampaign, onClose
   return (
     <div className="panel">
       <div className="panel-header">
-        <h3 className="panel-title">🐦 Twitter</h3>
+        <h3 className="panel-title">🐦 Tweeter</h3>
         <button className="close-btn" onClick={onClose}>
           ✕
         </button>
@@ -44,6 +44,20 @@ export function TwitterPanel({ state, onPost, onSmear, onLaunchCampaign, onClose
       <div className="twitter-stats">
         <span className="twitter-followers">{state.followers.toLocaleString()} followers</span>
         <span className="twitter-boost">Growth ×{boost.toFixed(2)}</span>
+      </div>
+
+      <div className="trending-banner">
+        <span>
+          🔥 Trending now: <strong>{state.trendingHashtag}</strong> — use it in a post for bonus followers!
+        </span>
+        <button
+          className="chip"
+          onClick={() =>
+            setText((t) => (t.includes(state.trendingHashtag) ? t : `${t} ${state.trendingHashtag}`.trim()))
+          }
+        >
+          Add hashtag
+        </button>
       </div>
 
       <div className="twitter-composer">
@@ -135,7 +149,8 @@ export function TwitterPanel({ state, onPost, onSmear, onLaunchCampaign, onClose
             </div>
             <p className="post-text">{p.text}</p>
             <span className="post-gain">
-              {p.viral && '🔥 Viral · '}+{p.followersGained.toLocaleString()} followers · ❤️{' '}
+              {p.viral && '🔥 Viral · '}
+              {p.trending && '📈 Trending · '}+{p.followersGained.toLocaleString()} followers · ❤️{' '}
               {Math.round(p.followersGained * 2).toLocaleString()}
             </span>
           </div>

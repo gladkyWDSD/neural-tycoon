@@ -2,7 +2,18 @@ import type { AIModel, GameEvent, GameState, PostType, PricingModel, Staff } fro
 import { DESKS_PER_LEVEL, CAMPAIGN_COOLDOWN, CAMPAIGN_COST, CAMPAIGN_DURATION, MAX_OFFICE_LEVEL, OFFICE_UPGRADE_BASE_COST, START_DATE, START_MONEY, START_YEAR, WEEKS_PER_YEAR } from './constants'
 import { advanceWeek } from './date'
 import { DATA_TIER_MAP, BOOK_MAP, MODEL_TYPE_MAP, PRICING_MAP, RESEARCH_ITEMS, RESEARCH_MAP } from './research'
-import { POST_TYPE_MAP, followerBoost, followerGain } from './social'
+import {
+  COMPETITOR_CLAPBACKS,
+  COMPETITOR_REACTION_CHANCE,
+  COMPETITOR_SMEAR_REACTION_CHANCE,
+  POST_TYPE_MAP,
+  TRENDING_BONUS_MULTIPLIER,
+  TRENDING_ROTATE_WEEKS,
+  followerBoost,
+  followerGain,
+  pickTrendingHashtag,
+  usesTrendingHashtag,
+} from './social'
 import { DATACENTER_BUILD_WEEKS, DATACENTER_COST, ELECTRICITY_PER_CARD_WEEK, GPU_CARD_COST, RAM_COST, RENT_DISPUTE_CHANCE, RENT_WEEKLY_FEE, SSD_COST, activeCards, gpuQualityFactor, ssdQualityBonus } from './gpu'
 import { COMPETITOR_SEED, generateCompetitorModel, marketSaturation } from './competitors'
 import { pickRandomEvent } from './events'
@@ -37,6 +48,8 @@ export function initialState(): GameState {
     followers: 0,
     posts: [],
     lastPostWeek: 0,
+    trendingHashtag: pickTrendingHashtag(),
+    trendingSetWeek: 0,
     gpuCards: 0,
     datacenters: 0,
     datacenterBuilds: [],
@@ -132,6 +145,8 @@ export function migrateState(raw: Partial<GameState>): GameState {
     researching,
     competitors: (raw.competitors ?? base.competitors).map((c) => ({ ...c, followers: c.followers ?? 100000 })),
     events: raw.events ?? base.events,
+    trendingHashtag: raw.trendingHashtag ?? base.trendingHashtag,
+    trendingSetWeek: raw.trendingSetWeek ?? 0,
     rentedDatacenters: raw.rentedDatacenters ?? 0,
     ram: raw.ram ?? 0,
     ssd: raw.ssd ?? 0,
@@ -241,6 +256,13 @@ function advanceOneWeek(state: GameState): GameState {
   researching = stillResearching
 
   const week = (date.year - START_YEAR) * WEEKS_PER_YEAR + date.week
+
+  let trendingHashtag = state.trendingHashtag
+  let trendingSetWeek = state.trendingSetWeek
+  if (week - trendingSetWeek >= TRENDING_ROTATE_WEEKS) {
+    trendingHashtag = pickTrendingHashtag(trendingHashtag)
+    trendingSetWeek = week
+  }
 
   function playerCustomersIn(typeId: string): number {
     return state.models.reduce(
@@ -370,7 +392,7 @@ function advanceOneWeek(state: GameState): GameState {
     events = [...newEvents, ...state.events].slice(0, 20)
   }
 
-  const next = { ...state, date, money, researched, researching, models, datacenters, datacenterBuilds, rentedDatacenters, competitors, followers, campaignWeeksLeft, events }
+  const next = { ...state, date, money, researched, researching, models, datacenters, datacenterBuilds, rentedDatacenters, competitors, followers, campaignWeeksLeft, events, trendingHashtag, trendingSetWeek }
 
   if (!next.pendingEvent && Math.random() < 0.25) {
     next.pendingEvent = pickRandomEvent(next)
@@ -561,6 +583,37 @@ export function reducer(state: GameState, action: Action): GameState {
       let gained = followerGain(info, state.followers, totalCustomers)
       const viral = Math.random() < 0.15
       if (viral) gained = Math.round(gained * 3)
+      const trending = usesTrendingHashtag(action.text, state.trendingHashtag)
+      if (trending) gained = Math.round(gained * TRENDING_BONUS_MULTIPLIER)
+
+      const newEvents: GameEvent[] = []
+      if (viral) {
+        newEvents.push({
+          id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          text: `🔥 Your post went viral! +${gained.toLocaleString()} followers.`,
+          week: currentWeek,
+        })
+      }
+      if (trending) {
+        newEvents.push({
+          id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          text: `📈 You rode the ${state.trendingHashtag} wave! Bonus followers.`,
+          week: currentWeek,
+        })
+      }
+      if (Math.random() < COMPETITOR_REACTION_CHANCE && state.competitors.length > 0) {
+        const c = state.competitors[Math.floor(Math.random() * state.competitors.length)]
+        const reduction = 0.2 + Math.random() * 0.2
+        const before = gained
+        gained = Math.round(gained * (1 - reduction))
+        const line = COMPETITOR_CLAPBACKS[Math.floor(Math.random() * COMPETITOR_CLAPBACKS.length)]
+        newEvents.push({
+          id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          text: `${c.icon} ${c.name} claps back: "${line}" (−${(before - gained).toLocaleString()} followers)`,
+          week: currentWeek,
+        })
+      }
+
       const post = {
         id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
         text: action.text.trim(),
@@ -568,17 +621,9 @@ export function reducer(state: GameState, action: Action): GameState {
         week: currentWeek,
         followersGained: gained,
         viral,
+        trending,
       }
-      const events = viral
-        ? [
-            {
-              id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-              text: `🔥 Your post went viral! +${gained.toLocaleString()} followers.`,
-              week: currentWeek,
-            },
-            ...state.events,
-          ].slice(0, 20)
-        : state.events
+      const events = newEvents.length > 0 ? [...newEvents, ...state.events].slice(0, 20) : state.events
       return {
         ...state,
         followers: state.followers + gained,
@@ -594,24 +639,52 @@ export function reducer(state: GameState, action: Action): GameState {
       if (!target) return state
       const ratio = Math.min(0.15, 0.03 * (1 + state.followers / 50000))
       let lost = 0
-      const competitors = state.competitors.map((c) => {
+      const lossByModel: Record<string, number> = {}
+      let competitors = state.competitors.map((c) => {
         if (c.id !== action.competitorId) return c
         return {
           ...c,
           models: c.models.map((m) => {
             const next = Math.round(m.customers * (1 - ratio))
-            lost += m.customers - next
+            const modelLoss = m.customers - next
+            lost += modelLoss
+            lossByModel[m.id] = modelLoss
             return { ...m, customers: next }
           }),
         }
       })
-      const gainedFollowers = Math.round(200 * (1 + state.followers / 20000))
+
+      let gainedFollowers = Math.round(200 * (1 + state.followers / 20000))
+      let clapbackText: string | null = null
+      if (lost > 0 && Math.random() < COMPETITOR_SMEAR_REACTION_CHANCE) {
+        const recoverRatio = 0.2 + Math.random() * 0.25
+        const reduceRatio = 0.3 + Math.random() * 0.2
+        gainedFollowers = Math.round(gainedFollowers * (1 - reduceRatio))
+        let recovered = 0
+        competitors = competitors.map((c) => {
+          if (c.id !== action.competitorId) return c
+          return {
+            ...c,
+            models: c.models.map((m) => {
+              const back = Math.round((lossByModel[m.id] ?? 0) * recoverRatio)
+              recovered += back
+              return { ...m, customers: m.customers + back }
+            }),
+          }
+        })
+        const line = COMPETITOR_CLAPBACKS[Math.floor(Math.random() * COMPETITOR_CLAPBACKS.length)]
+        clapbackText = `${target.icon} ${target.name} claps back: "${line}" — wins back ${recovered.toLocaleString()} customers.`
+      }
+
       const events = [
         {
           id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
           text: `You smeared ${target.name}! They lost ${lost.toLocaleString()} customers. You gained ${gainedFollowers.toLocaleString()} followers.`,
           week: currentWeek,
         },
+        ...(clapbackText
+          ? [{ id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}-cb`, text: clapbackText, week: currentWeek }]
+          : []),
         ...state.events,
       ].slice(0, 20)
       return {

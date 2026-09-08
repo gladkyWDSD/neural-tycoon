@@ -87,7 +87,7 @@ export function GameScreen({
     { id: 'hire', label: 'Hire Staff' },
     { id: 'build', label: 'Build AI' },
     { id: 'research', label: 'Research' },
-    { id: 'twitter', label: 'Twitter' },
+    { id: 'twitter', label: 'Tweeter' },
     { id: 'datacenters', label: 'Datacenters' },
     { id: 'competitors', label: 'Competitors' },
     { id: 'company', label: 'Company' },
