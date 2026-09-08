@@ -1,5 +1,5 @@
 import type { AIModel, GameEvent, GameState, PostType, PricingModel, Staff } from './types'
-import { DESKS_PER_LEVEL, CAMPAIGN_COOLDOWN, CAMPAIGN_COST, CAMPAIGN_DURATION, MAX_OFFICE_LEVEL, OFFICE_UPGRADE_BASE_COST, START_DATE, START_MONEY, START_YEAR, WEEKS_PER_YEAR } from './constants'
+import { DESKS_PER_LEVEL, CAMPAIGN_COOLDOWN, CAMPAIGN_COST, CAMPAIGN_DURATION, COMPETITOR_POACH_BASE_CHANCE, COMPETITOR_POACH_GRACE_WEEKS, MAX_OFFICE_LEVEL, MAX_SCORE, OFFICE_UPGRADE_BASE_COST, START_DATE, START_MONEY, START_YEAR, WEEKS_PER_YEAR } from './constants'
 import { advanceWeek } from './date'
 import { DATA_TIER_MAP, BOOK_MAP, MODEL_TYPE_MAP, PRICING_MAP, RESEARCH_ITEMS, RESEARCH_MAP } from './research'
 import {
@@ -17,7 +17,7 @@ import {
 import { DATACENTER_BUILD_WEEKS, DATACENTER_COST, ELECTRICITY_PER_CARD_WEEK, GPU_CARD_COST, RAM_COST, RENT_DISPUTE_CHANCE, RENT_WEEKLY_FEE, SSD_COST, activeCards, gpuQualityFactor, ssdQualityBonus } from './gpu'
 import { COMPETITOR_SEED, generateCompetitorModel, marketSaturation } from './competitors'
 import { pickRandomEvent } from './events'
-import { generateCandidate } from './hiring'
+import { generateCandidate, marketSalaryFor } from './hiring'
 
 const FLAVOR_NEWS = [
   '🚀 AI hype is surging — the whole market keeps growing.',
@@ -210,6 +210,7 @@ function advanceOneWeek(state: GameState): GameState {
   let datacenterBuilds = state.datacenterBuilds
   let followers = state.followers
   let campaignWeeksLeft = state.campaignWeeksLeft
+  let staff = state.staff
 
   if (campaignWeeksLeft > 0) campaignWeeksLeft--
 
@@ -337,6 +338,36 @@ function advanceOneWeek(state: GameState): GameState {
   let events = state.events
   const newEvents: GameEvent[] = []
 
+  // rival companies poach your underpaid staff — the longer a salary goes without a raise,
+  // the further it falls behind the market and the more tempting a rival's offer becomes
+  if (week > COMPETITOR_POACH_GRACE_WEEKS && staff.length > 0 && state.competitors.length > 0) {
+    const risk = staff.map((s) => {
+      const market = marketSalaryFor(s.role, s.examScore, week)
+      const underpaid = Math.min(3, Math.max(1, market / s.salary))
+      return { s, chance: COMPETITOR_POACH_BASE_CHANCE * (s.examScore / MAX_SCORE) * underpaid }
+    })
+    const totalChance = Math.min(0.6, risk.reduce((sum, r) => sum + r.chance, 0))
+    if (Math.random() < totalChance) {
+      let roll = Math.random() * risk.reduce((sum, r) => sum + r.chance, 0)
+      let target = risk[0].s
+      for (const r of risk) {
+        roll -= r.chance
+        if (roll <= 0) {
+          target = r.s
+          break
+        }
+      }
+      const attacker = state.competitors[Math.floor(Math.random() * state.competitors.length)]
+      staff = staff.filter((s) => s.id !== target.id)
+      const roleLabel = target.role.charAt(0).toUpperCase() + target.role.slice(1)
+      newEvents.push({
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        text: `${attacker.icon} ${attacker.name} poached your ${roleLabel} ${target.name} (score ${target.examScore}) with a bigger paycheck!`,
+        week,
+      })
+    }
+  }
+
   for (const name of finishedModels) {
     newEvents.push({
       id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -392,7 +423,7 @@ function advanceOneWeek(state: GameState): GameState {
     events = [...newEvents, ...state.events].slice(0, 20)
   }
 
-  const next = { ...state, date, money, researched, researching, models, datacenters, datacenterBuilds, rentedDatacenters, competitors, followers, campaignWeeksLeft, events, trendingHashtag, trendingSetWeek }
+  const next = { ...state, date, money, researched, researching, models, datacenters, datacenterBuilds, rentedDatacenters, competitors, followers, campaignWeeksLeft, events, trendingHashtag, trendingSetWeek, staff }
 
   if (!next.pendingEvent && Math.random() < 0.25) {
     next.pendingEvent = pickRandomEvent(next)

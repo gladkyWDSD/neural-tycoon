@@ -48,6 +48,14 @@ function salaryFor(role: Role, score: number): number {
   return Math.round(base * (0.7 + (score / MAX_SCORE) * 0.8) / 100) * 100
 }
 
+const SALARY_INFLATION_PER_WEEK = 0.008 // rival offers creep up ~0.8%/wk; a fixed salary falls behind over time
+
+// what a rival would offer this staff member today — salaries are locked in at hire time,
+// so the longer someone goes without a raise, the further behind the market they fall
+export function marketSalaryFor(role: Role, score: number, week: number): number {
+  return Math.round(salaryFor(role, score) * (1 + Math.max(0, week) * SALARY_INFLATION_PER_WEEK))
+}
+
 export function generateCandidate(nationality: Nationality, role: Role, minScore: number, maxScore: number): Staff {
   const bias = roleBias(nationality, role)
   const raw = rand(minScore, maxScore)

@@ -79,3 +79,6 @@ export const MAX_OFFICE_LEVEL = 4
 export const CAMPAIGN_DURATION = 4
 export const CAMPAIGN_COOLDOWN = 10
 export const CAMPAIGN_COST = 40000
+
+export const COMPETITOR_POACH_GRACE_WEEKS = 4 // no poaching risk while you're still ramping up
+export const COMPETITOR_POACH_BASE_CHANCE = 0.006 // per-staff weekly base, scaled by score & how underpaid they are
