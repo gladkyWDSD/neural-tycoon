@@ -1,5 +1,35 @@
-import type { AIModel, GameEvent, GameState, PostType, PricingModel, Staff } from './types'
-import { DESKS_PER_LEVEL, CAMPAIGN_COOLDOWN, CAMPAIGN_COST, CAMPAIGN_DURATION, COMPETITOR_POACH_BASE_CHANCE, COMPETITOR_POACH_GRACE_WEEKS, MAX_OFFICE_LEVEL, MAX_SCORE, OFFICE_UPGRADE_BASE_COST, START_DATE, START_MONEY, START_YEAR, WEEKS_PER_YEAR } from './constants'
+import type { AIModel, GameEvent, GameState, PostType, PricingModel, PromoKind, Staff } from './types'
+import {
+  DESKS_PER_LEVEL,
+  CAMPAIGN_COOLDOWN,
+  CAMPAIGN_COST,
+  CAMPAIGN_DURATION,
+  COMPETITOR_POACH_BASE_CHANCE,
+  COMPETITOR_POACH_GRACE_WEEKS,
+  DISCOUNT_COST,
+  DISCOUNT_DURATION,
+  DISCOUNT_GROWTH_MULT,
+  DISCOUNT_REV_MULT,
+  FREE_TRIAL_COST,
+  FREE_TRIAL_DURATION,
+  FREE_TRIAL_GROWTH_MULT,
+  FREE_TRIAL_REV_MULT,
+  HYPE_BOTS_BUST_CHANCE,
+  HYPE_BOTS_COOLDOWN,
+  HYPE_BOTS_COST,
+  HYPE_BOTS_FOLLOWERS,
+  INVESTMENT_COOLDOWN_WEEKS,
+  MAX_OFFICE_LEVEL,
+  MAX_SCORE,
+  OFFICE_UPGRADE_BASE_COST,
+  START_DATE,
+  START_MONEY,
+  START_YEAR,
+  STAFF_TRAINING_COST_PER_POINT,
+  STAFF_TRAINING_SCORE_GAIN,
+  STAFF_TRAINING_WEEKS,
+  WEEKS_PER_YEAR,
+} from './constants'
 import { advanceWeek } from './date'
 import { DATA_TIER_MAP, BOOK_MAP, MODEL_TYPE_MAP, PRICING_MAP, RESEARCH_ITEMS, RESEARCH_MAP } from './research'
 import {
@@ -44,12 +74,15 @@ export function initialState(): GameState {
     paused: false,
     researched: [],
     researching: [],
+    staffTraining: [],
     models: [],
     followers: 0,
     posts: [],
     lastPostWeek: 0,
     trendingHashtag: pickTrendingHashtag(),
     trendingSetWeek: 0,
+    lastHypeBotsWeek: -HYPE_BOTS_COOLDOWN,
+    lastInvestmentWeek: -INVESTMENT_COOLDOWN_WEEKS,
     gpuCards: 0,
     datacenters: 0,
     datacenterBuilds: [],
@@ -91,6 +124,10 @@ export type Action =
   | { type: 'IPO' }
   | { type: 'LAUNCH_CAMPAIGN' }
   | { type: 'BUY_BOOK'; id: string }
+  | { type: 'BUY_HYPE_BOTS' }
+  | { type: 'START_STAFF_TRAINING'; staffId: string }
+  | { type: 'RAISE_INVESTMENT' }
+  | { type: 'START_PROMO'; modelId: string; kind: PromoKind }
   | { type: 'SET_GPU'; count: number }
   | { type: 'SET_DATACENTERS'; count: number }
   | { type: 'SET_WEEK'; week: number }
@@ -143,10 +180,13 @@ export function migrateState(raw: Partial<GameState>): GameState {
     staff: raw.staff ?? base.staff,
     models,
     researching,
+    staffTraining: raw.staffTraining ?? [],
     competitors: (raw.competitors ?? base.competitors).map((c) => ({ ...c, followers: c.followers ?? 100000 })),
     events: raw.events ?? base.events,
     trendingHashtag: raw.trendingHashtag ?? base.trendingHashtag,
     trendingSetWeek: raw.trendingSetWeek ?? 0,
+    lastHypeBotsWeek: raw.lastHypeBotsWeek ?? -HYPE_BOTS_COOLDOWN,
+    lastInvestmentWeek: raw.lastInvestmentWeek ?? -INVESTMENT_COOLDOWN_WEEKS,
     rentedDatacenters: raw.rentedDatacenters ?? 0,
     ram: raw.ram ?? 0,
     ssd: raw.ssd ?? 0,
@@ -170,6 +210,11 @@ function computeQuality(state: GameState, gpus: number, dataTier?: string): numb
   const realization = 0.5 + avgEngineer / 400
   const q = ceiling * realization * factor + techBonus + dataQuality + ssdQualityBonus(state.ssd) + booksBonus
   return Math.max(0, Math.min(100, Math.round(q)))
+}
+
+export function investmentRaiseAmount(state: GameState): number {
+  const totalCustomers = state.models.reduce((sum, m) => sum + (m.status === 'published' ? m.customers : 0), 0)
+  return Math.round(300000 + totalCustomers * 10 + state.followers * 20 + state.researched.length * 50000)
 }
 
 export function companyEfficiency(state: GameState): number {
@@ -256,6 +301,30 @@ function advanceOneWeek(state: GameState): GameState {
   }
   researching = stillResearching
 
+  // staff training progress — same shape as research, but levels up a person instead of the company
+  let staffTraining = state.staffTraining
+  const stillTraining: typeof staffTraining = []
+  const trainedNow: { staffId: string; scoreGain: number }[] = []
+  for (const tp of staffTraining) {
+    const next = { ...tp, weeksRemaining: tp.weeksRemaining - 1 }
+    if (next.weeksRemaining <= 0) {
+      trainedNow.push({ staffId: tp.staffId, scoreGain: tp.scoreGain })
+    } else {
+      stillTraining.push(next)
+    }
+  }
+  staffTraining = stillTraining
+  const trainedDescriptions: string[] = []
+  if (trainedNow.length > 0) {
+    staff = staff.map((s) => {
+      const t = trainedNow.find((x) => x.staffId === s.id)
+      if (!t) return s
+      const newScore = Math.min(MAX_SCORE, s.examScore + t.scoreGain)
+      trainedDescriptions.push(`${s.name} (now ${newScore})`)
+      return { ...s, examScore: newScore }
+    })
+  }
+
   const week = (date.year - START_YEAR) * WEEKS_PER_YEAR + date.week
 
   let trendingHashtag = state.trendingHashtag
@@ -299,6 +368,7 @@ function advanceOneWeek(state: GameState): GameState {
 
   // models
   const finishedModels: string[] = []
+  const promoEndedModels: string[] = []
   models = models.map((m) => {
     if (m.status === 'training') {
       const weeksRemaining = m.weeksRemaining - 1
@@ -315,6 +385,8 @@ function advanceOneWeek(state: GameState): GameState {
       const marketers = state.staff.filter((s) => s.role === 'marketer').length
       const sat = marketSaturation(m.typeId, week, playerCustomersIn(m.typeId), state.competitors)
       const campaignMult = state.campaignWeeksLeft > 0 ? 2 : 1
+      const promoGrowthMult = m.promo === 'discount' ? DISCOUNT_GROWTH_MULT : m.promo === 'free' ? FREE_TRIAL_GROWTH_MULT : 1
+      const promoRevMult = m.promo === 'discount' ? DISCOUNT_REV_MULT : m.promo === 'free' ? FREE_TRIAL_REV_MULT : 1
       const growth = Math.round(
         type.growthBase *
           (m.quality / 100) *
@@ -322,14 +394,25 @@ function advanceOneWeek(state: GameState): GameState {
           (1 + marketers * 0.2) *
           followerBoost(state.followers) *
           sat *
-          campaignMult,
+          campaignMult *
+          promoGrowthMult,
       )
       const customers = m.customers + growth
-      money += customers * pricing.revPerCustomerPerWeek
+      money += customers * pricing.revPerCustomerPerWeek * promoRevMult
       if (m.pricing === 'opensource') {
         followers += Math.round(customers * 0.005)
       }
-      return { ...m, customers }
+      let promo = m.promo
+      let promoWeeksLeft = m.promoWeeksLeft
+      if (promo && promoWeeksLeft != null) {
+        promoWeeksLeft -= 1
+        if (promoWeeksLeft <= 0) {
+          promoEndedModels.push(m.name)
+          promo = undefined
+          promoWeeksLeft = undefined
+        }
+      }
+      return { ...m, customers, promo, promoWeeksLeft }
     }
     return m
   })
@@ -372,6 +455,22 @@ function advanceOneWeek(state: GameState): GameState {
     newEvents.push({
       id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       text: `🎉 ${name} finished training! Publish it to start earning.`,
+      week,
+    })
+  }
+
+  for (const desc of trainedDescriptions) {
+    newEvents.push({
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      text: `🎓 Training complete: ${desc}!`,
+      week,
+    })
+  }
+
+  for (const name of promoEndedModels) {
+    newEvents.push({
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      text: `⏳ The promo for ${name} has ended — pricing is back to normal.`,
       week,
     })
   }
@@ -423,7 +522,7 @@ function advanceOneWeek(state: GameState): GameState {
     events = [...newEvents, ...state.events].slice(0, 20)
   }
 
-  const next = { ...state, date, money, researched, researching, models, datacenters, datacenterBuilds, rentedDatacenters, competitors, followers, campaignWeeksLeft, events, trendingHashtag, trendingSetWeek, staff }
+  const next = { ...state, date, money, researched, researching, staffTraining, models, datacenters, datacenterBuilds, rentedDatacenters, competitors, followers, campaignWeeksLeft, events, trendingHashtag, trendingSetWeek, staff }
 
   if (!next.pendingEvent && Math.random() < 0.25) {
     next.pendingEvent = pickRandomEvent(next)
@@ -581,6 +680,82 @@ export function reducer(state: GameState, action: Action): GameState {
       if (!book || state.books.includes(action.id)) return state
       if (state.money < book.cost) return state
       return { ...state, money: state.money - book.cost, books: [...state.books, action.id] }
+    }
+    case 'BUY_HYPE_BOTS': {
+      const week = globalWeek(state)
+      if (week - state.lastHypeBotsWeek < HYPE_BOTS_COOLDOWN) return state
+      if (state.money < HYPE_BOTS_COST) return state
+      const busted = Math.random() < HYPE_BOTS_BUST_CHANCE
+      let followers = state.followers
+      let text: string
+      if (busted) {
+        const lost = Math.round(HYPE_BOTS_FOLLOWERS * 0.4)
+        followers = Math.max(0, followers - lost)
+        text = `🤖 Your bot army got called out! You lost ${lost.toLocaleString()} followers.`
+      } else {
+        const gained = Math.round(HYPE_BOTS_FOLLOWERS * (0.8 + Math.random() * 0.4))
+        followers += gained
+        text = `🤖 Bought a wave of hype bots! +${gained.toLocaleString()} followers.`
+      }
+      const events = [
+        { id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, text, week },
+        ...state.events,
+      ].slice(0, 20)
+      return { ...state, money: state.money - HYPE_BOTS_COST, followers, lastHypeBotsWeek: week, events }
+    }
+    case 'START_STAFF_TRAINING': {
+      const s = state.staff.find((x) => x.id === action.staffId)
+      if (!s || s.examScore >= MAX_SCORE) return state
+      if (state.staffTraining.some((t) => t.staffId === action.staffId)) return state
+      const cost = STAFF_TRAINING_SCORE_GAIN * STAFF_TRAINING_COST_PER_POINT
+      if (state.money < cost) return state
+      return {
+        ...state,
+        money: state.money - cost,
+        staffTraining: [
+          ...state.staffTraining,
+          {
+            staffId: s.id,
+            weeksRemaining: STAFF_TRAINING_WEEKS,
+            totalWeeks: STAFF_TRAINING_WEEKS,
+            scoreGain: Math.min(STAFF_TRAINING_SCORE_GAIN, MAX_SCORE - s.examScore),
+          },
+        ],
+      }
+    }
+    case 'RAISE_INVESTMENT': {
+      const week = globalWeek(state)
+      if (week - state.lastInvestmentWeek < INVESTMENT_COOLDOWN_WEEKS) return state
+      const raise = investmentRaiseAmount(state)
+      const events = [
+        {
+          id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          text: `💰 Closed a funding round: +$${raise.toLocaleString()}.`,
+          week,
+        },
+        ...state.events,
+      ].slice(0, 20)
+      return { ...state, money: state.money + raise, lastInvestmentWeek: week, events }
+    }
+    case 'START_PROMO': {
+      const model = state.models.find((m) => m.id === action.modelId)
+      if (!model || model.status !== 'published' || model.promo) return state
+      const cost = action.kind === 'discount' ? DISCOUNT_COST : FREE_TRIAL_COST
+      if (state.money < cost) return state
+      const duration = action.kind === 'discount' ? DISCOUNT_DURATION : FREE_TRIAL_DURATION
+      const models = state.models.map((m) =>
+        m.id === action.modelId ? { ...m, promo: action.kind, promoWeeksLeft: duration } : m,
+      )
+      const label = action.kind === 'discount' ? 'a discount' : 'a free-access reset'
+      const events = [
+        {
+          id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          text: `${action.kind === 'discount' ? '🏷️' : '🎁'} Launched ${label} for ${model.name}!`,
+          week: globalWeek(state),
+        },
+        ...state.events,
+      ].slice(0, 20)
+      return { ...state, money: state.money - cost, models, events }
     }
     case 'SET_GPU':
       return { ...state, gpuCards: Math.max(0, action.count) }

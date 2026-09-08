@@ -2,7 +2,7 @@ import { useState } from 'react'
 import type { GameState, PostType } from '../game/types'
 import { POST_TYPES, POST_TYPE_MAP, followerBoost } from '../game/social'
 import { globalWeek } from '../game/state'
-import { CAMPAIGN_COOLDOWN, CAMPAIGN_COST } from '../game/constants'
+import { CAMPAIGN_COOLDOWN, CAMPAIGN_COST, HYPE_BOTS_COOLDOWN, HYPE_BOTS_COST } from '../game/constants'
 import './Game.css'
 
 interface Props {
@@ -10,10 +10,11 @@ interface Props {
   onPost: (text: string, type: PostType) => void
   onSmear: (competitorId: string) => void
   onLaunchCampaign: () => void
+  onBuyHypeBots: () => void
   onClose: () => void
 }
 
-export function TwitterPanel({ state, onPost, onSmear, onLaunchCampaign, onClose }: Props) {
+export function TwitterPanel({ state, onPost, onSmear, onLaunchCampaign, onBuyHypeBots, onClose }: Props) {
   const [text, setText] = useState('')
   const [postType, setPostType] = useState<PostType>('announcement')
 
@@ -25,6 +26,9 @@ export function TwitterPanel({ state, onPost, onSmear, onLaunchCampaign, onClose
   const campaignActive = state.campaignWeeksLeft > 0
   const weeksSinceCampaign = currentWeek - state.lastCampaignWeek
   const campaignReady = hasMarketer && !campaignActive && weeksSinceCampaign >= CAMPAIGN_COOLDOWN
+
+  const weeksSinceHypeBots = currentWeek - state.lastHypeBotsWeek
+  const hypeBotsReady = weeksSinceHypeBots >= HYPE_BOTS_COOLDOWN
 
   function post() {
     if (!text.trim() || onCooldown) return
@@ -104,6 +108,24 @@ export function TwitterPanel({ state, onPost, onSmear, onLaunchCampaign, onClose
               </button>
             </div>
           ))}
+        </div>
+      </div>
+
+      <div className="smear-section">
+        <h4 className="model-list-title">🤖 Hype Bots</h4>
+        <div className="smear-row">
+          <span className="smear-name">
+            {hypeBotsReady
+              ? 'Buy a wave of bot followers — risky, might backfire'
+              : `Cooldown: ${HYPE_BOTS_COOLDOWN - weeksSinceHypeBots}wk`}
+          </span>
+          <button
+            className="hire-btn"
+            disabled={!hypeBotsReady || state.money < HYPE_BOTS_COST}
+            onClick={onBuyHypeBots}
+          >
+            Buy (${(HYPE_BOTS_COST / 1000).toFixed(0)}k)
+          </button>
         </div>
       </div>
 

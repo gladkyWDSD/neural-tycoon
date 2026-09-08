@@ -1,8 +1,8 @@
 import { useState } from 'react'
-import type { AIModel, GameState, PricingModel } from '../game/types'
+import type { AIModel, GameState, PricingModel, PromoKind } from '../game/types'
 import { MODEL_TYPES, PRICING_MODELS, DATA_TIERS, BOOKS, weeklyRevenue } from '../game/research'
 import { activeCards, gpuQualityFactor, trainDuration, ssdQualityBonus } from '../game/gpu'
-import { DEFAULT_AI_NAMES } from '../game/constants'
+import { DEFAULT_AI_NAMES, DISCOUNT_COST, DISCOUNT_DURATION, FREE_TRIAL_COST, FREE_TRIAL_DURATION } from '../game/constants'
 import { validateCompanyName } from '../game/profanity'
 import './Game.css'
 
@@ -10,6 +10,7 @@ interface Props {
   state: GameState
   onStartModel: (model: AIModel) => void
   onPublish: (id: string, pricing: PricingModel) => void
+  onStartPromo: (id: string, kind: PromoKind) => void
   onBuyBook: (id: string) => void
   onClose: () => void
 }
@@ -20,7 +21,17 @@ function isTypeUnlocked(typeId: string, researched: string[]): boolean {
   return type.requires.every((r) => researched.includes(r))
 }
 
-function ModelRow({ model, onPublish }: { model: AIModel; onPublish: (id: string, pricing: PricingModel) => void }) {
+function ModelRow({
+  model,
+  money,
+  onPublish,
+  onStartPromo,
+}: {
+  model: AIModel
+  money: number
+  onPublish: (id: string, pricing: PricingModel) => void
+  onStartPromo: (id: string, kind: PromoKind) => void
+}) {
   const [pricing, setPricing] = useState<PricingModel>('subscription')
   const t = MODEL_TYPES.find((x) => x.id === model.typeId)
   const rev = weeklyRevenue(model)
@@ -68,11 +79,40 @@ function ModelRow({ model, onPublish }: { model: AIModel; onPublish: (id: string
           {model.customers.toLocaleString()} customers · ${rev.toLocaleString()}/wk
         </div>
       )}
+
+      {model.status === 'published' && (
+        <div className="publish-row">
+          {model.promo ? (
+            <span className="model-meta">
+              {model.promo === 'discount' ? '🏷️ Discount' : '🎁 Free access'} active — {model.promoWeeksLeft}wk left
+            </span>
+          ) : (
+            <>
+              <button
+                className="hire-btn"
+                disabled={money < DISCOUNT_COST}
+                title={`Discount: ${DISCOUNT_DURATION}wk of faster growth at lower revenue per customer`}
+                onClick={() => onStartPromo(model.id, 'discount')}
+              >
+                🏷️ Discount (${(DISCOUNT_COST / 1000).toFixed(0)}k)
+              </button>
+              <button
+                className="hire-btn"
+                disabled={money < FREE_TRIAL_COST}
+                title={`Free access reset: ${FREE_TRIAL_DURATION}wk of a huge customer surge with $0 revenue`}
+                onClick={() => onStartPromo(model.id, 'free')}
+              >
+                🎁 Free Reset (${(FREE_TRIAL_COST / 1000).toFixed(0)}k)
+              </button>
+            </>
+          )}
+        </div>
+      )}
     </div>
   )
 }
 
-export function BuildPanel({ state, onStartModel, onPublish, onBuyBook, onClose }: Props) {
+export function BuildPanel({ state, onStartModel, onPublish, onStartPromo, onBuyBook, onClose }: Props) {
   const unlockedTypes = MODEL_TYPES.filter((t) => isTypeUnlocked(t.id, state.researched))
   const maxGpus = activeCards(state)
   const [typeId, setTypeId] = useState(unlockedTypes[0]?.id ?? '')
@@ -274,7 +314,7 @@ export function BuildPanel({ state, onStartModel, onPublish, onBuyBook, onClose 
         <div className="model-list">
           <h4 className="model-list-title">Your AI Models</h4>
           {state.models.map((m) => (
-            <ModelRow key={m.id} model={m} onPublish={onPublish} />
+            <ModelRow key={m.id} model={m} money={state.money} onPublish={onPublish} onStartPromo={onStartPromo} />
           ))}
         </div>
       )}

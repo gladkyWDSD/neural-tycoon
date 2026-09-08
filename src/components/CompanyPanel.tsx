@@ -1,16 +1,17 @@
 import type { GameState } from '../game/types'
-import { DESKS_PER_LEVEL, MAX_OFFICE_LEVEL, OFFICE_UPGRADE_BASE_COST } from '../game/constants'
-import { maxStaff } from '../game/state'
+import { DESKS_PER_LEVEL, INVESTMENT_COOLDOWN_WEEKS, MAX_OFFICE_LEVEL, OFFICE_UPGRADE_BASE_COST } from '../game/constants'
+import { globalWeek, investmentRaiseAmount, maxStaff } from '../game/state'
 import './Game.css'
 
 interface Props {
   state: GameState
   onUpgradeOffice: () => void
   onIpo: () => void
+  onRaiseInvestment: () => void
   onClose: () => void
 }
 
-export function CompanyPanel({ state, onUpgradeOffice, onIpo, onClose }: Props) {
+export function CompanyPanel({ state, onUpgradeOffice, onIpo, onRaiseInvestment, onClose }: Props) {
   const staffCount = state.staff.length
   const max = maxStaff(state)
   const maxed = state.officeLevel >= MAX_OFFICE_LEVEL
@@ -21,6 +22,11 @@ export function CompanyPanel({ state, onUpgradeOffice, onIpo, onClose }: Props) 
   )
   const canIpo = !state.isPublic && totalCustomers >= 250000
   const ipoValue = totalCustomers * 15
+
+  const currentWeek = globalWeek(state)
+  const weeksSinceInvestment = currentWeek - state.lastInvestmentWeek
+  const investmentReady = weeksSinceInvestment >= INVESTMENT_COOLDOWN_WEEKS
+  const investmentValue = investmentRaiseAmount(state)
 
   return (
     <div className="panel">
@@ -84,6 +90,17 @@ export function CompanyPanel({ state, onUpgradeOffice, onIpo, onClose }: Props) 
               IPO unlocks at 250,000 customers (now {totalCustomers.toLocaleString()}).
             </p>
           )}
+        </div>
+
+        <div className="office-upgrade">
+          <p className="placeholder">
+            {investmentReady
+              ? `Raise a funding round: +$${investmentValue.toLocaleString()}.`
+              : `Investors need time — ready in ${INVESTMENT_COOLDOWN_WEEKS - weeksSinceInvestment}wk.`}
+          </p>
+          <button className="big-button" disabled={!investmentReady} onClick={onRaiseInvestment}>
+            💰 Raise Investment
+          </button>
         </div>
       </div>
     </div>

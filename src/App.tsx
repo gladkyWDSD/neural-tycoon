@@ -72,6 +72,10 @@ export default function App() {
           onIpo={() => dispatch({ type: 'IPO' })}
           onLaunchCampaign={() => dispatch({ type: 'LAUNCH_CAMPAIGN' })}
           onBuyBook={(id) => dispatch({ type: 'BUY_BOOK', id })}
+          onBuyHypeBots={() => dispatch({ type: 'BUY_HYPE_BOTS' })}
+          onStartTraining={(staffId) => dispatch({ type: 'START_STAFF_TRAINING', staffId })}
+          onRaiseInvestment={() => dispatch({ type: 'RAISE_INVESTMENT' })}
+          onStartPromo={(id, kind) => dispatch({ type: 'START_PROMO', modelId: id, kind })}
         />
       )}
       <DevConsole onCommand={runCommand} />

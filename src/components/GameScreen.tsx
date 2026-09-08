@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { AIModel, GameState, PostType, PricingModel, Staff } from '../game/types'
+import type { AIModel, GameState, PostType, PricingModel, PromoKind, Staff } from '../game/types'
 import { TopBar } from './TopBar'
 import { OfficeView } from './OfficeView'
 import { HirePanel } from './HirePanel'
@@ -42,6 +42,10 @@ interface Props {
   onIpo: () => void
   onLaunchCampaign: () => void
   onBuyBook: (id: string) => void
+  onBuyHypeBots: () => void
+  onStartTraining: (staffId: string) => void
+  onRaiseInvestment: () => void
+  onStartPromo: (id: string, kind: PromoKind) => void
 }
 
 export function GameScreen({
@@ -63,6 +67,10 @@ export function GameScreen({
   onIpo,
   onLaunchCampaign,
   onBuyBook,
+  onBuyHypeBots,
+  onStartTraining,
+  onRaiseInvestment,
+  onStartPromo,
 }: Props) {
   const [panel, setPanel] = useState<PanelId>(null)
 
@@ -113,7 +121,7 @@ export function GameScreen({
         </div>
 
         {panel === 'hire' && (
-          <HirePanel state={state} onHire={onHire} onClose={() => setPanel(null)} />
+          <HirePanel state={state} onHire={onHire} onStartTraining={onStartTraining} onClose={() => setPanel(null)} />
         )}
         {panel === 'research' && (
           <ResearchPanel state={state} onStartResearch={onStartResearch} onClose={() => setPanel(null)} />
@@ -123,6 +131,7 @@ export function GameScreen({
             state={state}
             onStartModel={onStartModel}
             onPublish={onPublish}
+            onStartPromo={onStartPromo}
             onBuyBook={onBuyBook}
             onClose={() => setPanel(null)}
           />
@@ -133,6 +142,7 @@ export function GameScreen({
             onPost={onPost}
             onSmear={onSmear}
             onLaunchCampaign={onLaunchCampaign}
+            onBuyHypeBots={onBuyHypeBots}
             onClose={() => setPanel(null)}
           />
         )}
@@ -155,6 +165,7 @@ export function GameScreen({
             state={state}
             onUpgradeOffice={onUpgradeOffice}
             onIpo={onIpo}
+            onRaiseInvestment={onRaiseInvestment}
             onClose={() => setPanel(null)}
           />
         )}

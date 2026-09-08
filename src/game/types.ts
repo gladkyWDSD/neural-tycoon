@@ -35,6 +35,15 @@ export interface ResearchProgress {
   totalWeeks: number
 }
 
+export interface StaffTraining {
+  staffId: string
+  weeksRemaining: number
+  totalWeeks: number
+  scoreGain: number
+}
+
+export type PromoKind = 'discount' | 'free'
+
 export interface ModelType {
   id: string
   name: string
@@ -71,6 +80,8 @@ export interface AIModel {
   customers: number
   pricing?: PricingModel
   dataTier?: string
+  promo?: PromoKind
+  promoWeeksLeft?: number
 }
 
 export interface CompetitorModel {
@@ -132,12 +143,15 @@ export interface GameState {
   paused: boolean
   researched: string[]
   researching: ResearchProgress[]
+  staffTraining: StaffTraining[]
   models: AIModel[]
   followers: number
   posts: Post[]
   lastPostWeek: number
   trendingHashtag: string
   trendingSetWeek: number
+  lastHypeBotsWeek: number
+  lastInvestmentWeek: number
   gpuCards: number
   datacenters: number
   datacenterBuilds: number[]
