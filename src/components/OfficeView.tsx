@@ -128,31 +128,42 @@ function drawDeskProp(ctx: CanvasRenderingContext2D, dx: number, dy: number, rol
   }
 }
 
-function drawCharacter(ctx: CanvasRenderingContext2D, staff: Staff, x: number, y: number) {
-  const c = colors(staff)
+const BOB_PERIOD = 900 // ms per up/down step
+const BLINK_PERIOD = 3200 // ms between blinks
+const BLINK_DURATION = 120 // ms eyes stay shut
 
+function drawCharacter(ctx: CanvasRenderingContext2D, staff: Staff, x: number, y: number, now: number) {
+  const c = colors(staff)
+  const phase = hash(staff.id) % 1000
+
+  // idle bob: hop up one pixel on a staggered cycle so staff don't move in sync
+  const bobT = (now + phase) % BOB_PERIOD
+  const by = y - (bobT < BOB_PERIOD / 2 ? 0 : 1)
+
+  // shadow stays on the floor — only the body hops
   ctx.fillStyle = 'rgba(0,0,0,0.25)'
   ctx.fillRect(x, y + 13, 8, 1)
 
   ctx.fillStyle = '#2a2d3a'
-  ctx.fillRect(x + 1, y + 11, 2, 3)
-  ctx.fillRect(x + 5, y + 11, 2, 3)
+  ctx.fillRect(x + 1, by + 11, 2, 3)
+  ctx.fillRect(x + 5, by + 11, 2, 3)
 
   ctx.fillStyle = c.shirt
-  ctx.fillRect(x + 1, y + 5, 6, 6)
+  ctx.fillRect(x + 1, by + 5, 6, 6)
 
   ctx.fillStyle = c.skin
-  ctx.fillRect(x, y + 5, 1, 4)
-  ctx.fillRect(x + 7, y + 5, 1, 4)
+  ctx.fillRect(x, by + 5, 1, 4)
+  ctx.fillRect(x + 7, by + 5, 1, 4)
 
   ctx.fillStyle = c.skin
-  ctx.fillRect(x + 2, y, 4, 5)
+  ctx.fillRect(x + 2, by, 4, 5)
   ctx.fillStyle = c.hair
-  ctx.fillRect(x + 2, y, 4, 2)
+  ctx.fillRect(x + 2, by, 4, 2)
 
-  ctx.fillStyle = '#1a1c25'
-  ctx.fillRect(x + 3, y + 2, 1, 1)
-  ctx.fillRect(x + 5, y + 2, 1, 1)
+  const blinking = (now + phase * 3) % BLINK_PERIOD < BLINK_DURATION
+  ctx.fillStyle = blinking ? c.skin : '#1a1c25'
+  ctx.fillRect(x + 3, by + 2, 1, 1)
+  ctx.fillRect(x + 5, by + 2, 1, 1)
 }
 
 function drawParticle(ctx: CanvasRenderingContext2D, x: number, y: number, kind: WorkKind) {
@@ -249,7 +260,7 @@ export function OfficeView({
       ctx.fillRect(x + f - 1, y, 1, h)
     }
 
-    const drawScene = () => {
+    const drawScene = (now: number) => {
       for (let row = 1; row < ROWS - 1; row++) {
         for (let col = 1; col < COLS - 1; col++) {
           ctx.fillStyle = (row + col) % 2 === 0 ? FLOOR_A : FLOOR_B
@@ -275,7 +286,7 @@ export function OfficeView({
 
       staff.forEach((s, i) => {
         const p = staffPosition(i, deskList)
-        drawCharacter(ctx, s, p.x, p.y)
+        drawCharacter(ctx, s, p.x, p.y, now)
       })
 
       for (let i = 0; i < deskList.length; i++) {
@@ -300,7 +311,7 @@ export function OfficeView({
       }
     }
 
-    drawScene()
+    drawScene(performance.now())
 
     let raf = 0
     let last = performance.now()
@@ -352,7 +363,7 @@ export function OfficeView({
       for (const f of flashes.current) f.t += dt
       flashes.current = flashes.current.filter((f) => f.t < 0.4)
 
-      drawScene()
+      drawScene(now)
       raf = requestAnimationFrame(loop)
     }
 
