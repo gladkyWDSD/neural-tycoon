@@ -4,6 +4,7 @@ import {
   CAMPAIGN_COOLDOWN,
   CAMPAIGN_COST,
   CAMPAIGN_DURATION,
+  COMPETITOR_BOT_CHANCE,
   COMPETITOR_POACH_BASE_CHANCE,
   COMPETITOR_POACH_GRACE_WEEKS,
   DISCOUNT_COST,
@@ -366,6 +367,16 @@ function advanceOneWeek(state: GameState): GameState {
     releaseEvent = `${c.icon} ${c.name} released a new model: ${newModel.name} (quality ${newModel.quality})!`
   }
 
+  // competitors occasionally buy their own wave of hype bots
+  let competitorBotEvent: string | null = null
+  if (Math.random() < COMPETITOR_BOT_CHANCE) {
+    const idx = Math.floor(Math.random() * competitors.length)
+    const c = competitors[idx]
+    const gained = Math.round(c.followers * (0.02 + Math.random() * 0.04)) + 500
+    competitors = competitors.map((cc, i) => (i === idx ? { ...cc, followers: cc.followers + gained } : cc))
+    competitorBotEvent = `${c.icon} ${c.name} bought a wave of hype bots! +${gained.toLocaleString()} followers.`
+  }
+
   // models
   const finishedModels: string[] = []
   const promoEndedModels: string[] = []
@@ -491,7 +502,16 @@ function advanceOneWeek(state: GameState): GameState {
     })
   }
 
-  if (Math.random() < 0.4) {
+  if (competitorBotEvent) {
+    newEvents.push({
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      text: competitorBotEvent,
+      week,
+    })
+  }
+
+  // always show at least one bit of flavor news each week, even if nothing else happened
+  if (Math.random() < 0.4 || newEvents.length === 0) {
     newEvents.push({
       id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       text: FLAVOR_NEWS[Math.floor(Math.random() * FLAVOR_NEWS.length)],

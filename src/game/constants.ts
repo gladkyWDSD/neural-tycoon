@@ -88,6 +88,8 @@ export const HYPE_BOTS_FOLLOWERS = 1500
 export const HYPE_BOTS_COOLDOWN = 3 // weeks
 export const HYPE_BOTS_BUST_CHANCE = 0.25 // chance the bots get called out instead of boosting you
 
+export const COMPETITOR_BOT_CHANCE = 0.15 // weekly chance a rival buys their own wave of hype bots
+
 export const STAFF_TRAINING_WEEKS = 3
 export const STAFF_TRAINING_SCORE_GAIN = 8
 export const STAFF_TRAINING_COST_PER_POINT = 4000
