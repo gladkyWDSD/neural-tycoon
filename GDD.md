@@ -45,6 +45,21 @@ Currency is dollars (`$`).
 - API usage (per token/call) for enterprise customers
 - Higher usage = more revenue
 
+### Promos & Trial Users
+
+A published model can run one promo at a time. While it is active, **new signups arrive as trial
+users** held separately from paying customers; existing paying customers keep paying full price
+the whole time.
+
+| Promo | Duration | Cost | Growth | Trial users pay | Convert when it ends |
+|---|---|---|---|---|---|
+| 🏷️ Discount | 3wk | $5k | ×1.6 | 60% of normal | **75%** |
+| 🎁 Free access | 2wk | $15k | ×2.6 | nothing | **50%** |
+
+When the promo ends, that share of the trial crowd becomes paying customers and the rest churns
+away. Trial users count toward market saturation and the user totals shown in the top bar, but
+**not** toward the 250k paying customers an IPO needs.
+
 ---
 
 ## 4. Talent
@@ -163,6 +178,20 @@ Time advances week-by-week. Tech eras unlock new capabilities:
 2. **Research Tech Tree** — unlocks architectures & techniques over eras.
 3. **Competitors** — rival AI companies race you for usage share (later).
 4. **Events / Choices** — safety vs. speed, data scandals, talent poaching (later).
+
+### Rival Dirty Tricks
+
+Rivals get the same weapons the player does. Besides buying hype bots and poaching staff, from
+**week 9** onward they can unleash a bot army on you:
+
+- **8%/wk** base chance, **−1.5% per marketer** you employ (they moderate your community), floored
+  at **1%** — a big marketing team suppresses it but never stops it.
+- **75%** of the time it lands: you lose 4–10% of your followers and half that share of every
+  published model's customers (trial users included).
+- **25%** of the time the swarm is traced back to them: they lose 4–10% of their followers and 30%
+  of that flows to you as sympathy followers.
+
+The current risk is shown in the Ads panel, which is also where you launch your own swarms.
 
 ---
 

@@ -78,6 +78,7 @@ export interface AIModel {
   totalWeeks: number
   gpus: number
   customers: number
+  freeCustomers: number // trial users signed up during a promo; they convert or churn when it ends
   pricing?: PricingModel
   dataTier?: string
   promo?: PromoKind

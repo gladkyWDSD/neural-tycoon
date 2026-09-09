@@ -1,3 +1,4 @@
+import { DISCOUNT_REV_MULT, FREE_TRIAL_REV_MULT } from './constants'
 import type { AIModel, ModelType, PricingModel, ResearchItem } from './types'
 
 export interface PricingInfo {
@@ -83,7 +84,10 @@ export const BOOK_MAP: Record<string, Book> = Object.fromEntries(
 
 export function weeklyRevenue(model: AIModel): number {
   if (model.status !== 'published' || !model.pricing) return 0
-  return Math.round(model.customers * PRICING_MAP[model.pricing].revPerCustomerPerWeek)
+  const rate = PRICING_MAP[model.pricing].revPerCustomerPerWeek
+  // trial users pay the promo rate — nothing at all during a free-access reset
+  const trialRate = model.promo === 'discount' ? DISCOUNT_REV_MULT : model.promo === 'free' ? FREE_TRIAL_REV_MULT : 1
+  return Math.round(model.customers * rate + model.freeCustomers * rate * trialRate)
 }
 
 export const RESEARCH_ITEMS: ResearchItem[] = [

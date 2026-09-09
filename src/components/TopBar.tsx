@@ -11,7 +11,8 @@ interface Props {
 }
 
 export function TopBar({ state, musicOn, onToggleMusic, onTogglePause }: Props) {
-  const totalCustomers = state.models.reduce((sum, m) => sum + m.customers, 0)
+  // trial users count as users of your AI, even while they pay nothing
+  const totalCustomers = state.models.reduce((sum, m) => sum + m.customers + m.freeCustomers, 0)
   const weeklyRev = state.models.reduce((sum, m) => sum + weeklyRevenue(m), 0)
 
   return (

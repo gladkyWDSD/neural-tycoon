@@ -12,7 +12,7 @@ interface Props {
 export function CompetitorsPanel({ state, onPoach, onClose }: Props) {
   const week = globalWeek(state)
   const playerCustomers = state.models.reduce(
-    (sum, m) => sum + (m.status === 'published' ? m.customers : 0),
+    (sum, m) => sum + (m.status === 'published' ? m.customers + m.freeCustomers : 0),
     0,
   )
 

@@ -8,7 +8,12 @@ import {
   BOT_ATTACK_BACKFIRE_CHANCE,
   BOT_ATTACK_COOLDOWN,
   BOT_ATTACK_COST,
+  COMPETITOR_BOT_ATTACK_CHANCE,
+  COMPETITOR_BOT_ATTACK_GRACE_WEEKS,
   COMPETITOR_BOT_CHANCE,
+  COMPETITOR_BOT_MARKETER_DEFENSE,
+  COMPETITOR_BOT_MIN_CHANCE,
+  COMPETITOR_BOT_TRACE_CHANCE,
   COMPETITOR_POACH_BASE_CHANCE,
   COMPETITOR_POACH_GRACE_WEEKS,
   HACKER_CAUGHT_CHANCE,
@@ -18,10 +23,12 @@ import {
   HACKER_QUALITY_DAMAGE,
   JOURNALIST_COOLDOWN,
   JOURNALIST_COST,
+  DISCOUNT_CONVERSION,
   DISCOUNT_COST,
   DISCOUNT_DURATION,
   DISCOUNT_GROWTH_MULT,
   DISCOUNT_REV_MULT,
+  FREE_TRIAL_CONVERSION,
   FREE_TRIAL_COST,
   FREE_TRIAL_DURATION,
   FREE_TRIAL_GROWTH_MULT,
@@ -215,6 +222,7 @@ export function migrateState(raw: Partial<GameState>): GameState {
       ...m,
       gpus: old.gpus ?? 4,
       customers: old.customers ?? 0,
+      freeCustomers: old.freeCustomers ?? 0,
       pricing: old.pricing,
       totalWeeks: old.totalWeeks ?? old.weeksRemaining ?? 6,
     }
@@ -428,7 +436,7 @@ function advanceOneWeek(state: GameState): GameState {
 
   function playerCustomersIn(typeId: string): number {
     return state.models.reduce(
-      (sum, m) => sum + (m.status === 'published' && m.typeId === typeId ? m.customers : 0),
+      (sum, m) => sum + (m.status === 'published' && m.typeId === typeId ? m.customers + m.freeCustomers : 0),
       0,
     )
   }
@@ -470,14 +478,14 @@ function advanceOneWeek(state: GameState): GameState {
 
   // models
   const finishedModels: string[] = []
-  const promoEndedModels: string[] = []
+  const promoEndedModels: { name: string; converted: number; churned: number }[] = []
   models = models.map((m) => {
     if (m.status === 'training') {
       const weeksRemaining = m.weeksRemaining - 1
       if (weeksRemaining <= 0) {
         finishedModels.push(m.name)
         const quality = computeQuality(state, m.gpus, m.dataTier, m.distillQuality)
-        return { ...m, status: 'ready', weeksRemaining: 0, customers: 0, quality }
+        return { ...m, status: 'ready', weeksRemaining: 0, customers: 0, freeCustomers: 0, quality }
       }
       return { ...m, weeksRemaining }
     }
@@ -488,7 +496,6 @@ function advanceOneWeek(state: GameState): GameState {
       const sat = marketSaturation(m.typeId, week, playerCustomersIn(m.typeId), state.competitors)
       const campaignMult = state.campaignWeeksLeft > 0 ? 2 : 1
       const promoGrowthMult = m.promo === 'discount' ? DISCOUNT_GROWTH_MULT : m.promo === 'free' ? FREE_TRIAL_GROWTH_MULT : 1
-      const promoRevMult = m.promo === 'discount' ? DISCOUNT_REV_MULT : m.promo === 'free' ? FREE_TRIAL_REV_MULT : 1
       const growth = Math.round(
         type.growthBase *
           (m.quality / 100) *
@@ -499,29 +506,104 @@ function advanceOneWeek(state: GameState): GameState {
           campaignMult *
           promoGrowthMult,
       )
-      const customers = m.customers + growth
-      money += customers * pricing.revPerCustomerPerWeek * promoRevMult * regulationRevenueMultiplier(activeRegulations)
+      // signups made during a promo are trial users — they sit apart until the promo ends
+      let customers = m.customers
+      let freeCustomers = m.freeCustomers
+      if (m.promo) freeCustomers += growth
+      else customers += growth
+
+      const revMult = regulationRevenueMultiplier(activeRegulations)
+      // customers who already pay full price keep paying it right through the promo
+      money += customers * pricing.revPerCustomerPerWeek * revMult
+      // trial users pay the promo rate instead — nothing at all on a free-access reset
+      const trialRate = m.promo === 'discount' ? DISCOUNT_REV_MULT : m.promo === 'free' ? FREE_TRIAL_REV_MULT : 1
+      money += freeCustomers * pricing.revPerCustomerPerWeek * trialRate * revMult
+
       if (m.pricing === 'opensource') {
-        followers += Math.round(customers * 0.005)
+        followers += Math.round((customers + freeCustomers) * 0.005)
       }
       let promo = m.promo
       let promoWeeksLeft = m.promoWeeksLeft
       if (promo && promoWeeksLeft != null) {
         promoWeeksLeft -= 1
         if (promoWeeksLeft <= 0) {
-          promoEndedModels.push(m.name)
+          // the promo is over: part of the trial crowd starts paying, the rest walks away
+          const conversion = promo === 'discount' ? DISCOUNT_CONVERSION : FREE_TRIAL_CONVERSION
+          const converted = Math.round(freeCustomers * conversion)
+          promoEndedModels.push({ name: m.name, converted, churned: freeCustomers - converted })
+          customers += converted
+          freeCustomers = 0
           promo = undefined
           promoWeeksLeft = undefined
         }
       }
-      return { ...m, customers, promo, promoWeeksLeft }
+      return { ...m, customers, freeCustomers, promo, promoWeeksLeft }
     }
     return m
   })
 
+  // rival bot armies swarm you too — the mirror of your own BOT_ATTACK
+  let botSwarm: { attacker: string; followersLost: number; customersLost: number } | null = null
+  let botSwarmTraced: { attacker: string; theirLoss: number; ourGain: number } | null = null
+  const marketerCount = staff.filter((s) => s.role === 'marketer').length
+  const swarmChance = Math.max(
+    COMPETITOR_BOT_MIN_CHANCE,
+    COMPETITOR_BOT_ATTACK_CHANCE - marketerCount * COMPETITOR_BOT_MARKETER_DEFENSE,
+  )
+  const worthSwarming = followers > 0 || models.some((m) => m.status === 'published')
+  if (
+    week > COMPETITOR_BOT_ATTACK_GRACE_WEEKS &&
+    worthSwarming &&
+    competitors.length > 0 &&
+    Math.random() < swarmChance
+  ) {
+    const idx = Math.floor(Math.random() * competitors.length)
+    const attacker = competitors[idx]
+    const label = `${attacker.icon} ${attacker.name}`
+    if (Math.random() < COMPETITOR_BOT_TRACE_CHANCE) {
+      // their swarm gets traced back to them, and the backlash sends followers your way
+      const theirLoss = Math.round(attacker.followers * (0.04 + Math.random() * 0.06))
+      const ourGain = Math.round(theirLoss * 0.3)
+      competitors = competitors.map((c, i) =>
+        i === idx ? { ...c, followers: Math.max(0, c.followers - theirLoss) } : c,
+      )
+      followers += ourGain
+      botSwarmTraced = { attacker: label, theirLoss, ourGain }
+    } else {
+      const ratio = 0.04 + Math.random() * 0.06
+      const followersLost = Math.round(followers * ratio)
+      let customersLost = 0
+      models = models.map((m) => {
+        if (m.status !== 'published') return m
+        const customers = Math.round(m.customers * (1 - ratio * 0.5))
+        const freeCustomers = Math.round(m.freeCustomers * (1 - ratio * 0.5))
+        customersLost += m.customers - customers + (m.freeCustomers - freeCustomers)
+        return { ...m, customers, freeCustomers }
+      })
+      followers = Math.max(0, followers - followersLost)
+      botSwarm = { attacker: label, followersLost, customersLost }
+    }
+  }
+
   // chance a competitor smears you + rental dispute news
   let events = state.events
   const newEvents: GameEvent[] = []
+
+  if (botSwarm) {
+    newEvents.push({
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      text: `🤖 ${botSwarm.attacker} unleashed a bot army on you! You lost ${botSwarm.followersLost.toLocaleString()} followers and ${botSwarm.customersLost.toLocaleString()} customers.`,
+      week,
+    })
+  }
+
+  if (botSwarmTraced) {
+    newEvents.push({
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      text: `🕵️ A bot army aimed at you was traced back to ${botSwarmTraced.attacker}! They lost ${botSwarmTraced.theirLoss.toLocaleString()} followers and you gained ${botSwarmTraced.ourGain.toLocaleString()}.`,
+      week,
+    })
+  }
 
   // rival companies poach your underpaid staff — the longer a salary goes without a raise,
   // the further it falls behind the market and the more tempting a rival's offer becomes
@@ -569,10 +651,14 @@ function advanceOneWeek(state: GameState): GameState {
     })
   }
 
-  for (const name of promoEndedModels) {
+  for (const p of promoEndedModels) {
+    const text =
+      p.converted + p.churned > 0
+        ? `⏳ The promo for ${p.name} ended — ${p.converted.toLocaleString()} trial users converted to paying customers, ${p.churned.toLocaleString()} left.`
+        : `⏳ The promo for ${p.name} has ended — pricing is back to normal.`
     newEvents.push({
       id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      text: `⏳ The promo for ${name} has ended — pricing is back to normal.`,
+      text,
       week,
     })
   }
@@ -1355,7 +1441,7 @@ export function reducer(state: GameState, action: Action): GameState {
       const researched = [...state.researched, ...state.researching.map((r) => r.id)]
       const models = state.models.map((m) =>
         m.status === 'training'
-          ? { ...m, status: 'ready' as const, weeksRemaining: 0, customers: 0, quality: computeQuality(state, m.gpus, m.dataTier, m.distillQuality) }
+          ? { ...m, status: 'ready' as const, weeksRemaining: 0, customers: 0, freeCustomers: 0, quality: computeQuality(state, m.gpus, m.dataTier, m.distillQuality) }
           : m,
       )
       return { ...state, researched, researching: [], models }

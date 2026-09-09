@@ -3,6 +3,10 @@ import { globalWeek } from '../game/state'
 import {
   BOT_ATTACK_COOLDOWN,
   BOT_ATTACK_COST,
+  COMPETITOR_BOT_ATTACK_CHANCE,
+  COMPETITOR_BOT_ATTACK_GRACE_WEEKS,
+  COMPETITOR_BOT_MARKETER_DEFENSE,
+  COMPETITOR_BOT_MIN_CHANCE,
   HACKER_COOLDOWN,
   HACKER_COST,
   JOURNALIST_COOLDOWN,
@@ -25,6 +29,12 @@ export function AdsPanel({ state, onBotAttack, onHireHackers, onHireJournalists,
   const botWait = BOT_ATTACK_COOLDOWN - (week - state.lastBotAttackWeek)
   const hackerWait = HACKER_COOLDOWN - (week - state.lastHackerWeek)
 
+  const marketers = state.staff.filter((s) => s.role === 'marketer').length
+  const incomingRisk =
+    week > COMPETITOR_BOT_ATTACK_GRACE_WEEKS
+      ? Math.max(COMPETITOR_BOT_MIN_CHANCE, COMPETITOR_BOT_ATTACK_CHANCE - marketers * COMPETITOR_BOT_MARKETER_DEFENSE)
+      : 0
+
   const journalistReady = journalistWait <= 0
   const botReady = botWait <= 0
   const hackerReady = hackerWait <= 0
@@ -36,6 +46,22 @@ export function AdsPanel({ state, onBotAttack, onHireHackers, onHireJournalists,
         <button className="close-btn" onClick={onClose}>
           ✕
         </button>
+      </div>
+
+      <div className="smear-section">
+        <h4 className="model-list-title">🛡️ Incoming Bot Swarms</h4>
+        {incomingRisk === 0 ? (
+          <p className="placeholder">
+            Rivals ignore you for now — they start swarming after week {COMPETITOR_BOT_ATTACK_GRACE_WEEKS}.
+          </p>
+        ) : (
+          <p className="placeholder">
+            ~{(incomingRisk * 100).toFixed(1)}%/wk chance a rival unleashes a bot army on your followers and customers.
+            {marketers > 0
+              ? ` Your ${marketers} marketer${marketers > 1 ? 's' : ''} moderate the community (−${(marketers * COMPETITOR_BOT_MARKETER_DEFENSE * 100).toFixed(1)}%).`
+              : ' Hire marketers to moderate your community and cut the risk.'}
+          </p>
+        )}
       </div>
 
       <div className="smear-section">

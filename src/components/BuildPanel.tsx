@@ -2,7 +2,15 @@ import { useState } from 'react'
 import type { AIModel, GameState, PricingModel, PromoKind } from '../game/types'
 import { MODEL_TYPES, PRICING_MODELS, DATA_TIERS, BOOKS, weeklyRevenue } from '../game/research'
 import { activeCards, gpuQualityFactor, trainDuration, ssdQualityBonus } from '../game/gpu'
-import { DEFAULT_AI_NAMES, DISCOUNT_COST, DISCOUNT_DURATION, FREE_TRIAL_COST, FREE_TRIAL_DURATION } from '../game/constants'
+import {
+  DEFAULT_AI_NAMES,
+  DISCOUNT_CONVERSION,
+  DISCOUNT_COST,
+  DISCOUNT_DURATION,
+  FREE_TRIAL_CONVERSION,
+  FREE_TRIAL_COST,
+  FREE_TRIAL_DURATION,
+} from '../game/constants'
 import { validateCompanyName } from '../game/profanity'
 import {
   distillCaughtChance,
@@ -54,6 +62,7 @@ function ModelRow({
   const [editError, setEditError] = useState<string | null>(null)
   const t = MODEL_TYPES.find((x) => x.id === model.typeId)
   const rev = weeklyRevenue(model)
+  const conversion = model.promo === 'discount' ? DISCOUNT_CONVERSION : FREE_TRIAL_CONVERSION
   const pricingLabel = model.pricing ? PRICING_MODELS.find((p) => p.id === model.pricing)?.label : null
 
   function startEdit() {
@@ -161,7 +170,9 @@ function ModelRow({
 
       {model.status === 'published' && (
         <div className="model-meta">
-          {model.customers.toLocaleString()} customers · ${rev.toLocaleString()}/wk
+          {model.customers.toLocaleString()} paying · ${rev.toLocaleString()}/wk
+          {model.freeCustomers > 0 &&
+            ` · +${model.freeCustomers.toLocaleString()} trial users (~${Math.round(model.freeCustomers * conversion).toLocaleString()} will convert)`}
         </div>
       )}
 
@@ -169,14 +180,15 @@ function ModelRow({
         <div className="publish-row">
           {model.promo ? (
             <span className="model-meta">
-              {model.promo === 'discount' ? '🏷️ Discount' : '🎁 Free access'} active — {model.promoWeeksLeft}wk left
+              {model.promo === 'discount' ? '🏷️ Discount' : '🎁 Free access'} active — {model.promoWeeksLeft}wk left ·{' '}
+              {Math.round(conversion * 100)}% of trial users convert when it ends
             </span>
           ) : (
             <>
               <button
                 className="hire-btn"
                 disabled={money < DISCOUNT_COST}
-                title={`Discount: ${DISCOUNT_DURATION}wk of faster growth at lower revenue per customer`}
+                title={`Discount: ${DISCOUNT_DURATION}wk of faster growth. New signups join as trial users at a reduced rate; ${Math.round(DISCOUNT_CONVERSION * 100)}% convert to paying when it ends.`}
                 onClick={() => onStartPromo(model.id, 'discount')}
               >
                 🏷️ Discount (${(DISCOUNT_COST / 1000).toFixed(0)}k)
@@ -184,7 +196,7 @@ function ModelRow({
               <button
                 className="hire-btn"
                 disabled={money < FREE_TRIAL_COST}
-                title={`Free access reset: ${FREE_TRIAL_DURATION}wk of a huge customer surge with $0 revenue`}
+                title={`Free access: ${FREE_TRIAL_DURATION}wk of a huge surge of free trial users paying $0; ${Math.round(FREE_TRIAL_CONVERSION * 100)}% convert to paying when it ends.`}
                 onClick={() => onStartPromo(model.id, 'free')}
               >
                 🎁 Free Reset (${(FREE_TRIAL_COST / 1000).toFixed(0)}k)
@@ -250,6 +262,7 @@ export function BuildPanel({ state, onStartModel, onPublish, onStartPromo, onBuy
       totalWeeks: weeks,
       gpus: effGpus,
       customers: 0,
+      freeCustomers: 0,
       dataTier,
       ...(teacher
         ? {

@@ -120,6 +120,17 @@ export const FREE_TRIAL_COST = 15000
 export const FREE_TRIAL_GROWTH_MULT = 2.6
 export const FREE_TRIAL_REV_MULT = 0
 
+// promo signups arrive as trial users and only part of them stay once the promo ends
+export const DISCOUNT_CONVERSION = 0.75 // they were already paying something, so most stay
+export const FREE_TRIAL_CONVERSION = 0.5 // half of a free crowd sticks around to pay
+
+// rival bot armies swarming you (the mirror of your own BOT_ATTACK)
+export const COMPETITOR_BOT_ATTACK_CHANCE = 0.08 // weekly, once rivals see you as a threat
+export const COMPETITOR_BOT_ATTACK_GRACE_WEEKS = 8 // nobody bothers swarming a nobody
+export const COMPETITOR_BOT_MARKETER_DEFENSE = 0.015 // per marketer moderating your community
+export const COMPETITOR_BOT_MIN_CHANCE = 0.01 // a big enough marketing team never fully stops it
+export const COMPETITOR_BOT_TRACE_CHANCE = 0.25 // chance the swarm is exposed and backfires on them
+
 // US regulations
 export const REGULATION_START_WEEK = 10 // regulators leave you alone for the first few months
 export const REGULATION_CHECK_CHANCE = 0.05 // weekly chance a new regulation is enacted
