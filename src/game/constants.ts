@@ -119,3 +119,17 @@ export const FREE_TRIAL_DURATION = 2
 export const FREE_TRIAL_COST = 15000
 export const FREE_TRIAL_GROWTH_MULT = 2.6
 export const FREE_TRIAL_REV_MULT = 0
+
+// US regulations
+export const REGULATION_START_WEEK = 10 // regulators leave you alone for the first few months
+export const REGULATION_CHECK_CHANCE = 0.05 // weekly chance a new regulation is enacted
+export const MAX_ACTIVE_REGULATIONS = 4
+export const REGULATION_BASE_DATACENTER_SHUTDOWN_CHANCE = 0.01 // ambient compliance risk, even with no regulations active
+
+// lobbying (Government panel)
+export const LOBBY_COST = 80000
+export const LOBBY_COOLDOWN = 6 // weeks
+export const LOBBY_DURATION = 8 // weeks of reduced regulatory risk
+export const LOBBY_RISK_REDUCTION = 0.4 // multiplier applied to regulation/shutdown/fine chance while lobbying is active
+export const LOBBY_REPEAL_CHANCE = 0.35 // chance a lobbying push repeals a random active regulation instead
+

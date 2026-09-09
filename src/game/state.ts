@@ -30,9 +30,18 @@ import {
   HYPE_BOTS_COST,
   HYPE_BOTS_FOLLOWERS,
   INVESTMENT_COOLDOWN_WEEKS,
+  LOBBY_COOLDOWN,
+  LOBBY_COST,
+  LOBBY_DURATION,
+  LOBBY_REPEAL_CHANCE,
+  LOBBY_RISK_REDUCTION,
+  MAX_ACTIVE_REGULATIONS,
   MAX_OFFICE_LEVEL,
   MAX_SCORE,
   OFFICE_UPGRADE_BASE_COST,
+  REGULATION_BASE_DATACENTER_SHUTDOWN_CHANCE,
+  REGULATION_CHECK_CHANCE,
+  REGULATION_START_WEEK,
   START_DATE,
   START_MONEY,
   START_YEAR,
@@ -59,6 +68,15 @@ import { DATACENTER_BUILD_WEEKS, DATACENTER_COST, ELECTRICITY_PER_CARD_WEEK, GPU
 import { COMPETITOR_SEED, generateCompetitorModel, marketSaturation } from './competitors'
 import { pickRandomEvent } from './events'
 import { generateCandidate, marketSalaryFor } from './hiring'
+import {
+  REGULATION_MAP,
+  pickNewRegulation,
+  regulationDatacenterShutdownChance,
+  regulationElectricityMultiplier,
+  regulationFineRoll,
+  regulationGpuCostMultiplier,
+  regulationRevenueMultiplier,
+} from './regulations'
 
 const FLAVOR_NEWS = [
   '🚀 AI hype is surging — the whole market keeps growing.',
@@ -112,6 +130,9 @@ export function initialState(): GameState {
     competitors: COMPETITOR_SEED.map((c) => ({ ...c, models: c.models.map((m) => ({ ...m })) })),
     events: [],
     pendingEvent: null,
+    activeRegulations: [],
+    lobbyWeeksLeft: 0,
+    lastLobbyWeek: -LOBBY_COOLDOWN,
   }
 }
 
@@ -145,6 +166,8 @@ export type Action =
   | { type: 'START_STAFF_TRAINING'; staffId: string }
   | { type: 'RAISE_INVESTMENT' }
   | { type: 'START_PROMO'; modelId: string; kind: PromoKind }
+  | { type: 'EDIT_MODEL'; id: string; name?: string; pricing?: PricingModel }
+  | { type: 'HIRE_LOBBYISTS' }
   | { type: 'SET_GPU'; count: number }
   | { type: 'SET_DATACENTERS'; count: number }
   | { type: 'SET_WEEK'; week: number }
@@ -216,6 +239,9 @@ export function migrateState(raw: Partial<GameState>): GameState {
     campaignWeeksLeft: raw.campaignWeeksLeft ?? 0,
     lastCampaignWeek: raw.lastCampaignWeek ?? -CAMPAIGN_COOLDOWN,
     books: raw.books ?? [],
+    activeRegulations: raw.activeRegulations ?? [],
+    lobbyWeeksLeft: raw.lobbyWeeksLeft ?? 0,
+    lastLobbyWeek: raw.lastLobbyWeek ?? -LOBBY_COOLDOWN,
   }
 }
 
@@ -276,6 +302,10 @@ function advanceOneWeek(state: GameState): GameState {
   let followers = state.followers
   let campaignWeeksLeft = state.campaignWeeksLeft
   let staff = state.staff
+  let activeRegulations = state.activeRegulations
+  let lobbyWeeksLeft = state.lobbyWeeksLeft
+  const lobbyActive = lobbyWeeksLeft > 0
+  if (lobbyWeeksLeft > 0) lobbyWeeksLeft--
 
   if (campaignWeeksLeft > 0) campaignWeeksLeft--
 
@@ -283,7 +313,12 @@ function advanceOneWeek(state: GameState): GameState {
   money -= state.staff.reduce((sum, s) => sum + s.salary, 0)
 
   // electricity for active GPU cards
-  money -= Math.round(activeCards(state) * ELECTRICITY_PER_CARD_WEEK * (1 - companyEfficiency(state)))
+  money -= Math.round(
+    activeCards(state) *
+      ELECTRICITY_PER_CARD_WEEK *
+      (1 - companyEfficiency(state)) *
+      regulationElectricityMultiplier(activeRegulations),
+  )
 
   // rental fees
   money -= state.rentedDatacenters * RENT_WEEKLY_FEE
@@ -308,6 +343,32 @@ function advanceOneWeek(state: GameState): GameState {
     if (Math.random() < RENT_DISPUTE_CHANCE) disputes++
   }
   rentedDatacenters -= disputes
+
+  // US regulators periodically enact new AI regulations — lobbying suppresses this
+  const globalWeekNow = (date.year - START_YEAR) * WEEKS_PER_YEAR + date.week
+  let newRegulation: (typeof REGULATION_MAP)[string] | null = null
+  if (
+    globalWeekNow >= REGULATION_START_WEEK &&
+    activeRegulations.length < MAX_ACTIVE_REGULATIONS &&
+    Math.random() < REGULATION_CHECK_CHANCE * (lobbyActive ? LOBBY_RISK_REDUCTION : 1)
+  ) {
+    newRegulation = pickNewRegulation(activeRegulations)
+    if (newRegulation) activeRegulations = [...activeRegulations, newRegulation.id]
+  }
+
+  // regulatory fines for non-compliance
+  const fineRoll = regulationFineRoll(activeRegulations)
+  if (fineRoll) money -= fineRoll.fine
+
+  // regulators can shut down owned datacenters over compliance violations
+  const shutdownChance =
+    (REGULATION_BASE_DATACENTER_SHUTDOWN_CHANCE + regulationDatacenterShutdownChance(activeRegulations)) *
+    (lobbyActive ? LOBBY_RISK_REDUCTION : 1)
+  let regulatoryShutdowns = 0
+  for (let j = 0; j < datacenters; j++) {
+    if (Math.random() < shutdownChance) regulatoryShutdowns++
+  }
+  datacenters -= regulatoryShutdowns
 
   // research progress
   const stillResearching: typeof researching = []
@@ -428,7 +489,7 @@ function advanceOneWeek(state: GameState): GameState {
           promoGrowthMult,
       )
       const customers = m.customers + growth
-      money += customers * pricing.revPerCustomerPerWeek * promoRevMult
+      money += customers * pricing.revPerCustomerPerWeek * promoRevMult * regulationRevenueMultiplier(activeRegulations)
       if (m.pricing === 'opensource') {
         followers += Math.round(customers * 0.005)
       }
@@ -513,6 +574,30 @@ function advanceOneWeek(state: GameState): GameState {
     })
   }
 
+  if (newRegulation) {
+    newEvents.push({
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      text: `🏛️ New US regulation: ${newRegulation.icon} ${newRegulation.name} — ${newRegulation.description}`,
+      week,
+    })
+  }
+
+  if (fineRoll) {
+    newEvents.push({
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      text: `🏛️ Regulators fined you $${fineRoll.fine.toLocaleString()} for violating the ${fineRoll.source.name}!`,
+      week,
+    })
+  }
+
+  if (regulatoryShutdowns > 0) {
+    newEvents.push({
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      text: `🏛️ Regulators shut down ${regulatoryShutdowns} of your datacenter${regulatoryShutdowns > 1 ? 's' : ''} over compliance violations!`,
+      week,
+    })
+  }
+
   if (releaseEvent) {
     newEvents.push({
       id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -561,7 +646,27 @@ function advanceOneWeek(state: GameState): GameState {
     events = [...newEvents, ...state.events].slice(0, 20)
   }
 
-  const next = { ...state, date, money, researched, researching, staffTraining, models, datacenters, datacenterBuilds, rentedDatacenters, competitors, followers, campaignWeeksLeft, events, trendingHashtag, trendingSetWeek, staff }
+  const next = {
+    ...state,
+    date,
+    money,
+    researched,
+    researching,
+    staffTraining,
+    models,
+    datacenters,
+    datacenterBuilds,
+    rentedDatacenters,
+    competitors,
+    followers,
+    campaignWeeksLeft,
+    events,
+    trendingHashtag,
+    trendingSetWeek,
+    staff,
+    activeRegulations,
+    lobbyWeeksLeft,
+  }
 
   if (!next.pendingEvent && Math.random() < 0.25) {
     next.pendingEvent = pickRandomEvent(next)
@@ -604,7 +709,7 @@ export function reducer(state: GameState, action: Action): GameState {
     }
     case 'BUY_GPU': {
       const count = Math.max(1, action.count)
-      const cost = GPU_CARD_COST * count
+      const cost = Math.round(GPU_CARD_COST * count * regulationGpuCostMultiplier(state.activeRegulations))
       if (state.money < cost) return state
       const next = { ...state, money: state.money - cost, gpuCards: state.gpuCards + count }
       return ecoProtest(next, 0.1, 'Eco activists criticized your GPU purchase!')
@@ -930,6 +1035,44 @@ export function reducer(state: GameState, action: Action): GameState {
         ...state.events,
       ].slice(0, 20)
       return { ...state, money: state.money - cost, models, events }
+    }
+    case 'EDIT_MODEL': {
+      const model = state.models.find((m) => m.id === action.id)
+      if (!model) return state
+      const name = action.name?.trim()
+      const models = state.models.map((m) => {
+        if (m.id !== action.id) return m
+        const next = { ...m }
+        if (name) next.name = name
+        if (action.pricing && m.status === 'published') next.pricing = action.pricing
+        return next
+      })
+      return { ...state, models }
+    }
+    case 'HIRE_LOBBYISTS': {
+      const week = globalWeek(state)
+      if (week - state.lastLobbyWeek < LOBBY_COOLDOWN) return state
+      if (state.money < LOBBY_COST) return state
+      let activeRegulations = state.activeRegulations
+      let text = `🤝 You hired lobbyists — regulatory risk is reduced for ${LOBBY_DURATION}wk.`
+      if (activeRegulations.length > 0 && Math.random() < LOBBY_REPEAL_CHANCE) {
+        const idx = Math.floor(Math.random() * activeRegulations.length)
+        const repealed = REGULATION_MAP[activeRegulations[idx]]
+        activeRegulations = activeRegulations.filter((_, i) => i !== idx)
+        text = `🤝 Your lobbyists got "${repealed?.name ?? 'a regulation'}" repealed!`
+      }
+      const events = [
+        { id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, text, week },
+        ...state.events,
+      ].slice(0, 20)
+      return {
+        ...state,
+        money: state.money - LOBBY_COST,
+        activeRegulations,
+        lobbyWeeksLeft: LOBBY_DURATION,
+        lastLobbyWeek: week,
+        events,
+      }
     }
     case 'SET_GPU':
       return { ...state, gpuCards: Math.max(0, action.count) }

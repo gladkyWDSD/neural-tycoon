@@ -10,6 +10,7 @@ import { DatacentersPanel } from './DatacentersPanel'
 import { CompetitorsPanel } from './CompetitorsPanel'
 import { CompanyPanel } from './CompanyPanel'
 import { AdsPanel } from './AdsPanel'
+import { GovernmentPanel } from './GovernmentPanel'
 import { NewsFeed } from './NewsFeed'
 import { DESKS_PER_LEVEL, CAMPAIGN_DURATION } from '../game/constants'
 import './Game.css'
@@ -23,6 +24,7 @@ type PanelId =
   | 'ads'
   | 'competitors'
   | 'company'
+  | 'government'
   | null
 
 interface Props {
@@ -53,6 +55,8 @@ interface Props {
   onBotAttack: (competitorId: string) => void
   onHireHackers: (competitorId: string) => void
   onHireJournalists: () => void
+  onEditModel: (id: string, name?: string, pricing?: PricingModel) => void
+  onHireLobbyists: () => void
 }
 
 export function GameScreen({
@@ -83,6 +87,8 @@ export function GameScreen({
   onBotAttack,
   onHireHackers,
   onHireJournalists,
+  onEditModel,
+  onHireLobbyists,
 }: Props) {
   const [panel, setPanel] = useState<PanelId>(null)
 
@@ -112,6 +118,7 @@ export function GameScreen({
     { id: 'datacenters', label: 'Datacenters' },
     { id: 'competitors', label: 'Competitors' },
     { id: 'company', label: 'Company' },
+    { id: 'government', label: 'Government' },
   ]
 
   return (
@@ -146,6 +153,7 @@ export function GameScreen({
             onPublish={onPublish}
             onStartPromo={onStartPromo}
             onBuyBook={onBuyBook}
+            onEditModel={onEditModel}
             onClose={() => setPanel(null)}
           />
         )}
@@ -190,6 +198,9 @@ export function GameScreen({
             onRaiseInvestment={onRaiseInvestment}
             onClose={() => setPanel(null)}
           />
+        )}
+        {panel === 'government' && (
+          <GovernmentPanel state={state} onHireLobbyists={onHireLobbyists} onClose={() => setPanel(null)} />
         )}
       </div>
 

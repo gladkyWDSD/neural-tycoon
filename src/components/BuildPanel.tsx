@@ -12,6 +12,7 @@ interface Props {
   onPublish: (id: string, pricing: PricingModel) => void
   onStartPromo: (id: string, kind: PromoKind) => void
   onBuyBook: (id: string) => void
+  onEditModel: (id: string, name?: string, pricing?: PricingModel) => void
   onClose: () => void
 }
 
@@ -26,29 +27,94 @@ function ModelRow({
   money,
   onPublish,
   onStartPromo,
+  onEditModel,
 }: {
   model: AIModel
   money: number
   onPublish: (id: string, pricing: PricingModel) => void
   onStartPromo: (id: string, kind: PromoKind) => void
+  onEditModel: (id: string, name?: string, pricing?: PricingModel) => void
 }) {
   const [pricing, setPricing] = useState<PricingModel>('subscription')
+  const [editing, setEditing] = useState(false)
+  const [editName, setEditName] = useState(model.name)
+  const [editPricing, setEditPricing] = useState<PricingModel | undefined>(model.pricing)
+  const [editError, setEditError] = useState<string | null>(null)
   const t = MODEL_TYPES.find((x) => x.id === model.typeId)
   const rev = weeklyRevenue(model)
   const pricingLabel = model.pricing ? PRICING_MODELS.find((p) => p.id === model.pricing)?.label : null
 
+  function startEdit() {
+    setEditName(model.name)
+    setEditPricing(model.pricing)
+    setEditError(null)
+    setEditing(true)
+  }
+
+  function saveEdit() {
+    const nameErr = validateCompanyName(editName)
+    if (nameErr) {
+      setEditError(nameErr)
+      return
+    }
+    onEditModel(model.id, editName.trim(), model.status === 'published' ? editPricing : undefined)
+    setEditing(false)
+  }
+
   return (
     <div className="model-item">
       <div className="model-head">
-        <span className="model-name">
-          {t?.icon} {model.name}
-        </span>
+        {editing ? (
+          <input
+            className="model-name-input"
+            value={editName}
+            maxLength={24}
+            onChange={(e) => {
+              setEditName(e.target.value)
+              setEditError(null)
+            }}
+          />
+        ) : (
+          <span className="model-name">
+            {t?.icon} {model.name}
+          </span>
+        )}
         <span className={`model-status ${model.status}`}>
           {model.status === 'training' && `Training ${model.weeksRemaining}wk`}
           {model.status === 'ready' && `Quality ${model.quality} · Ready`}
           {model.status === 'published' && `Quality ${model.quality} · ${pricingLabel}`}
         </span>
       </div>
+
+      {editing ? (
+        <div className="publish-row">
+          {model.status === 'published' && (
+            <div className="publish-pricing">
+              {PRICING_MODELS.map((p) => (
+                <button
+                  key={p.id}
+                  className={`filter-btn ${editPricing === p.id ? 'active' : ''}`}
+                  onClick={() => setEditPricing(p.id)}
+                  title={p.description}
+                >
+                  {p.icon} {p.label}
+                </button>
+              ))}
+            </div>
+          )}
+          <button className="hire-btn" onClick={saveEdit}>
+            Save
+          </button>
+          <button className="hire-btn" onClick={() => setEditing(false)}>
+            Cancel
+          </button>
+        </div>
+      ) : (
+        <button className="chip" onClick={startEdit}>
+          ✏️ Edit
+        </button>
+      )}
+      {editError && <p className="error">{editError}</p>}
 
       {model.status === 'training' && (
         <div className="model-meta">{model.gpus} GPUs allocated</div>
@@ -112,7 +178,7 @@ function ModelRow({
   )
 }
 
-export function BuildPanel({ state, onStartModel, onPublish, onStartPromo, onBuyBook, onClose }: Props) {
+export function BuildPanel({ state, onStartModel, onPublish, onStartPromo, onBuyBook, onEditModel, onClose }: Props) {
   const unlockedTypes = MODEL_TYPES.filter((t) => isTypeUnlocked(t.id, state.researched))
   const maxGpus = activeCards(state)
   const [typeId, setTypeId] = useState(unlockedTypes[0]?.id ?? '')
@@ -314,7 +380,14 @@ export function BuildPanel({ state, onStartModel, onPublish, onStartPromo, onBuy
         <div className="model-list">
           <h4 className="model-list-title">Your AI Models</h4>
           {state.models.map((m) => (
-            <ModelRow key={m.id} model={m} money={state.money} onPublish={onPublish} onStartPromo={onStartPromo} />
+            <ModelRow
+              key={m.id}
+              model={m}
+              money={state.money}
+              onPublish={onPublish}
+              onStartPromo={onStartPromo}
+              onEditModel={onEditModel}
+            />
           ))}
         </div>
       )}

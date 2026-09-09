@@ -95,6 +95,8 @@ export default function App() {
           onBotAttack={(competitorId) => dispatch({ type: 'BOT_ATTACK', competitorId })}
           onHireHackers={(competitorId) => dispatch({ type: 'HIRE_HACKERS', competitorId })}
           onHireJournalists={() => dispatch({ type: 'HIRE_JOURNALISTS' })}
+          onEditModel={(id, name, pricing) => dispatch({ type: 'EDIT_MODEL', id, name, pricing })}
+          onHireLobbyists={() => dispatch({ type: 'HIRE_LOBBYISTS' })}
         />
       )}
       <DevConsole onCommand={runCommand} />

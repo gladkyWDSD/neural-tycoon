@@ -170,4 +170,7 @@ export interface GameState {
   competitors: Competitor[]
   events: GameEvent[]
   pendingEvent: PendingEvent | null
+  activeRegulations: string[]
+  lobbyWeeksLeft: number
+  lastLobbyWeek: number
 }

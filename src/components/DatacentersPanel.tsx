@@ -11,6 +11,12 @@ import {
   SSD_COST,
   activeCards,
 } from '../game/gpu'
+import { REGULATION_BASE_DATACENTER_SHUTDOWN_CHANCE } from '../game/constants'
+import {
+  regulationDatacenterShutdownChance,
+  regulationElectricityMultiplier,
+  regulationGpuCostMultiplier,
+} from '../game/regulations'
 import './Game.css'
 
 interface Props {
@@ -28,6 +34,11 @@ export function DatacentersPanel({ state, onBuyGpu, onBuyRam, onBuySsd, onBuildD
   const capacity = (state.datacenters + state.rentedDatacenters) * DATACENTER_CAPACITY
   const idle = Math.max(0, state.gpuCards - capacity)
   const building = state.datacenterBuilds.length
+  const gpuCostMult = regulationGpuCostMultiplier(state.activeRegulations)
+  const gpuCost = Math.round(GPU_CARD_COST * gpuCostMult)
+  const electricityMult = regulationElectricityMultiplier(state.activeRegulations)
+  const shutdownChance =
+    REGULATION_BASE_DATACENTER_SHUTDOWN_CHANCE + regulationDatacenterShutdownChance(state.activeRegulations)
 
   return (
     <div className="panel">
@@ -58,7 +69,7 @@ export function DatacentersPanel({ state, onBuyGpu, onBuyRam, onBuySsd, onBuildD
       </div>
 
       <p className="dc-note">
-        Electricity ${(cards * ELECTRICITY_PER_CARD_WEEK).toLocaleString()}/wk · Rent $
+        Electricity ${Math.round(cards * ELECTRICITY_PER_CARD_WEEK * electricityMult).toLocaleString()}/wk · Rent $
         {(state.rentedDatacenters * RENT_WEEKLY_FEE).toLocaleString()}/wk
       </p>
 
@@ -68,21 +79,29 @@ export function DatacentersPanel({ state, onBuyGpu, onBuyRam, onBuySsd, onBuildD
         </p>
       )}
 
+      {state.datacenters > 0 && (
+        <p className="dc-note">
+          🏛️ ~{(shutdownChance * 100).toFixed(1)}%/wk chance a built datacenter is shut down by regulators — see the
+          Government panel.
+        </p>
+      )}
+
       <div className="dc-actions">
         <div className="dc-action">
           <div className="dc-action-info">
             <span className="dc-action-title">GPU Card</span>
             <span className="dc-action-desc">
-              ${(GPU_CARD_COST / 1000).toFixed(0)}k each · powers model training
+              ${(gpuCost / 1000).toFixed(1)}k each · powers model training
+              {gpuCostMult > 1 && ` (🏛️ +${Math.round((gpuCostMult - 1) * 100)}% from regulations)`}
             </span>
           </div>
           <div className="dc-action-btns">
-            <button className="hire-btn" disabled={state.money < GPU_CARD_COST} onClick={() => onBuyGpu(1)}>
+            <button className="hire-btn" disabled={state.money < gpuCost} onClick={() => onBuyGpu(1)}>
               Buy 1
             </button>
             <button
               className="hire-btn"
-              disabled={state.money < GPU_CARD_COST * 10}
+              disabled={state.money < gpuCost * 10}
               onClick={() => onBuyGpu(10)}
             >
               Buy 10
