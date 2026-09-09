@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef } from 'react'
 import type { Staff } from '../game/types'
+import { playWorkSfx } from '../game/audio'
 
 const TILE = 16
 const COLS = 20
@@ -358,6 +359,7 @@ export function OfficeView({
           y: cfg.y + BAR_H / 2,
           t: 0,
         })
+        playWorkSfx(p.kind)
       }
 
       for (const f of flashes.current) f.t += dt

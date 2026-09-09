@@ -19,12 +19,25 @@ const CHORDS: { pad: number[]; bass: number }[] = [
 
 const ARP_STEPS = [0, 2, 3, 5, 6]
 
+// --- sfx ---
+const SFX_BUS_VOLUME = 0.22
+// hits are spaced out instead of stacking, so a burst reads as a fast arpeggio run
+const SFX_MIN_GAP = 0.055
+// a hit that would have to wait longer than this is dropped rather than lagging behind the visuals
+const SFX_MAX_QUEUE_AHEAD = 0.28
+// quiet for this long and the run starts again from the bottom of the chord
+const SFX_LADDER_RESET = 0.7
+
 let ctx: AudioContext | null = null
 let master: GainNode | null = null
+let sfxBus: GainNode | null = null
 let noise: AudioBuffer | null = null
 let timer: number | null = null
 let nextStepTime = 0
 let step = 0
+let sfxNextTime = 0
+let sfxLastTime = -Infinity
+let sfxLadder = 0
 let enabled = loadPreference()
 
 function loadPreference(): boolean {
@@ -60,6 +73,10 @@ function ensureContext(): AudioContext | null {
   filter.frequency.value = 2600
   master.connect(filter)
   filter.connect(ctx.destination)
+  // sfx get their own bus so the music's 2.6kHz lowpass doesn't dull the blips
+  sfxBus = ctx.createGain()
+  sfxBus.gain.value = SFX_BUS_VOLUME
+  sfxBus.connect(ctx.destination)
   return ctx
 }
 
@@ -145,6 +162,71 @@ function playHat(c: AudioContext, out: GainNode, time: number): void {
   gain.connect(out)
   src.start(time)
   src.stop(time + 0.06)
+}
+
+function playBlip(
+  c: AudioContext,
+  out: GainNode,
+  time: number,
+  midi: number,
+  type: OscillatorType,
+  peak: number,
+  dur: number,
+): void {
+  const osc = c.createOscillator()
+  const gain = c.createGain()
+  osc.type = type
+  // a few cents of drift keeps a long run of identical notes from sounding machine-made
+  osc.frequency.value = midiToFreq(midi) * (1 + (Math.random() - 0.5) * 0.004)
+  gain.gain.setValueAtTime(0.0001, time)
+  gain.gain.linearRampToValueAtTime(peak, time + 0.006)
+  gain.gain.exponentialRampToValueAtTime(0.0001, time + dur)
+  osc.connect(gain)
+  gain.connect(out)
+  osc.start(time)
+  osc.stop(time + dur + 0.02)
+}
+
+/** The chord the loop is currently on, so sfx always land in key with the music. */
+function currentChord(): { pad: number[]; bass: number } {
+  return CHORDS[Math.floor(step / STEPS_PER_BAR) % BARS]
+}
+
+export type WorkSfx = 'research' | 'training' | 'marketing'
+
+/**
+ * A work particle (🧠 / </> / $) hitting a progress bar. Called many times a second, so the
+ * notes walk up an arpeggio of the chord that is playing and only reset after a pause —
+ * repetition turns into a melody line instead of the same beep over and over.
+ */
+export function playWorkSfx(kind: WorkSfx): void {
+  if (!enabled) return
+  // never build a context here: sfx ride along with the music, which starts from a real click
+  if (!ctx || !sfxBus || ctx.state !== 'running') return
+
+  const now = ctx.currentTime
+  if (now - sfxLastTime > SFX_LADDER_RESET) sfxLadder = 0
+  const time = Math.max(now + 0.005, sfxNextTime)
+  if (time - now > SFX_MAX_QUEUE_AHEAD) return
+  sfxNextTime = time + SFX_MIN_GAP
+  sfxLastTime = time
+
+  const pad = currentChord().pad
+  const ladder = [...pad.map((n) => n + 12), ...pad.map((n) => n + 24)]
+  const midi = ladder[sfxLadder % ladder.length]
+  sfxLadder++
+
+  if (kind === 'research') {
+    // soft bell: a triangle body with a quiet octave on top
+    playBlip(ctx, sfxBus, time, midi + 12, 'triangle', 0.1, 0.3)
+    playBlip(ctx, sfxBus, time, midi + 24, 'sine', 0.035, 0.22)
+  } else if (kind === 'training') {
+    playBlip(ctx, sfxBus, time, midi, 'square', 0.075, 0.13)
+  } else {
+    // coin-style two-note flick
+    playBlip(ctx, sfxBus, time, midi, 'square', 0.06, 0.07)
+    playBlip(ctx, sfxBus, time + 0.05, midi + 7, 'square', 0.06, 0.12)
+  }
 }
 
 function scheduleStep(c: AudioContext, out: GainNode, index: number, time: number): void {
