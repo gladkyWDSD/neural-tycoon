@@ -151,6 +151,15 @@ export const RESEARCH_ITEMS: ResearchItem[] = [
     qualityBonus: 30,
   },
   {
+    id: 'distillation',
+    name: 'Knowledge Distillation',
+    description: "Train your models on a rival's outputs. Cheaper, faster — and legally risky.",
+    cost: 100000,
+    weeks: 3,
+    requires: ['llm'],
+    qualityBonus: 0,
+  },
+  {
     id: 'inference',
     name: 'Inference Optimization',
     description: 'Run models cheaper and faster. Reduces electricity costs.',

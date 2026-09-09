@@ -121,6 +121,27 @@ A model's final quality is determined by:
 - **Architecture** — determined by researcher (math) skill; sets the ceiling.
 - **Engineering** — determined by programmer skill; sets how close you get to the ceiling.
 
+### Distillation (training on a rival's model)
+
+Unlocked by the **Knowledge Distillation** research (`distillation`, requires `llm`, $100k / 3wk).
+Once unlocked, any rival model that has already shipped (`releaseWeek <= current week`) can be
+picked as a **teacher** when you start training.
+
+- **Cost** — $30k + $1.2k per point of teacher quality, charged up front (you are paying for the
+  teacher's API). A quality-90 teacher costs $138k.
+- **Quality** — closes **55% of the gap** between the quality you would have reached honestly and
+  the teacher's quality. It never lowers a model that is already better than the teacher.
+- **Speed** — training takes **60%** of the normal duration (min 1 week); you are learning from
+  outputs, not from scratch.
+- **Risk** — rolled once, when the distilled model is **published**: 35% base, +15% while the
+  **AI Transparency Act** is active, −7% per lawyer (scaled by their exam score), and the whole
+  chance is multiplied by 0.4 while lobbyists are active. Floor 5% — you are never fully safe.
+- **Caught** — fine of $4k per point of teacher quality, −12% followers, and the accusing rival
+  gains +5% followers. The model itself keeps its distilled quality.
+
+Distillation is the catch-up mechanic: it is how a small lab ships a frontier-class model years
+early, and the reason lawyers and lobbyists are worth their salary.
+
 ---
 
 ## 8. Progression & Eras (starting 2022)

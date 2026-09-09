@@ -133,3 +133,16 @@ export const LOBBY_DURATION = 8 // weeks of reduced regulatory risk
 export const LOBBY_RISK_REDUCTION = 0.4 // multiplier applied to regulation/shutdown/fine chance while lobbying is active
 export const LOBBY_REPEAL_CHANCE = 0.35 // chance a lobbying push repeals a random active regulation instead
 
+// distillation — training your model on a rival's model
+export const DISTILL_RESEARCH_ID = 'distillation'
+export const DISTILL_COST_BASE = 30000 // API access to start querying the teacher
+export const DISTILL_COST_PER_QUALITY = 1200 // better teachers charge more per query
+export const DISTILL_QUALITY_TRANSFER = 0.55 // fraction of the quality gap to the teacher you close
+export const DISTILL_SPEED_MULT = 0.6 // training on synthetic outputs is faster
+export const DISTILL_CAUGHT_CHANCE = 0.35 // rolled once, when the distilled model is published
+export const DISTILL_TRANSPARENCY_RISK = 0.15 // extra risk while the AI Transparency Act is active
+export const DISTILL_LAWYER_PROTECTION = 0.07 // per lawyer, scaled by their exam score
+export const DISTILL_MIN_CAUGHT_CHANCE = 0.05 // you are never fully safe
+export const DISTILL_FINE_PER_QUALITY = 4000 // fine when caught, scaled by teacher quality
+export const DISTILL_FOLLOWER_LOSS = 0.12 // followers lost to the scandal
+export const DISTILL_ACCUSER_FOLLOWER_GAIN = 0.05 // sympathy followers the accuser gains

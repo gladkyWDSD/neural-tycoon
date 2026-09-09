@@ -82,6 +82,10 @@ export interface AIModel {
   dataTier?: string
   promo?: PromoKind
   promoWeeksLeft?: number
+  distilledFrom?: string // competitor model id used as the teacher
+  distilledFromName?: string // display snapshot, e.g. "ClosedAI ChatPT"
+  distillQuality?: number // teacher quality at the time training started
+  distillCaught?: boolean // whether the theft was already exposed
 }
 
 export interface CompetitorModel {

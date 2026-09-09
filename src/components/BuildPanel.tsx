@@ -4,6 +4,14 @@ import { MODEL_TYPES, PRICING_MODELS, DATA_TIERS, BOOKS, weeklyRevenue } from '.
 import { activeCards, gpuQualityFactor, trainDuration, ssdQualityBonus } from '../game/gpu'
 import { DEFAULT_AI_NAMES, DISCOUNT_COST, DISCOUNT_DURATION, FREE_TRIAL_COST, FREE_TRIAL_DURATION } from '../game/constants'
 import { validateCompanyName } from '../game/profanity'
+import {
+  distillCaughtChance,
+  distillCost,
+  distillTargets,
+  distillTrainWeeks,
+  isDistillUnlocked,
+} from '../game/distill'
+import { globalWeek } from '../game/state'
 import './Game.css'
 
 interface Props {
@@ -20,6 +28,10 @@ function isTypeUnlocked(typeId: string, researched: string[]): boolean {
   const type = MODEL_TYPES.find((t) => t.id === typeId)
   if (!type) return false
   return type.requires.every((r) => researched.includes(r))
+}
+
+function newModelId(): string {
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 }
 
 function ModelRow({
@@ -116,6 +128,13 @@ function ModelRow({
       )}
       {editError && <p className="error">{editError}</p>}
 
+      {model.distilledFrom && (
+        <div className="model-meta">
+          🧪 Distilled from {model.distilledFromName} (q{model.distillQuality})
+          {model.status === 'published' && (model.distillCaught ? ' · ⚖️ exposed' : ' · undetected')}
+        </div>
+      )}
+
       {model.status === 'training' && (
         <div className="model-meta">{model.gpus} GPUs allocated</div>
       )}
@@ -185,7 +204,13 @@ export function BuildPanel({ state, onStartModel, onPublish, onStartPromo, onBuy
   const [name, setName] = useState('')
   const [gpus, setGpus] = useState(() => Math.max(1, maxGpus))
   const [dataTier, setDataTier] = useState('scraped')
+  const [teacherId, setTeacherId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+
+  const distillUnlocked = isDistillUnlocked(state.researched)
+  const teachers = distillUnlocked ? distillTargets(state.competitors, globalWeek(state)) : []
+  const teacher = teachers.find((t) => t.modelId === teacherId) ?? null
+  const caughtChance = distillCaughtChance(state)
 
   const hasResearcher = state.staff.some((s) => s.role === 'researcher')
   const engineerCount = state.staff.filter((s) => s.role === 'engineer').length
@@ -199,7 +224,14 @@ export function BuildPanel({ state, onStartModel, onPublish, onStartPromo, onBuy
     : (unlockedTypes[0]?.id ?? '')
   const modelType = MODEL_TYPES.find((t) => t.id === activeTypeId)
 
-  const canStart = Boolean(modelType) && name.trim().length > 0 && hasEngineer && hasGpu
+  const baseWeeks = trainDuration(effGpus, engineerCount, state.ram)
+  const weeks = teacher ? distillTrainWeeks(baseWeeks) : baseWeeks
+  const dataCost = DATA_TIERS.find((t) => t.id === dataTier)?.cost ?? 0
+  const totalCost = dataCost + (teacher ? distillCost(teacher.quality) : 0)
+  const canAfford = state.money >= totalCost
+
+  const canStart =
+    Boolean(modelType) && name.trim().length > 0 && hasEngineer && hasGpu && canAfford
 
   function start() {
     if (!modelType) return
@@ -209,19 +241,27 @@ export function BuildPanel({ state, onStartModel, onPublish, onStartPromo, onBuy
       return
     }
     const model: AIModel = {
-      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      id: newModelId(),
       name: name.trim(),
       typeId: modelType.id,
       quality: 0,
       status: 'training',
-      weeksRemaining: trainDuration(effGpus, engineerCount, state.ram),
-      totalWeeks: trainDuration(effGpus, engineerCount, state.ram),
+      weeksRemaining: weeks,
+      totalWeeks: weeks,
       gpus: effGpus,
       customers: 0,
       dataTier,
+      ...(teacher
+        ? {
+            distilledFrom: teacher.modelId,
+            distilledFromName: `${teacher.competitorName} ${teacher.modelName}`,
+            distillQuality: teacher.quality,
+          }
+        : {}),
     }
     onStartModel(model)
     setName('')
+    setTeacherId(null)
     setError(null)
   }
 
@@ -296,7 +336,7 @@ export function BuildPanel({ state, onStartModel, onPublish, onStartPromo, onBuy
                 +
               </button>
               <span className="gpu-info">
-                {trainDuration(effGpus, engineerCount, state.ram)}wk · ×{gpuQualityFactor(effGpus).toFixed(2)} quality
+                {weeks}wk{teacher ? ` (was ${baseWeeks}wk)` : ''} · ×{gpuQualityFactor(effGpus).toFixed(2)} quality
               </span>
             </div>
           )}
@@ -317,6 +357,44 @@ export function BuildPanel({ state, onStartModel, onPublish, onStartPromo, onBuy
             ))}
           </div>
         </div>
+
+        {distillUnlocked && (
+          <div className="filter-group">
+            <label>🧪 Distillation — train on a rival's model</label>
+            {teachers.length === 0 ? (
+              <p className="placeholder">No rival models have shipped yet.</p>
+            ) : (
+              <>
+                <div className="filter-buttons">
+                  <button
+                    className={`filter-btn ${teacher ? '' : 'active'}`}
+                    onClick={() => setTeacherId(null)}
+                    title="Train honestly, from scratch."
+                  >
+                    None
+                  </button>
+                  {teachers.map((t) => (
+                    <button
+                      key={t.modelId}
+                      className={`filter-btn ${teacherId === t.modelId ? 'active' : ''}`}
+                      onClick={() => setTeacherId(t.modelId)}
+                      title={`${t.competitorName} · quality ${t.quality} · $${t.cost.toLocaleString()} in API queries`}
+                    >
+                      {t.icon} {t.modelName} q{t.quality} (${(t.cost / 1000).toFixed(0)}k)
+                    </button>
+                  ))}
+                </div>
+                {teacher && (
+                  <p className="hint">
+                    Pulls quality toward {teacher.quality}, {Math.round((1 - weeks / baseWeeks) * 100)}% faster training
+                    — but {Math.round(caughtChance * 100)}% chance {teacher.competitorName} catches you when you publish
+                    (hire lawyers and lobbyists to lower it).
+                  </p>
+                )}
+              </>
+            )}
+          </div>
+        )}
 
         <div className="filter-group">
           <label>📚 Books library (permanent quality)</label>
@@ -371,7 +449,9 @@ export function BuildPanel({ state, onStartModel, onPublish, onStartPromo, onBuy
                 ? 'Enter a name for your AI.'
                 : !hasEngineer
                   ? 'Hire an engineer to build the model.'
-                  : 'Buy GPUs and build a datacenter.'}
+                  : !hasGpu
+                    ? 'Buy GPUs and build a datacenter.'
+                    : `Not enough money — this run costs $${totalCost.toLocaleString()}.`}
           </p>
         )}
       </div>

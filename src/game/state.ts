@@ -2,6 +2,7 @@ import type { AIModel, GameEvent, GameState, PostType, PricingModel, PromoKind, 
 import {
   DESKS_PER_LEVEL,
   CAMPAIGN_COOLDOWN,
+  DISTILL_ACCUSER_FOLLOWER_GAIN,
   CAMPAIGN_COST,
   CAMPAIGN_DURATION,
   BOT_ATTACK_BACKFIRE_CHANCE,
@@ -68,6 +69,15 @@ import { DATACENTER_BUILD_WEEKS, DATACENTER_COST, ELECTRICITY_PER_CARD_WEEK, GPU
 import { COMPETITOR_SEED, generateCompetitorModel, marketSaturation } from './competitors'
 import { pickRandomEvent } from './events'
 import { generateCandidate, marketSalaryFor } from './hiring'
+import {
+  distillCaughtChance,
+  distillCost,
+  distillTargets,
+  distillFine,
+  distillFollowerLoss,
+  distilledQuality,
+  isDistillUnlocked,
+} from './distill'
 import {
   REGULATION_MAP,
   pickNewRegulation,
@@ -245,7 +255,7 @@ export function migrateState(raw: Partial<GameState>): GameState {
   }
 }
 
-function computeQuality(state: GameState, gpus: number, dataTier?: string): number {
+function computeQuality(state: GameState, gpus: number, dataTier?: string, distillQuality?: number): number {
   const avgResearcher = avgScoreByRole(state.staff, 'researcher')
   const avgEngineer = avgScoreByRole(state.staff, 'engineer')
   const factor = gpuQualityFactor(gpus)
@@ -254,7 +264,8 @@ function computeQuality(state: GameState, gpus: number, dataTier?: string): numb
   const booksBonus = state.books.reduce((sum, id) => sum + (BOOK_MAP[id]?.quality ?? 0), 0)
   const ceiling = 40 + avgResearcher * 0.3
   const realization = 0.5 + avgEngineer / 400
-  const q = ceiling * realization * factor + techBonus + dataQuality + ssdQualityBonus(state.ssd) + booksBonus
+  let q = ceiling * realization * factor + techBonus + dataQuality + ssdQualityBonus(state.ssd) + booksBonus
+  if (distillQuality != null) q = distilledQuality(q, distillQuality)
   return Math.max(0, Math.min(100, Math.round(q)))
 }
 
@@ -465,7 +476,7 @@ function advanceOneWeek(state: GameState): GameState {
       const weeksRemaining = m.weeksRemaining - 1
       if (weeksRemaining <= 0) {
         finishedModels.push(m.name)
-        const quality = computeQuality(state, m.gpus, m.dataTier)
+        const quality = computeQuality(state, m.gpus, m.dataTier, m.distillQuality)
         return { ...m, status: 'ready', weeksRemaining: 0, customers: 0, quality }
       }
       return { ...m, weeksRemaining }
@@ -705,7 +716,14 @@ export function reducer(state: GameState, action: Action): GameState {
     }
     case 'START_MODEL': {
       const dataCost = action.model.dataTier ? (DATA_TIER_MAP[action.model.dataTier]?.cost ?? 0) : 0
-      return { ...state, models: [...state.models, action.model], money: state.money - dataCost }
+      let teacherCost = 0
+      if (action.model.distilledFrom) {
+        if (!isDistillUnlocked(state.researched)) return state
+        teacherCost = distillCost(action.model.distillQuality ?? 0)
+      }
+      const cost = dataCost + teacherCost
+      if (cost > 0 && state.money < cost) return state
+      return { ...state, models: [...state.models, action.model], money: state.money - cost }
     }
     case 'BUY_GPU': {
       const count = Math.max(1, action.count)
@@ -1080,22 +1098,58 @@ export function reducer(state: GameState, action: Action): GameState {
       return { ...state, datacenters: Math.max(0, action.count) }
     case 'PUBLISH_MODEL': {
       const model = state.models.find((m) => m.id === action.id)
+      const week = globalWeek(state)
+      // shipping a distilled model is the moment the rival can spot its own fingerprints
+      const caught = Boolean(model?.distilledFrom) && Math.random() < distillCaughtChance(state)
       const models = state.models.map((m) =>
         m.id === action.id
-          ? ({ ...m, status: 'published', pricing: action.pricing } as AIModel)
+          ? ({ ...m, status: 'published', pricing: action.pricing, distillCaught: caught || m.distillCaught } as AIModel)
           : m,
       )
-      const events = model
-        ? [
-            {
-              id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-              text: `🚀 ${model.name} is now live! Customers are joining.`,
-              week: globalWeek(state),
-            },
-            ...state.events,
-          ].slice(0, 20)
-        : state.events
-      return { ...state, models, events }
+      const launchEvents: GameEvent[] = []
+      if (model) {
+        launchEvents.push({
+          id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          text: `🚀 ${model.name} is now live! Customers are joining.`,
+          week,
+        })
+      }
+      // the feed is newest-first, so the scandal is prepended ahead of the launch note
+      const scandalEvents: GameEvent[] = []
+
+      let money = state.money
+      let followers = state.followers
+      let competitors = state.competitors
+      if (model && caught) {
+        const teacher = distillTargets(state.competitors, week).find((t) => t.modelId === model.distilledFrom)
+        const fine = distillFine(model.distillQuality ?? 0)
+        const lostFollowers = distillFollowerLoss(state.followers)
+        money -= fine
+        followers = Math.max(0, followers - lostFollowers)
+        const accuser = teacher?.competitorName ?? 'A rival lab'
+        if (teacher) {
+          competitors = competitors.map((c) =>
+            c.id === teacher.competitorId
+              ? { ...c, followers: c.followers + Math.round(c.followers * DISTILL_ACCUSER_FOLLOWER_GAIN) }
+              : c,
+          )
+        }
+        scandalEvents.push({
+          id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          text: `⚖️ ${accuser} proved ${model.name} was distilled from ${model.distilledFromName ?? 'their model'}! Fined $${fine.toLocaleString()} and lost ${lostFollowers.toLocaleString()} followers.`,
+          week,
+        })
+      } else if (model?.distilledFrom) {
+        scandalEvents.push({
+          id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          text: `🧪 Nobody noticed that ${model.name} was distilled from ${model.distilledFromName ?? 'a rival model'}.`,
+          week,
+        })
+      }
+
+      const newEvents = [...scandalEvents, ...launchEvents]
+      const events = newEvents.length > 0 ? [...newEvents, ...state.events].slice(0, 20) : state.events
+      return { ...state, models, events, money, followers, competitors }
     }
     case 'MAKE_POST': {
       const currentWeek = globalWeek(state)
@@ -1301,7 +1355,7 @@ export function reducer(state: GameState, action: Action): GameState {
       const researched = [...state.researched, ...state.researching.map((r) => r.id)]
       const models = state.models.map((m) =>
         m.status === 'training'
-          ? { ...m, status: 'ready' as const, weeksRemaining: 0, customers: 0, quality: computeQuality(state, m.gpus, m.dataTier) }
+          ? { ...m, status: 'ready' as const, weeksRemaining: 0, customers: 0, quality: computeQuality(state, m.gpus, m.dataTier, m.distillQuality) }
           : m,
       )
       return { ...state, researched, researching: [], models }
