@@ -2,6 +2,7 @@ import { useEffect, useReducer, useState } from 'react'
 import { initialState, reducer } from './game/state'
 import { parseCommand } from './game/commands'
 import { clearSave, loadState, saveState } from './game/save'
+import { isMusicEnabled, setMusicEnabled, startMusic, stopMusic } from './game/audio'
 import { TitleScreen } from './components/TitleScreen'
 import { NamingScreen } from './components/NamingScreen'
 import { GameScreen } from './components/GameScreen'
@@ -13,11 +14,24 @@ const TICK_MS = 30000 // 1 week = 30s, so 2 weeks = 1 minute
 export default function App() {
   const [savedState] = useState(() => loadState())
   const [state, dispatch] = useReducer(reducer, undefined, initialState)
+  const [musicOn, setMusicOn] = useState(() => isMusicEnabled())
 
   useEffect(() => {
     const id = setInterval(() => dispatch({ type: 'TICK' }), TICK_MS)
     return () => clearInterval(id)
   }, [])
+
+  // reaching the main screen always follows a click, which satisfies the browser's autoplay gesture rule
+  useEffect(() => {
+    if (state.screen === 'main') startMusic()
+    else stopMusic()
+  }, [state.screen])
+
+  function toggleMusic() {
+    const next = !musicOn
+    setMusicEnabled(next)
+    setMusicOn(next)
+  }
 
   useEffect(() => {
     if (state.screen !== 'title') {
@@ -55,6 +69,8 @@ export default function App() {
       {state.screen === 'main' && (
         <GameScreen
           state={state}
+          musicOn={musicOn}
+          onToggleMusic={toggleMusic}
           onTogglePause={() => dispatch({ type: 'TOGGLE_PAUSE' })}
           onHire={(staff) => dispatch({ type: 'HIRE_STAFF', staff })}
           onStartResearch={(id) => dispatch({ type: 'START_RESEARCH', id })}

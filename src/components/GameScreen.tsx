@@ -25,6 +25,8 @@ type PanelId =
 
 interface Props {
   state: GameState
+  musicOn: boolean
+  onToggleMusic: () => void
   onTogglePause: () => void
   onHire: (staff: Staff) => void
   onStartResearch: (id: string) => void
@@ -50,6 +52,8 @@ interface Props {
 
 export function GameScreen({
   state,
+  musicOn,
+  onToggleMusic,
   onTogglePause,
   onHire,
   onStartResearch,
@@ -103,7 +107,7 @@ export function GameScreen({
 
   return (
     <div className="game-screen screen">
-      <TopBar state={state} onTogglePause={onTogglePause} />
+      <TopBar state={state} musicOn={musicOn} onToggleMusic={onToggleMusic} onTogglePause={onTogglePause} />
 
       <div className="game-body">
         <div className="office-wrap">

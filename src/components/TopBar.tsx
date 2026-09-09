@@ -5,10 +5,12 @@ import './Game.css'
 
 interface Props {
   state: GameState
+  musicOn: boolean
+  onToggleMusic: () => void
   onTogglePause: () => void
 }
 
-export function TopBar({ state, onTogglePause }: Props) {
+export function TopBar({ state, musicOn, onToggleMusic, onTogglePause }: Props) {
   const totalCustomers = state.models.reduce((sum, m) => sum + m.customers, 0)
   const weeklyRev = state.models.reduce((sum, m) => sum + weeklyRevenue(m), 0)
 
@@ -22,6 +24,9 @@ export function TopBar({ state, onTogglePause }: Props) {
       <div className="topbar-item date">
         {formatDate(state.date)} · Wk {state.date.week}
       </div>
+      <button className="pause-btn" onClick={onToggleMusic} title={musicOn ? 'Mute music' : 'Play music'}>
+        {musicOn ? '🔊' : '🔇'}
+      </button>
       <button className="pause-btn" onClick={onTogglePause}>
         {state.paused ? '▶ Play' : '⏸ Pause'}
       </button>
