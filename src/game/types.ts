@@ -152,6 +152,9 @@ export interface GameState {
   trendingSetWeek: number
   lastHypeBotsWeek: number
   lastInvestmentWeek: number
+  lastBotAttackWeek: number
+  lastHackerWeek: number
+  lastJournalistWeek: number
   gpuCards: number
   datacenters: number
   datacenterBuilds: number[]

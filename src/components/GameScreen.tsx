@@ -9,6 +9,7 @@ import { TwitterPanel } from './TwitterPanel'
 import { DatacentersPanel } from './DatacentersPanel'
 import { CompetitorsPanel } from './CompetitorsPanel'
 import { CompanyPanel } from './CompanyPanel'
+import { AdsPanel } from './AdsPanel'
 import { NewsFeed } from './NewsFeed'
 import { DESKS_PER_LEVEL, CAMPAIGN_DURATION } from '../game/constants'
 import './Game.css'
@@ -19,6 +20,7 @@ type PanelId =
   | 'research'
   | 'datacenters'
   | 'twitter'
+  | 'ads'
   | 'competitors'
   | 'company'
   | null
@@ -48,6 +50,9 @@ interface Props {
   onStartTraining: (staffId: string) => void
   onRaiseInvestment: () => void
   onStartPromo: (id: string, kind: PromoKind) => void
+  onBotAttack: (competitorId: string) => void
+  onHireHackers: (competitorId: string) => void
+  onHireJournalists: () => void
 }
 
 export function GameScreen({
@@ -75,6 +80,9 @@ export function GameScreen({
   onStartTraining,
   onRaiseInvestment,
   onStartPromo,
+  onBotAttack,
+  onHireHackers,
+  onHireJournalists,
 }: Props) {
   const [panel, setPanel] = useState<PanelId>(null)
 
@@ -100,6 +108,7 @@ export function GameScreen({
     { id: 'build', label: 'Build AI' },
     { id: 'research', label: 'Research' },
     { id: 'twitter', label: 'Tweeter' },
+    { id: 'ads', label: 'Ads' },
     { id: 'datacenters', label: 'Datacenters' },
     { id: 'competitors', label: 'Competitors' },
     { id: 'company', label: 'Company' },
@@ -147,6 +156,15 @@ export function GameScreen({
             onSmear={onSmear}
             onLaunchCampaign={onLaunchCampaign}
             onBuyHypeBots={onBuyHypeBots}
+            onClose={() => setPanel(null)}
+          />
+        )}
+        {panel === 'ads' && (
+          <AdsPanel
+            state={state}
+            onBotAttack={onBotAttack}
+            onHireHackers={onHireHackers}
+            onHireJournalists={onHireJournalists}
             onClose={() => setPanel(null)}
           />
         )}

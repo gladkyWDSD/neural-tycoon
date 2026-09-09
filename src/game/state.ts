@@ -4,9 +4,19 @@ import {
   CAMPAIGN_COOLDOWN,
   CAMPAIGN_COST,
   CAMPAIGN_DURATION,
+  BOT_ATTACK_BACKFIRE_CHANCE,
+  BOT_ATTACK_COOLDOWN,
+  BOT_ATTACK_COST,
   COMPETITOR_BOT_CHANCE,
   COMPETITOR_POACH_BASE_CHANCE,
   COMPETITOR_POACH_GRACE_WEEKS,
+  HACKER_CAUGHT_CHANCE,
+  HACKER_COOLDOWN,
+  HACKER_COST,
+  HACKER_FINE,
+  HACKER_QUALITY_DAMAGE,
+  JOURNALIST_COOLDOWN,
+  JOURNALIST_COST,
   DISCOUNT_COST,
   DISCOUNT_DURATION,
   DISCOUNT_GROWTH_MULT,
@@ -84,6 +94,9 @@ export function initialState(): GameState {
     trendingSetWeek: 0,
     lastHypeBotsWeek: -HYPE_BOTS_COOLDOWN,
     lastInvestmentWeek: -INVESTMENT_COOLDOWN_WEEKS,
+    lastBotAttackWeek: -BOT_ATTACK_COOLDOWN,
+    lastHackerWeek: -HACKER_COOLDOWN,
+    lastJournalistWeek: -JOURNALIST_COOLDOWN,
     gpuCards: 0,
     datacenters: 0,
     datacenterBuilds: [],
@@ -126,6 +139,9 @@ export type Action =
   | { type: 'LAUNCH_CAMPAIGN' }
   | { type: 'BUY_BOOK'; id: string }
   | { type: 'BUY_HYPE_BOTS' }
+  | { type: 'BOT_ATTACK'; competitorId: string }
+  | { type: 'HIRE_HACKERS'; competitorId: string }
+  | { type: 'HIRE_JOURNALISTS' }
   | { type: 'START_STAFF_TRAINING'; staffId: string }
   | { type: 'RAISE_INVESTMENT' }
   | { type: 'START_PROMO'; modelId: string; kind: PromoKind }
@@ -188,6 +204,9 @@ export function migrateState(raw: Partial<GameState>): GameState {
     trendingSetWeek: raw.trendingSetWeek ?? 0,
     lastHypeBotsWeek: raw.lastHypeBotsWeek ?? -HYPE_BOTS_COOLDOWN,
     lastInvestmentWeek: raw.lastInvestmentWeek ?? -INVESTMENT_COOLDOWN_WEEKS,
+    lastBotAttackWeek: raw.lastBotAttackWeek ?? -BOT_ATTACK_COOLDOWN,
+    lastHackerWeek: raw.lastHackerWeek ?? -HACKER_COOLDOWN,
+    lastJournalistWeek: raw.lastJournalistWeek ?? -JOURNALIST_COOLDOWN,
     rentedDatacenters: raw.rentedDatacenters ?? 0,
     ram: raw.ram ?? 0,
     ssd: raw.ssd ?? 0,
@@ -722,6 +741,141 @@ export function reducer(state: GameState, action: Action): GameState {
         ...state.events,
       ].slice(0, 20)
       return { ...state, money: state.money - HYPE_BOTS_COST, followers, lastHypeBotsWeek: week, events }
+    }
+    case 'BOT_ATTACK': {
+      const week = globalWeek(state)
+      if (week - state.lastBotAttackWeek < BOT_ATTACK_COOLDOWN) return state
+      if (state.money < BOT_ATTACK_COST) return state
+      const target = state.competitors.find((c) => c.id === action.competitorId)
+      if (!target) return state
+      const money = state.money - BOT_ATTACK_COST
+
+      if (Math.random() < BOT_ATTACK_BACKFIRE_CHANCE) {
+        const lost = Math.round(state.followers * 0.1) + 200
+        const events = [
+          {
+            id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            text: `🕵️ Your bot army was traced back to you! ${target.name} called you out — you lost ${lost.toLocaleString()} followers.`,
+            week,
+          },
+          ...state.events,
+        ].slice(0, 20)
+        return { ...state, money, followers: Math.max(0, state.followers - lost), lastBotAttackWeek: week, events }
+      }
+
+      const ratio = 0.05 + Math.random() * 0.07
+      const followersLost = Math.round(target.followers * ratio)
+      let customersLost = 0
+      const competitors = state.competitors.map((c) => {
+        if (c.id !== action.competitorId) return c
+        return {
+          ...c,
+          followers: Math.max(0, c.followers - followersLost),
+          models: c.models.map((m) => {
+            const next = Math.round(m.customers * (1 - ratio * 0.5))
+            customersLost += m.customers - next
+            return { ...m, customers: next }
+          }),
+        }
+      })
+      const events = [
+        {
+          id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          text: `🤖 Your bot army swarmed ${target.icon} ${target.name}! They lost ${followersLost.toLocaleString()} followers and ${customersLost.toLocaleString()} customers.`,
+          week,
+        },
+        ...state.events,
+      ].slice(0, 20)
+      return { ...state, money, competitors, lastBotAttackWeek: week, events }
+    }
+    case 'HIRE_HACKERS': {
+      const week = globalWeek(state)
+      if (week - state.lastHackerWeek < HACKER_COOLDOWN) return state
+      if (state.money < HACKER_COST) return state
+      const target = state.competitors.find((c) => c.id === action.competitorId)
+      if (!target) return state
+      let money = state.money - HACKER_COST
+
+      if (Math.random() < HACKER_CAUGHT_CHANCE) {
+        money -= HACKER_FINE
+        const lostFollowers = Math.round(state.followers * 0.15)
+        let lostCustomers = 0
+        const models = state.models.map((m) => {
+          if (m.status !== 'published') return m
+          const next = Math.round(m.customers * 0.92)
+          lostCustomers += m.customers - next
+          return { ...m, customers: next }
+        })
+        const events = [
+          {
+            id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            text: `🚨 Your hackers got caught breaking into ${target.name}! $${HACKER_FINE.toLocaleString()} fine, ${lostFollowers.toLocaleString()} followers and ${lostCustomers.toLocaleString()} customers gone.`,
+            week,
+          },
+          ...state.events,
+        ].slice(0, 20)
+        return {
+          ...state,
+          money,
+          models,
+          followers: Math.max(0, state.followers - lostFollowers),
+          lastHackerWeek: week,
+          events,
+        }
+      }
+
+      const ratio = 0.08 + Math.random() * 0.07
+      let customersLost = 0
+      const competitors = state.competitors.map((c) => {
+        if (c.id !== action.competitorId) return c
+        return {
+          ...c,
+          models: c.models.map((m) => {
+            const next = Math.round(m.customers * (1 - ratio))
+            customersLost += m.customers - next
+            return { ...m, customers: next, quality: Math.max(40, m.quality - HACKER_QUALITY_DAMAGE) }
+          }),
+        }
+      })
+      const events = [
+        {
+          id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          text: `💀 Your hackers breached ${target.icon} ${target.name}! Their models lost quality and ${customersLost.toLocaleString()} customers.`,
+          week,
+        },
+        ...state.events,
+      ].slice(0, 20)
+      return { ...state, money, competitors, lastHackerWeek: week, events }
+    }
+    case 'HIRE_JOURNALISTS': {
+      const week = globalWeek(state)
+      if (week - state.lastJournalistWeek < JOURNALIST_COOLDOWN) return state
+      if (state.money < JOURNALIST_COST) return state
+      const gainedFollowers = Math.round(3000 + state.followers * 0.15)
+      const pct = 4 + Math.random() * 4
+      let gainedCustomers = 0
+      const models = state.models.map((m) => {
+        if (m.status !== 'published') return m
+        const next = Math.round(m.customers * (1 + pct / 100))
+        gainedCustomers += next - m.customers
+        return { ...m, customers: next }
+      })
+      const events = [
+        {
+          id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          text: `📰 Paid journalists ran glowing stories about ${state.companyName}! +${gainedFollowers.toLocaleString()} followers, +${gainedCustomers.toLocaleString()} customers.`,
+          week,
+        },
+        ...state.events,
+      ].slice(0, 20)
+      return {
+        ...state,
+        money: state.money - JOURNALIST_COST,
+        followers: state.followers + gainedFollowers,
+        models,
+        lastJournalistWeek: week,
+        events,
+      }
     }
     case 'START_STAFF_TRAINING': {
       const s = state.staff.find((x) => x.id === action.staffId)

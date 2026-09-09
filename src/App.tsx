@@ -92,6 +92,9 @@ export default function App() {
           onStartTraining={(staffId) => dispatch({ type: 'START_STAFF_TRAINING', staffId })}
           onRaiseInvestment={() => dispatch({ type: 'RAISE_INVESTMENT' })}
           onStartPromo={(id, kind) => dispatch({ type: 'START_PROMO', modelId: id, kind })}
+          onBotAttack={(competitorId) => dispatch({ type: 'BOT_ATTACK', competitorId })}
+          onHireHackers={(competitorId) => dispatch({ type: 'HIRE_HACKERS', competitorId })}
+          onHireJournalists={() => dispatch({ type: 'HIRE_JOURNALISTS' })}
         />
       )}
       <DevConsole onCommand={runCommand} />

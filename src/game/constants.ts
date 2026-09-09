@@ -90,6 +90,20 @@ export const HYPE_BOTS_BUST_CHANCE = 0.25 // chance the bots get called out inst
 
 export const COMPETITOR_BOT_CHANCE = 0.15 // weekly chance a rival buys their own wave of hype bots
 
+// paid influence operations (Ads panel)
+export const BOT_ATTACK_COST = 30000
+export const BOT_ATTACK_COOLDOWN = 4
+export const BOT_ATTACK_BACKFIRE_CHANCE = 0.2
+
+export const HACKER_COST = 120000
+export const HACKER_COOLDOWN = 8
+export const HACKER_CAUGHT_CHANCE = 0.25
+export const HACKER_FINE = 200000
+export const HACKER_QUALITY_DAMAGE = 8
+
+export const JOURNALIST_COST = 60000
+export const JOURNALIST_COOLDOWN = 6
+
 export const STAFF_TRAINING_WEEKS = 3
 export const STAFF_TRAINING_SCORE_GAIN = 8
 export const STAFF_TRAINING_COST_PER_POINT = 4000
