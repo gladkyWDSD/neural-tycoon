@@ -1,5 +1,8 @@
-import { useEffect, useReducer, useState } from 'react'
-import { initialState, reducer } from './game/state'
+import { useEffect, useMemo, useReducer, useRef, useState } from 'react'
+import { companyValuation, initialState, reducer, settingsOf } from './game/state'
+import { LobbySession } from './game/multiplayer'
+import type { LobbyState } from './game/multiplayer'
+import { LobbyScreen } from './components/LobbyScreen'
 import { parseCommand } from './game/commands'
 import { clearSave, loadState, saveState } from './game/save'
 import { isMusicEnabled, setMusicEnabled, startMusic, stopMusic } from './game/audio'
@@ -9,17 +12,100 @@ import { GameScreen } from './components/GameScreen'
 import { DevConsole } from './components/DevConsole'
 import { EventModal } from './components/EventModal'
 
-const TICK_MS = 30000 // 1 week = 30s, so 2 weeks = 1 minute
+// A game week lasts as long as the chosen length preset says. Research, training
+// and construction advance on a finer clock so a job that says "1 week" really
+// does take a week from the moment it started, instead of finishing whenever the
+// next week boundary happens to come round.
+const JOB_TICK_MS = 250
+// a sleeping machine or a throttled background tab must not dump hours of game
+// time into one step, so each step is capped
+const MAX_STEP_MS = 1000
 
 export default function App() {
   const [savedState] = useState(() => loadState())
   const [state, dispatch] = useReducer(reducer, undefined, initialState)
   const [musicOn, setMusicOn] = useState(() => isMusicEnabled())
 
+  // One lobby session for the tab. It is idle unless the player opens the
+  // multiplayer screen, so a solo game never touches the network.
+  const session = useMemo(() => new LobbySession(), [])
+  const [lobby, setLobby] = useState<LobbyState>(session.state)
+  useEffect(() => session.subscribe(setLobby), [session])
+  const inRace = lobby.phase === 'playing' || lobby.phase === 'over'
+
+  // dirty tricks aimed at this company by another player
+  useEffect(() => session.onAttack((kind, from) => dispatch({ type: 'INCOMING_ATTACK', kind, from })), [session])
+  useEffect(() => session.onBid((bid) => dispatch({ type: 'INCOMING_BID', bid })), [session])
+  // the host halting the race halts everyone's clock, not just their own
+  useEffect(() => session.onPause((paused) => dispatch({ type: 'SET_PAUSED', paused })), [session])
+  useEffect(
+    () => session.onKicked(() => dispatch({ type: 'NOTE', text: '🚪 The host removed you from the race. Your company is still yours to run.' })),
+    [session],
+  )
+  useEffect(
+    () => session.onBidResult((bidId, matched, staff) => dispatch({ type: 'BID_RESULT', bidId, matched, staff })),
+    [session],
+  )
+
+  // whatever this company has decided, on its way to the player it concerns
   useEffect(() => {
-    const id = setInterval(() => dispatch({ type: 'TICK' }), TICK_MS)
+    const out = state.outbox
+    if (!out) return
+    if (out.t === 'attack') session.sendAttack(out.targetId, out.kind)
+    else if (out.t === 'bid') session.sendBid(out.targetId, out.bid)
+    else session.sendBidResult(out.targetId, out.bidId, out.matched, out.staff)
+    dispatch({ type: 'CLEAR_OUTBOX' })
+  }, [state.outbox, session])
+
+  // the race needs the live valuation, without re-arming a timer on every tick
+  const stateRef = useRef(state)
+  useEffect(() => {
+    stateRef.current = state
+  }, [state])
+  useEffect(() => {
+    if (lobby.phase !== 'playing') return
+    const id = setInterval(() => {
+      const cur = stateRef.current
+      const users = cur.models.reduce(
+        (sum, m) => sum + (m.status === 'published' ? m.customers + m.freeCustomers : 0),
+        0,
+      )
+      session.reportProgress(
+        companyValuation(cur),
+        users,
+        cur.staff.map((p) => ({
+          id: p.id,
+          name: p.name,
+          role: p.role,
+          examScore: p.examScore,
+          level: p.level,
+          salary: p.salary,
+        })),
+      )
+      if (stateRef.current.won) session.reportWin()
+    }, 3000)
     return () => clearInterval(id)
-  }, [])
+  }, [lobby.phase, session])
+
+  const tickMs = settingsOf(state).tickMs
+
+  useEffect(() => {
+    let last = performance.now()
+    let sinceWeek = 0
+    const id = setInterval(() => {
+      const now = performance.now()
+      const dt = Math.min(MAX_STEP_MS, now - last)
+      last = now
+      dispatch({ type: 'ADVANCE_JOBS', delta: dt / tickMs })
+      // both clocks are driven off the same elapsed time, so they never drift apart
+      sinceWeek += dt
+      while (sinceWeek >= tickMs) {
+        sinceWeek -= tickMs
+        dispatch({ type: 'TICK' })
+      }
+    }, JOB_TICK_MS)
+    return () => clearInterval(id)
+  }, [tickMs])
 
   // reaching the main screen always follows a click, which satisfies the browser's autoplay gesture rule
   useEffect(() => {
@@ -33,10 +119,12 @@ export default function App() {
     setMusicOn(next)
   }
 
+  // state now changes several times a second while a job is running, so saves are
+  // coalesced instead of hitting localStorage on every step
   useEffect(() => {
-    if (state.screen !== 'title') {
-      saveState(state)
-    }
+    if (state.screen === 'title') return
+    const id = setTimeout(() => saveState(state), 1000)
+    return () => clearTimeout(id)
   }, [state])
 
   function runCommand(text: string): string {
@@ -61,17 +149,35 @@ export default function App() {
           hasSave={savedState !== null}
           onContinue={continueGame}
           onNewGame={newGame}
+          onMultiplayer={() => dispatch({ type: 'SET_SCREEN', screen: 'lobby' })}
+        />
+      )}
+      {state.screen === 'lobby' && (
+        <LobbyScreen
+          session={session}
+          onStart={(name, difficulty) => dispatch({ type: 'START_GAME', name, difficulty })}
+          onBack={() => dispatch({ type: 'SET_SCREEN', screen: 'title' })}
         />
       )}
       {state.screen === 'naming' && (
-        <NamingScreen onFound={(name) => dispatch({ type: 'SET_COMPANY_NAME', name })} />
+        <NamingScreen
+          difficulty={state.difficulty}
+          onPickDifficulty={(difficulty) => dispatch({ type: 'SET_DIFFICULTY', difficulty })}
+          onFound={(name) => dispatch({ type: 'SET_COMPANY_NAME', name })}
+        />
       )}
       {state.screen === 'main' && (
         <GameScreen
           state={state}
           musicOn={musicOn}
           onToggleMusic={toggleMusic}
-          onTogglePause={() => dispatch({ type: 'TOGGLE_PAUSE' })}
+          onTogglePause={() => {
+            // in a race only the host holds the clock, and it holds it for everyone
+            if (inRace && !lobby.isHost) return
+            if (inRace) session.setRacePaused(!state.paused)
+            dispatch({ type: 'TOGGLE_PAUSE' })
+          }}
+          pauseLockedBy={inRace && !lobby.isHost ? (lobby.players.find((p) => p.isHost)?.nickname ?? 'the host') : null}
           onHire={(staff) => dispatch({ type: 'HIRE_STAFF', staff })}
           onStartResearch={(id) => dispatch({ type: 'START_RESEARCH', id })}
           onStartModel={(model) => dispatch({ type: 'START_MODEL', model })}
@@ -90,6 +196,32 @@ export default function App() {
           onBuyBook={(id) => dispatch({ type: 'BUY_BOOK', id })}
           onBuyHypeBots={() => dispatch({ type: 'BUY_HYPE_BOTS' })}
           onStartTraining={(staffId) => dispatch({ type: 'START_STAFF_TRAINING', staffId })}
+          onFireStaff={(staffId) => dispatch({ type: 'FIRE_STAFF', staffId })}
+          onGiveRaise={(staffId) => dispatch({ type: 'GIVE_RAISE', staffId })}
+          race={
+            inRace
+              ? { players: lobby.players, selfId: lobby.selfId, isHost: lobby.isHost, winner: lobby.winner }
+              : undefined
+          }
+          onAttackPlayer={(targetId, targetName, kind) =>
+            dispatch({ type: 'ATTACK_PLAYER', targetId, targetName, kind })
+          }
+          onBidForStaff={(targetId, targetName, staff, amount) =>
+            dispatch({
+              type: 'BID_FOR_STAFF',
+              targetId,
+              targetName,
+              fromId: session.addressId,
+              fromName: lobby.players.find((p) => (lobby.isHost ? p.isHost : p.id === lobby.selfId))?.nickname ?? 'A rival',
+              staff,
+              amount,
+            })
+          }
+          onResolveBid={(matched) => dispatch({ type: 'RESOLVE_BID', matched })}
+          onKickPlayer={(playerId, nickname) => {
+            session.kick(playerId)
+            dispatch({ type: 'NOTE', text: `🚪 You removed ${nickname} from the race.` })
+          }}
           onRaiseInvestment={() => dispatch({ type: 'RAISE_INVESTMENT' })}
           onStartPromo={(id, kind) => dispatch({ type: 'START_PROMO', modelId: id, kind })}
           onBotAttack={(competitorId) => dispatch({ type: 'BOT_ATTACK', competitorId })}

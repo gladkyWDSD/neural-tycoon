@@ -1,4 +1,4 @@
-import type { GameDate, Nationality } from './types'
+import type { Difficulty, GameDate, Nationality, Role } from './types'
 
 export const START_MONEY = 3_500_000
 export const START_YEAR = 2022
@@ -34,6 +34,13 @@ export interface NationalityInfo {
   marketingBias: number
   legalBias: number
 }
+
+export const ROLES: { id: Role; label: string; icon: string }[] = [
+  { id: 'researcher', label: 'Researcher', icon: '∑' },
+  { id: 'engineer', label: 'Engineer', icon: '</>' },
+  { id: 'marketer', label: 'Marketer', icon: '★' },
+  { id: 'lawyer', label: 'Lawyer', icon: '§' },
+]
 
 export const NATIONALITIES: Record<Nationality, NationalityInfo> = {
   china: {
@@ -76,12 +83,117 @@ export const DESKS_PER_LEVEL = 6
 export const OFFICE_UPGRADE_BASE_COST = 200000
 export const MAX_OFFICE_LEVEL = 4
 
+// What the market thinks the company is worth. Annualised revenue does most of
+// the work; users, reach and research are what a buyer pays a premium for.
+export const VALUATION_REVENUE_MULTIPLE = 20
+export const VALUATION_PER_CUSTOMER = 1_000
+export const VALUATION_PER_TRIAL_USER = 200
+export const VALUATION_PER_FOLLOWER = 50
+export const VALUATION_PER_RESEARCH = 10_000_000
+export const IPO_VALUATION = 1_000_000_000 // you can go public once you are worth this much
+export const IPO_RAISE_SHARE = 0.1 // and the float raises this share of the valuation in cash
+export const WIN_VALUATION = 100_000_000_000 // reach this and you have won
+
+// Rivals are meant to be hard to overtake. They grow faster than their raw model
+// numbers suggest, ship new models often, and polish what they have every week.
+// Everything the player's models earn in users is scaled by this. Lowering it
+// makes every milestone take proportionally longer, which is the cleanest way to
+// turn the whole game's difficulty up without distorting any single system.
+// Game length and difficulty presets.
+//
+// The economy knobs barely move the finishing line on their own, because market
+// saturation compensates for a slower grower. So they set how *hard* the race is
+// (how strong rivals are next to you) and the tick length sets how *long* it runs.
+// A win lands somewhere around game week 400 whatever the settings, so the week
+// length is chosen to put that at the advertised hour count.
+export interface DifficultySetting {
+  id: Difficulty
+  label: string
+  blurb: string
+  tickMs: number // real milliseconds per game week
+  playerGrowth: number
+  competitorGrowth: number
+}
+
+export const DIFFICULTIES: DifficultySetting[] = [
+  {
+    id: 'easy',
+    label: 'Easy',
+    blurb: 'About an hour. Fast weeks, gentle rivals.',
+    tickMs: 11000,
+    playerGrowth: 0.5,
+    competitorGrowth: 1.2,
+  },
+  {
+    id: 'medium',
+    label: 'Medium',
+    blurb: 'About two hours. A fair fight.',
+    tickMs: 18000,
+    playerGrowth: 0.3,
+    competitorGrowth: 1.8,
+  },
+  {
+    id: 'long',
+    label: 'Long',
+    blurb: 'Three to five hours. The full game.',
+    tickMs: 30000,
+    playerGrowth: 0.18,
+    competitorGrowth: 2.5,
+  },
+]
+
+export const DIFFICULTY_MAP: Record<Difficulty, DifficultySetting> = Object.fromEntries(
+  DIFFICULTIES.map((d) => [d.id, d]),
+) as Record<Difficulty, DifficultySetting>
+
+export const DEFAULT_DIFFICULTY: Difficulty = 'long'
+
+// How fast the world takes up AI: each model category's market grows by this
+// share of its base size every week. It is the ceiling everyone competes under,
+// so it sets the pace of the whole game more than any other number.
+export const MARKET_GROWTH_PER_WEEK = 0.03
+
+// Model quality. A hard clamp at 100 meant a starting team with a dozen cards
+// already maxed it in the first year, which flattened the whole progression.
+// The raw score now runs through a curve instead, so early models are rough,
+// good models take a real team, and a perfect one takes an exceptional one.
+export const QUALITY_CEILING_BASE = 25
+export const QUALITY_CEILING_PER_SCORE = 0.18
+export const QUALITY_REALIZATION_BASE = 0.35
+export const QUALITY_REALIZATION_PER_SCORE = 0.001
+export const QUALITY_SOFTNESS = 90
+
+// Models age. What matters is not whether yours is the best in the world, but how
+// far the world has moved since the day you shipped it: a launch is fine on its own
+// terms, and then rivals keep improving and it slowly dates. Shipping a successor
+// is how you keep a segment. A brand new model never decays, however modest it is,
+// which is what lets a small company get started at all.
+export const SOTA_DRIFT_PER_POINT = 0.004 // weekly share of users lost per point the world has moved on
+export const SOTA_DECAY_CAP = 0.05 // never lose more than this share of a model's users in one week
+export const SOTA_LEAD_BONUS = 0.012 // extra weekly growth per quality point ahead of the world's best
+export const SUCCESSOR_MIGRATION = 0.35 // share of an older model's users that move to your new one
+
+export const COMPETITOR_RELEASE_CHANCE = 0.28
+// A rival only supports so many products at once. Past this, a new release
+// replaces their oldest model and inherits its users, the way a real successor
+// does, instead of stacking another growth engine on the pile forever.
+export const COMPETITOR_MAX_MODELS = 5
+export const COMPETITOR_QUALITY_CREEP = 0.3
+
 export const CAMPAIGN_DURATION = 4
 export const CAMPAIGN_COOLDOWN = 10
 export const CAMPAIGN_COST = 40000
 
 export const COMPETITOR_POACH_GRACE_WEEKS = 4 // no poaching risk while you're still ramping up
 export const COMPETITOR_POACH_BASE_CHANCE = 0.006 // per-staff weekly base, scaled by score & how underpaid they are
+// Bidding for another player's employee. Making an offer costs a headhunter fee
+// whatever happens, so you cannot spam offers to drain a rival's cash for free.
+export const POACH_BID_FEE_SHARE = 0.2
+export const POACH_MIN_BID_WEEKS = 6 // an offer must be worth at least this many weeks of their pay
+
+export const FIRE_SEVERANCE_WEEKS = 4 // letting someone go costs this many weeks of their salary
+export const POACH_COUNTER_PREMIUM = 1.2 // a rival's offer, as a multiple of today's market salary
+export const POACH_COUNTER_BONUS_WEEKS = 4 // matching it also costs this many weeks of the new salary up front
 
 export const HYPE_BOTS_COST = 25000
 export const HYPE_BOTS_FOLLOWERS = 1500
@@ -104,9 +216,11 @@ export const HACKER_QUALITY_DAMAGE = 8
 export const JOURNALIST_COST = 60000
 export const JOURNALIST_COOLDOWN = 6
 
-export const STAFF_TRAINING_WEEKS = 3
-export const STAFF_TRAINING_SCORE_GAIN = 8
-export const STAFF_TRAINING_COST_PER_POINT = 4000
+// Staff levels. A level-1 hire contributes their exam score; every level after
+// that adds another whole helping of it, so level 10 is worth 10x level 1.
+export const MAX_STAFF_LEVEL = 10
+export const STAFF_TRAINING_BASE_COST = 150000 // price of the first level, then x2, x3, ... per level
+export const STAFF_TRAINING_BASE_WEEKS = 3 // plus one more week for each level already earned
 
 export const INVESTMENT_COOLDOWN_WEEKS = 15
 
@@ -125,10 +239,10 @@ export const DISCOUNT_CONVERSION = 0.75 // they were already paying something, s
 export const FREE_TRIAL_CONVERSION = 0.5 // half of a free crowd sticks around to pay
 
 // rival bot armies swarming you (the mirror of your own BOT_ATTACK)
-export const COMPETITOR_BOT_ATTACK_CHANCE = 0.08 // weekly, once rivals see you as a threat
+export const COMPETITOR_BOT_ATTACK_CHANCE = 0.14 // weekly, once rivals see you as a threat
 export const COMPETITOR_BOT_ATTACK_GRACE_WEEKS = 8 // nobody bothers swarming a nobody
 export const COMPETITOR_BOT_MARKETER_DEFENSE = 0.015 // per marketer moderating your community
-export const COMPETITOR_BOT_MIN_CHANCE = 0.01 // a big enough marketing team never fully stops it
+export const COMPETITOR_BOT_MIN_CHANCE = 0.04 // a big enough marketing team never fully stops it
 export const COMPETITOR_BOT_TRACE_CHANCE = 0.25 // chance the swarm is exposed and backfires on them
 
 // US regulations

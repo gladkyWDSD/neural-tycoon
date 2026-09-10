@@ -48,7 +48,7 @@ export function GovernmentPanel({ state, onHireLobbyists, onClose }: Props) {
         <h4 className="model-list-title">🤝 Lobbying</h4>
         <p className="placeholder">
           {lobbyActive
-            ? `Lobbyists are actively working — ${state.lobbyWeeksLeft}wk of reduced regulatory risk left.`
+            ? `Lobbyists are actively working — ${Math.ceil(state.lobbyWeeksLeft)}wk of reduced regulatory risk left.`
             : 'Hire lobbyists to suppress new regulations & datacenter shutdown risk, with a chance to repeal an active regulation.'}
         </p>
         <div className="smear-row">

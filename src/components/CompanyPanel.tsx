@@ -1,6 +1,15 @@
 import type { GameState } from '../game/types'
-import { DESKS_PER_LEVEL, INVESTMENT_COOLDOWN_WEEKS, MAX_OFFICE_LEVEL, OFFICE_UPGRADE_BASE_COST } from '../game/constants'
-import { globalWeek, investmentRaiseAmount, maxStaff } from '../game/state'
+import {
+  DESKS_PER_LEVEL,
+  INVESTMENT_COOLDOWN_WEEKS,
+  IPO_RAISE_SHARE,
+  IPO_VALUATION,
+  MAX_OFFICE_LEVEL,
+  OFFICE_UPGRADE_BASE_COST,
+  WIN_VALUATION,
+} from '../game/constants'
+import { formatMoney } from '../game/format'
+import { companyValuation, globalWeek, investmentRaiseAmount, maxStaff } from '../game/state'
 import './Game.css'
 
 interface Props {
@@ -20,8 +29,11 @@ export function CompanyPanel({ state, onUpgradeOffice, onIpo, onRaiseInvestment,
     (sum, m) => sum + (m.status === 'published' ? m.customers : 0),
     0,
   )
-  const canIpo = !state.isPublic && totalCustomers >= 250000
-  const ipoValue = totalCustomers * 15
+  const valuation = companyValuation(state)
+  const canIpo = !state.isPublic && valuation >= IPO_VALUATION
+  const ipoRaise = Math.round(valuation * IPO_RAISE_SHARE)
+  const towardsIpo = Math.min(100, (valuation / IPO_VALUATION) * 100)
+  const towardsWin = Math.min(100, (valuation / WIN_VALUATION) * 100)
 
   const currentWeek = globalWeek(state)
   const weeksSinceInvestment = currentWeek - state.lastInvestmentWeek
@@ -43,6 +55,10 @@ export function CompanyPanel({ state, onUpgradeOffice, onIpo, onRaiseInvestment,
           <span className="company-value">{state.companyName}</span>
         </div>
 
+        <div className="company-stat">
+          <span className="company-label">Valuation</span>
+          <span className="company-value">{formatMoney(valuation)}</span>
+        </div>
         <div className="company-stat">
           <span className="company-label">Office level</span>
           <span className="company-value">Lvl {state.officeLevel}</span>
@@ -75,11 +91,17 @@ export function CompanyPanel({ state, onUpgradeOffice, onIpo, onRaiseInvestment,
 
         <div className="office-upgrade">
           {state.isPublic ? (
-            <p className="placeholder">📈 {state.companyName} is a public company.</p>
+            <>
+              <p className="placeholder">
+                📈 {state.companyName} is public. Reach {formatMoney(WIN_VALUATION)} to win the AI race —
+                you are {towardsWin.toFixed(towardsWin < 1 ? 2 : 1)}% of the way there.
+              </p>
+              {state.won && <p className="placeholder">🏆 You already won. Everything from here is a victory lap.</p>}
+            </>
           ) : canIpo ? (
             <>
               <p className="placeholder">
-                Go public! Raise ${ipoValue.toLocaleString()} (needs 250k customers).
+                Worth {formatMoney(valuation)}. Float the company and raise {formatMoney(ipoRaise)}.
               </p>
               <button className="big-button" onClick={onIpo}>
                 📈 Go Public (IPO)
@@ -87,7 +109,9 @@ export function CompanyPanel({ state, onUpgradeOffice, onIpo, onRaiseInvestment,
             </>
           ) : (
             <p className="placeholder">
-              IPO unlocks at 250,000 customers (now {totalCustomers.toLocaleString()}).
+              The IPO opens at {formatMoney(IPO_VALUATION)}. You are worth {formatMoney(valuation)},{' '}
+              {towardsIpo.toFixed(towardsIpo < 1 ? 2 : 1)}% of the way, on {totalCustomers.toLocaleString()} paying
+              customers.
             </p>
           )}
         </div>

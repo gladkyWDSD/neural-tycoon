@@ -1,4 +1,5 @@
 import type { Competitor, CompetitorModel } from './types'
+import { MARKET_GROWTH_PER_WEEK } from './constants'
 
 export const MARKET_CAP_BASE: Record<string, number> = {
   general: 2_000_000,
@@ -9,7 +10,7 @@ export const MARKET_CAP_BASE: Record<string, number> = {
 
 export function marketCap(typeId: string, week: number): number {
   const base = MARKET_CAP_BASE[typeId] ?? 1_000_000
-  return Math.round(base * (1 + week * 0.04))
+  return Math.round(base * (1 + week * MARKET_GROWTH_PER_WEEK))
 }
 
 export function competitorCustomers(competitors: Competitor[], typeId: string, week: number): number {
@@ -20,6 +21,21 @@ export function competitorCustomers(competitors: Competitor[], typeId: string, w
     }
   }
   return sum
+}
+
+/**
+ * The best model the rest of the world has released. Rivals polish their models
+ * every week and ship successors, so this bar keeps rising, and anything of yours
+ * sitting below it starts losing users to whatever is better.
+ */
+export function stateOfTheArt(competitors: Competitor[], week: number): number {
+  let best = 0
+  for (const c of competitors) {
+    for (const m of c.models) {
+      if (m.releaseWeek <= week && m.quality > best) best = m.quality
+    }
+  }
+  return best
 }
 
 export function marketSaturation(typeId: string, week: number, playerCustomers: number, competitors: Competitor[]): number {

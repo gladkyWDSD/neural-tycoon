@@ -1,15 +1,41 @@
-import type { GameState } from '../game/types'
+import { useState } from 'react'
+import type { AttackKind, GameState, StaffCard } from '../game/types'
+import type { LobbyPlayer } from '../game/multiplayer'
 import { MODEL_TYPE_MAP } from '../game/research'
 import { globalWeek } from '../game/state'
+import {
+  BOT_ATTACK_COOLDOWN,
+  BOT_ATTACK_COST,
+  HACKER_COOLDOWN,
+  HACKER_COST,
+  POACH_BID_FEE_SHARE,
+  POACH_MIN_BID_WEEKS,
+  ROLES,
+} from '../game/constants'
+import { staffPower } from '../game/hiring'
+import { formatMoney } from '../game/format'
 import './Game.css'
 
 interface Props {
   state: GameState
   onPoach: (competitorId: string) => void
   onClose: () => void
+  /** present only in a multiplayer race */
+  race?: { players: LobbyPlayer[]; selfId: string; isHost: boolean }
+  onAttackPlayer?: (targetId: string, targetName: string, kind: AttackKind) => void
+  onBidForStaff?: (targetId: string, targetName: string, staff: StaffCard, amount: number) => void
+  /** host only: remove a player from the race */
+  onKickPlayer?: (playerId: string, nickname: string) => void
 }
 
-export function CompetitorsPanel({ state, onPoach, onClose }: Props) {
+export function CompetitorsPanel({ state, onPoach, onClose, race, onAttackPlayer, onBidForStaff, onKickPlayer }: Props) {
+  const [poachOpen, setPoachOpen] = useState<string | null>(null)
+  const [bids, setBids] = useState<Record<string, string>>({})
+  // the same cooldowns and prices as the tricks you can pull on an AI rival
+  const botsIn = BOT_ATTACK_COOLDOWN - (globalWeek(state) - state.lastBotAttackWeek)
+  const hackIn = HACKER_COOLDOWN - (globalWeek(state) - state.lastHackerWeek)
+  const botsReady = botsIn <= 0 && state.money >= BOT_ATTACK_COST
+  const hackReady = hackIn <= 0 && state.money >= HACKER_COST
   const week = globalWeek(state)
   const playerCustomers = state.models.reduce(
     (sum, m) => sum + (m.status === 'published' ? m.customers + m.freeCustomers : 0),
@@ -41,6 +67,126 @@ export function CompetitorsPanel({ state, onPoach, onClose }: Props) {
           ✕
         </button>
       </div>
+
+      {race && race.players.length > 0 && (
+        <div className="comp-players">
+          <h4 className="comp-players-title">Players in this race</h4>
+          <p className="comp-players-note">
+            Real people, each running their own company. First to $100B wins.
+          </p>
+          {[...race.players]
+            .sort((a, b) => b.valuation - a.valuation)
+            .map((p, i) => {
+              const mine = race.isHost ? p.isHost : p.id === race.selfId
+              return (
+                <div className={`comp-row ${mine ? 'you' : ''}`} key={p.id}>
+                  <span className="comp-rank">#{i + 1}</span>
+                  <span className="comp-icon">{p.isHost ? '👑' : '👤'}</span>
+                  <span className="comp-name">
+                    {p.nickname}
+                    {mine ? ' (you)' : ''}
+                    <span className="comp-sub">{p.name}</span>
+                  </span>
+                  <span className="comp-customers">
+                    {formatMoney(p.valuation)}
+                    <span className="comp-sub">{p.customers.toLocaleString()} users</span>
+                  </span>
+                  {!mine && onAttackPlayer && (
+                    <span className="comp-attacks">
+                      <button
+                        className="hire-btn"
+                        disabled={!botsReady}
+                        title={
+                          botsIn > 0
+                            ? `Your bot farm is lying low for ${botsIn}wk`
+                            : `Swarm them with bots. $${BOT_ATTACK_COST.toLocaleString()}, and they may trace it back to you.`
+                        }
+                        onClick={() => onAttackPlayer(p.id, p.nickname, 'bots')}
+                      >
+                        🤖 Swarm
+                      </button>
+                      <button
+                        className="hire-btn"
+                        disabled={p.staff.length === 0 || Boolean(state.sentBid)}
+                        title={
+                          state.sentBid
+                            ? 'You already have an offer on the table'
+                            : p.staff.length === 0
+                              ? 'They have nobody to take'
+                              : 'Make one of their people an offer they have to match'
+                        }
+                        onClick={() => setPoachOpen(poachOpen === p.id ? null : p.id)}
+                      >
+                        🎯 Poach
+                      </button>
+                      <button
+                        className="hire-btn"
+                        disabled={!hackReady}
+                        title={
+                          hackIn > 0
+                            ? `Your hackers are cooling off for ${hackIn}wk`
+                            : `Break into their labs and damage their models. $${HACKER_COST.toLocaleString()}, with a real chance of a fine.`
+                        }
+                        onClick={() => onAttackPlayer(p.id, p.nickname, 'hackers')}
+                      >
+                        💻 Hack
+                      </button>
+                      {race.isHost && onKickPlayer && (
+                        <button
+                          className="hire-btn"
+                          title={`Remove ${p.nickname} from the race`}
+                          onClick={() => onKickPlayer(p.id, p.nickname)}
+                        >
+                          ✖ Kick
+                        </button>
+                      )}
+                    </span>
+                  )}
+                  {poachOpen === p.id && onBidForStaff && (
+                    <div className="poach-list">
+                      {[...p.staff]
+                        .sort((a, b) => staffPower(b) - staffPower(a))
+                        .map((c) => {
+                          const minimum = c.salary * POACH_MIN_BID_WEEKS
+                          const typed = Number(bids[c.id] ?? '')
+                          const amount = Number.isFinite(typed) && typed >= minimum ? Math.round(typed) : minimum
+                          const fee = Math.round(amount * POACH_BID_FEE_SHARE)
+                          return (
+                            <div className="poach-row" key={c.id}>
+                              <span className="poach-who">
+                                {c.name}
+                                <span className="comp-sub">
+                                  {ROLES.find((r) => r.id === c.role)?.label} · Lv {c.level} ·{' '}
+                                  {staffPower(c).toLocaleString()} pts · ${c.salary.toLocaleString()}/wk
+                                </span>
+                              </span>
+                              <input
+                                className="poach-bid"
+                                value={bids[c.id] ?? String(minimum)}
+                                onChange={(e) => setBids((b) => ({ ...b, [c.id]: e.target.value.replace(/[^0-9]/g, '') }))}
+                                title={`At least $${minimum.toLocaleString()}`}
+                              />
+                              <button
+                                className="hire-btn"
+                                disabled={state.money < fee || Boolean(state.sentBid)}
+                                title={`Costs $${fee.toLocaleString()} to the headhunter now, and $${amount.toLocaleString()} more only if they let them go.`}
+                                onClick={() => {
+                                  onBidForStaff(p.id, p.nickname, c, amount)
+                                  setPoachOpen(null)
+                                }}
+                              >
+                                Offer
+                              </button>
+                            </div>
+                          )
+                        })}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+        </div>
+      )}
 
       <div className="comp-overview">
         <div className="comp-overview-stat">

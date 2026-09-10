@@ -17,8 +17,9 @@ export function EventModal({ event, onResolve }: Props) {
           {event.choices.map((c, i) => (
             <button
               key={i}
-              className="event-choice"
+              className={c.disabled ? 'event-choice is-disabled' : 'event-choice'}
               onClick={() => onResolve(i)}
+              disabled={c.disabled}
               title={c.hint}
             >
               <span className="event-choice-label">{c.label}</span>

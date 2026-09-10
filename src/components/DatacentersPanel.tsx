@@ -176,7 +176,7 @@ export function DatacentersPanel({ state, onBuyGpu, onBuyRam, onBuySsd, onBuildD
         <div className="dc-building">
           {state.datacenterBuilds.map((w, i) => (
             <div key={i} className="dc-build-row">
-              Datacenter #{state.datacenters + i + 1} · {w}wk remaining
+              Datacenter #{state.datacenters + i + 1} · {Math.ceil(w)}wk remaining
             </div>
           ))}
         </div>

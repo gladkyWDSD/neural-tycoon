@@ -68,3 +68,12 @@
   font-size: 16px;
   color: var(--text-dim);
 }
+
+.event-choice.is-disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.event-choice.is-disabled:hover .event-choice-label {
+  color: var(--text);
+}

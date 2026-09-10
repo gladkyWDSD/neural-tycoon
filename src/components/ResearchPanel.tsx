@@ -52,7 +52,7 @@ export function ResearchPanel({ state, onStartResearch, onClose }: Props) {
                   <span className="research-status done-text">✓ Researched</span>
                 ) : inProgress ? (
                   <span className="research-status progress-text">
-                    Researching... {inProgress.weeksRemaining}wk left
+                    Researching... {Math.ceil(inProgress.weeksRemaining)}wk left
                   </span>
                 ) : locked ? (
                   <span className="research-status locked-text">

@@ -20,6 +20,7 @@ import {
   isDistillUnlocked,
 } from '../game/distill'
 import { globalWeek } from '../game/state'
+import { stateOfTheArt } from '../game/competitors'
 import './Game.css'
 
 interface Props {
@@ -45,12 +46,15 @@ function newModelId(): string {
 function ModelRow({
   model,
   money,
+  sota,
   onPublish,
   onStartPromo,
   onEditModel,
 }: {
   model: AIModel
   money: number
+  /** the best model in the world right now */
+  sota: number
   onPublish: (id: string, pricing: PricingModel) => void
   onStartPromo: (id: string, kind: PromoKind) => void
   onEditModel: (id: string, name?: string, pricing?: PricingModel) => void
@@ -101,7 +105,7 @@ function ModelRow({
           </span>
         )}
         <span className={`model-status ${model.status}`}>
-          {model.status === 'training' && `Training ${model.weeksRemaining}wk`}
+          {model.status === 'training' && `Training ${Math.ceil(model.weeksRemaining)}wk`}
           {model.status === 'ready' && `Quality ${model.quality} · Ready`}
           {model.status === 'published' && `Quality ${model.quality} · ${pricingLabel}`}
         </span>
@@ -170,6 +174,21 @@ function ModelRow({
 
       {model.status === 'published' && (
         <div className="model-meta">
+          {model.benchmarkRank
+            ? `Launched #${model.benchmarkRank} of ${model.benchmarkField} in the world · `
+            : ''}
+          {(() => {
+            const drift = sota - (model.sotaAtPublish ?? sota)
+            if (model.quality >= sota) return 'still the best there is'
+            if (drift <= 0) return 'current'
+            if (drift < 5) return `the world has edged past it (+${Math.round(drift)})`
+            return `dated: the world moved on +${Math.round(drift)}, ship a successor`
+          })()}
+        </div>
+      )}
+
+      {model.status === 'published' && (
+        <div className="model-meta">
           {model.customers.toLocaleString()} paying · ${rev.toLocaleString()}/wk
           {model.freeCustomers > 0 &&
             ` · +${model.freeCustomers.toLocaleString()} trial users (~${Math.round(model.freeCustomers * conversion).toLocaleString()} will convert)`}
@@ -219,6 +238,8 @@ export function BuildPanel({ state, onStartModel, onPublish, onStartPromo, onBuy
   const [teacherId, setTeacherId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
+  // the bar the rest of the world has set, so a model can show how dated it is
+  const worldBest = stateOfTheArt(state.competitors, globalWeek(state))
   const distillUnlocked = isDistillUnlocked(state.researched)
   const teachers = distillUnlocked ? distillTargets(state.competitors, globalWeek(state)) : []
   const teacher = teachers.find((t) => t.modelId === teacherId) ?? null
@@ -477,6 +498,7 @@ export function BuildPanel({ state, onStartModel, onPublish, onStartPromo, onBuy
               key={m.id}
               model={m}
               money={state.money}
+              sota={worldBest}
               onPublish={onPublish}
               onStartPromo={onStartPromo}
               onEditModel={onEditModel}

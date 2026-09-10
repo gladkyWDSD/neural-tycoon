@@ -1,5 +1,11 @@
 import type { Nationality, Role, Staff } from './types'
-import { MAX_SCORE, NATIONALITIES } from './constants'
+import {
+  MAX_SCORE,
+  MAX_STAFF_LEVEL,
+  NATIONALITIES,
+  STAFF_TRAINING_BASE_COST,
+  STAFF_TRAINING_BASE_WEEKS,
+} from './constants'
 
 const FIRST_NAMES: Record<Nationality, string[]> = {
   china: ['Wei', 'Li', 'Zhang', 'Chen', 'Yan', 'Hao', 'Mei', 'Jing', 'Tao', 'Lin'],
@@ -52,8 +58,41 @@ const SALARY_INFLATION_PER_WEEK = 0.008 // rival offers creep up ~0.8%/wk; a fix
 
 // what a rival would offer this staff member today — salaries are locked in at hire time,
 // so the longer someone goes without a raise, the further behind the market they fall
+/**
+ * What this person is actually worth to the company: their exam score, multiplied
+ * by their level. This is the number every other system should use — the raw exam
+ * score is only the level-1 starting point.
+ */
+export function staffPower(s: { examScore: number; level: number }): number {
+  return s.examScore * s.level
+}
+
+/** Money to go from `level` to the next one. Each level costs more than the last. */
+export function trainingCostFor(level: number): number {
+  return STAFF_TRAINING_BASE_COST * level
+}
+
+/** Weeks the course takes. Higher levels take longer. */
+export function trainingWeeksFor(level: number): number {
+  return STAFF_TRAINING_BASE_WEEKS + level - 1
+}
+
+export function canTrain(s: Staff): boolean {
+  return s.level < MAX_STAFF_LEVEL
+}
+
 export function marketSalaryFor(role: Role, score: number, week: number): number {
   return Math.round(salaryFor(role, score) * (1 + Math.max(0, week) * SALARY_INFLATION_PER_WEEK))
+}
+
+// Two people generated in the same millisecond used to be able to share an id.
+// Staff are looked up and removed by id, so a duplicate meant firing one person
+// removed everyone who shared it. A counter makes every id unique for the session.
+let idSeq = 0
+
+function newStaffId(): string {
+  idSeq += 1
+  return `${Date.now().toString(36)}-${idSeq.toString(36)}-${Math.random().toString(36).slice(2, 8)}`
 }
 
 export function generateCandidate(nationality: Nationality, role: Role, minScore: number, maxScore: number): Staff {
@@ -62,11 +101,12 @@ export function generateCandidate(nationality: Nationality, role: Role, minScore
   const score = Math.min(MAX_SCORE, Math.max(0, raw + bias))
   const name = `${pick(FIRST_NAMES[nationality])} ${pick(LAST_NAMES[nationality])}`
   return {
-    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    id: newStaffId(),
     name,
     nationality,
     role,
     examScore: score,
+    level: 1,
     salary: salaryFor(role, score),
   }
 }

@@ -1,4 +1,4 @@
-import type { AIModel, GameEvent, GameState, PostType, PricingModel, PromoKind, Staff } from './types'
+import type { AIModel, AttackKind, Difficulty, GameEvent, GameState, PendingEvent, PostType, PricingModel, PromoKind, Staff, StaffBid, StaffCard } from './types'
 import {
   DESKS_PER_LEVEL,
   CAMPAIGN_COOLDOWN,
@@ -16,6 +16,11 @@ import {
   COMPETITOR_BOT_TRACE_CHANCE,
   COMPETITOR_POACH_BASE_CHANCE,
   COMPETITOR_POACH_GRACE_WEEKS,
+  FIRE_SEVERANCE_WEEKS,
+  POACH_BID_FEE_SHARE,
+  POACH_MIN_BID_WEEKS,
+  POACH_COUNTER_BONUS_WEEKS,
+  POACH_COUNTER_PREMIUM,
   HACKER_CAUGHT_CHANCE,
   HACKER_COOLDOWN,
   HACKER_COST,
@@ -45,6 +50,19 @@ import {
   LOBBY_RISK_REDUCTION,
   MAX_ACTIVE_REGULATIONS,
   MAX_OFFICE_LEVEL,
+  DEFAULT_DIFFICULTY,
+  DIFFICULTY_MAP,
+  COMPETITOR_MAX_MODELS,
+  COMPETITOR_QUALITY_CREEP,
+  COMPETITOR_RELEASE_CHANCE,
+  IPO_RAISE_SHARE,
+  IPO_VALUATION,
+  VALUATION_PER_CUSTOMER,
+  VALUATION_PER_FOLLOWER,
+  VALUATION_PER_RESEARCH,
+  VALUATION_PER_TRIAL_USER,
+  VALUATION_REVENUE_MULTIPLE,
+  WIN_VALUATION,
   MAX_SCORE,
   OFFICE_UPGRADE_BASE_COST,
   REGULATION_BASE_DATACENTER_SHUTDOWN_CHANCE,
@@ -53,13 +71,20 @@ import {
   START_DATE,
   START_MONEY,
   START_YEAR,
-  STAFF_TRAINING_COST_PER_POINT,
-  STAFF_TRAINING_SCORE_GAIN,
-  STAFF_TRAINING_WEEKS,
+  MAX_STAFF_LEVEL,
+  QUALITY_CEILING_BASE,
+  QUALITY_CEILING_PER_SCORE,
+  QUALITY_REALIZATION_BASE,
+  QUALITY_REALIZATION_PER_SCORE,
+  QUALITY_SOFTNESS,
+  SOTA_DECAY_CAP,
+  SOTA_DRIFT_PER_POINT,
+  SOTA_LEAD_BONUS,
+  SUCCESSOR_MIGRATION,
   WEEKS_PER_YEAR,
 } from './constants'
 import { advanceWeek } from './date'
-import { DATA_TIER_MAP, BOOK_MAP, MODEL_TYPE_MAP, PRICING_MAP, RESEARCH_ITEMS, RESEARCH_MAP } from './research'
+import { DATA_TIER_MAP, BOOK_MAP, MODEL_TYPE_MAP, PRICING_MAP, RESEARCH_ITEMS, RESEARCH_MAP, weeklyRevenue } from './research'
 import {
   COMPETITOR_CLAPBACKS,
   COMPETITOR_REACTION_CHANCE,
@@ -73,9 +98,16 @@ import {
   usesTrendingHashtag,
 } from './social'
 import { DATACENTER_BUILD_WEEKS, DATACENTER_COST, ELECTRICITY_PER_CARD_WEEK, GPU_CARD_COST, RAM_COST, RENT_DISPUTE_CHANCE, RENT_WEEKLY_FEE, SSD_COST, activeCards, gpuQualityFactor, ssdQualityBonus } from './gpu'
-import { COMPETITOR_SEED, generateCompetitorModel, marketSaturation } from './competitors'
+import { COMPETITOR_SEED, generateCompetitorModel, marketSaturation, stateOfTheArt } from './competitors'
 import { pickRandomEvent } from './events'
-import { generateCandidate, marketSalaryFor } from './hiring'
+import {
+  canTrain,
+  generateCandidate,
+  marketSalaryFor,
+  staffPower,
+  trainingCostFor,
+  trainingWeeksFor,
+} from './hiring'
 import {
   distillCaughtChance,
   distillCost,
@@ -140,7 +172,9 @@ export function initialState(): GameState {
     ssd: 0,
     poached: [],
     officeLevel: 1,
+    difficulty: DEFAULT_DIFFICULTY,
     isPublic: false,
+    won: false,
     campaignWeeksLeft: 0,
     lastCampaignWeek: -CAMPAIGN_COOLDOWN,
     books: [],
@@ -157,8 +191,20 @@ export type Action =
   | { type: 'NEW_GAME' }
   | { type: 'LOAD_STATE'; state: GameState }
   | { type: 'SET_COMPANY_NAME'; name: string }
+  | { type: 'SET_SCREEN'; screen: GameState['screen'] }
+  | { type: 'SET_DIFFICULTY'; difficulty: Difficulty }
+  | { type: 'START_GAME'; name: string; difficulty: Difficulty }
+  | { type: 'ATTACK_PLAYER'; targetId: string; targetName: string; kind: AttackKind }
+  | { type: 'CLEAR_OUTBOX' }
+  | { type: 'NOTE'; text: string }
+  | { type: 'INCOMING_ATTACK'; kind: AttackKind; from: string }
+  | { type: 'BID_FOR_STAFF'; targetId: string; targetName: string; fromId: string; fromName: string; staff: StaffCard; amount: number }
+  | { type: 'INCOMING_BID'; bid: StaffBid }
+  | { type: 'RESOLVE_BID'; matched: boolean }
+  | { type: 'BID_RESULT'; bidId: string; matched: boolean; staff?: Staff }
   | { type: 'TICK' }
   | { type: 'TOGGLE_PAUSE' }
+  | { type: 'SET_PAUSED'; paused: boolean }
   | { type: 'HIRE_STAFF'; staff: Staff }
   | { type: 'START_RESEARCH'; id: string }
   | { type: 'START_MODEL'; model: AIModel }
@@ -181,12 +227,15 @@ export type Action =
   | { type: 'HIRE_HACKERS'; competitorId: string }
   | { type: 'HIRE_JOURNALISTS' }
   | { type: 'START_STAFF_TRAINING'; staffId: string }
+  | { type: 'FIRE_STAFF'; staffId: string }
+  | { type: 'GIVE_RAISE'; staffId: string }
   | { type: 'RAISE_INVESTMENT' }
   | { type: 'START_PROMO'; modelId: string; kind: PromoKind }
   | { type: 'EDIT_MODEL'; id: string; name?: string; pricing?: PricingModel }
   | { type: 'HIRE_LOBBYISTS' }
   | { type: 'SET_GPU'; count: number }
   | { type: 'SET_DATACENTERS'; count: number }
+  | { type: 'ADVANCE_JOBS'; delta: number }
   | { type: 'SET_WEEK'; week: number }
   | { type: 'SET_MONEY'; money: number }
   | { type: 'ADD_MONEY'; amount: number }
@@ -200,10 +249,16 @@ export function isResearchAvailable(id: string, researched: string[], researchin
   return item.requires.every((r) => researched.includes(r))
 }
 
+/** Average effective score for a role: exam score times level, so levels really do multiply output. */
 export function avgScoreByRole(staff: Staff[], role: Staff['role']): number {
   const list = staff.filter((s) => s.role === role)
   if (list.length === 0) return 0
-  return list.reduce((sum, s) => sum + s.examScore, 0) / list.length
+  return list.reduce((sum, s) => sum + staffPower(s), 0) / list.length
+}
+
+/** The length and difficulty preset this run is being played on. */
+export function settingsOf(state: GameState) {
+  return DIFFICULTY_MAP[state.difficulty] ?? DIFFICULTY_MAP[DEFAULT_DIFFICULTY]
 }
 
 export function globalWeek(state: GameState): number {
@@ -235,10 +290,17 @@ export function migrateState(raw: Partial<GameState>): GameState {
     ...base,
     ...raw,
     date: raw.date ?? base.date,
-    staff: raw.staff ?? base.staff,
+    // levels arrived after launch: everyone in an older save starts at 1
+    staff: (raw.staff ?? base.staff).map((s) => ({ ...s, level: s.level ?? 1 })),
     models,
     researching,
-    staffTraining: raw.staffTraining ?? [],
+    staffTraining: (raw.staffTraining ?? []).map((t) => ({
+      staffId: t.staffId,
+      weeksRemaining: t.weeksRemaining,
+      totalWeeks: t.totalWeeks,
+      // courses that were in flight under the old points system finish as one level
+      toLevel: t.toLevel ?? ((raw.staff ?? []).find((s) => s.id === t.staffId)?.level ?? 1) + 1,
+    })),
     competitors: (raw.competitors ?? base.competitors).map((c) => ({ ...c, followers: c.followers ?? 100000 })),
     events: raw.events ?? base.events,
     trendingHashtag: raw.trendingHashtag ?? base.trendingHashtag,
@@ -253,7 +315,9 @@ export function migrateState(raw: Partial<GameState>): GameState {
     ssd: raw.ssd ?? 0,
     poached: raw.poached ?? [],
     officeLevel: raw.officeLevel ?? 1,
+    difficulty: raw.difficulty ?? DEFAULT_DIFFICULTY,
     isPublic: raw.isPublic ?? false,
+    won: raw.won ?? false,
     campaignWeeksLeft: raw.campaignWeeksLeft ?? 0,
     lastCampaignWeek: raw.lastCampaignWeek ?? -CAMPAIGN_COOLDOWN,
     books: raw.books ?? [],
@@ -270,11 +334,39 @@ function computeQuality(state: GameState, gpus: number, dataTier?: string, disti
   const techBonus = state.researched.reduce((sum, id) => sum + (RESEARCH_MAP[id]?.qualityBonus ?? 0), 0)
   const dataQuality = dataTier ? (DATA_TIER_MAP[dataTier]?.quality ?? 0) : 0
   const booksBonus = state.books.reduce((sum, id) => sum + (BOOK_MAP[id]?.quality ?? 0), 0)
-  const ceiling = 40 + avgResearcher * 0.3
-  const realization = 0.5 + avgEngineer / 400
-  let q = ceiling * realization * factor + techBonus + dataQuality + ssdQualityBonus(state.ssd) + booksBonus
+  const ceiling = QUALITY_CEILING_BASE + avgResearcher * QUALITY_CEILING_PER_SCORE
+  const realization = QUALITY_REALIZATION_BASE + avgEngineer * QUALITY_REALIZATION_PER_SCORE
+  const raw = ceiling * realization * factor + techBonus + dataQuality + ssdQualityBonus(state.ssd) + booksBonus
+  // diminishing returns instead of a wall: every point past here costs more than the last
+  let q = 100 * (1 - Math.exp(-Math.max(0, raw) / QUALITY_SOFTNESS))
   if (distillQuality != null) q = distilledQuality(q, distillQuality)
   return Math.max(0, Math.min(100, Math.round(q)))
+}
+
+/**
+ * What the company is worth today. Annualised revenue at a growth-stage multiple
+ * does most of the work; users, reach and shipped research are the premium a
+ * buyer pays on top. This is the number the IPO and the win condition read, and
+ * it is shown in the top bar so the player can watch it climb.
+ */
+export function companyValuation(state: GameState): number {
+  let paying = 0
+  let trial = 0
+  let perWeek = 0
+  for (const m of state.models) {
+    if (m.status !== 'published') continue
+    paying += m.customers
+    trial += m.freeCustomers
+    perWeek += weeklyRevenue(m)
+  }
+  return Math.round(
+    Math.max(0, state.money) +
+      perWeek * 52 * VALUATION_REVENUE_MULTIPLE +
+      paying * VALUATION_PER_CUSTOMER +
+      trial * VALUATION_PER_TRIAL_USER +
+      state.followers * VALUATION_PER_FOLLOWER +
+      state.researched.length * VALUATION_PER_RESEARCH,
+  )
 }
 
 export function investmentRaiseAmount(state: GameState): number {
@@ -310,23 +402,123 @@ function ecoProtest(state: GameState, chance: number, message: string): GameStat
   return { ...state, models, events }
 }
 
+/**
+ * Advance everything the player is actively waiting on — research, staff
+ * training, model training, datacenter construction and the timed marketing and
+ * lobbying effects — by `delta` weeks, finishing whatever reaches zero.
+ *
+ * These run on their own fine-grained clock instead of on the weekly tick, so a
+ * job that says "1 week" takes a full week from the moment it was started
+ * rather than ending at whatever moment the next week boundary happens to fall
+ * on. `advanceOneWeek` deliberately leaves these timers alone; the fast-forward
+ * path calls this with a delta of 1 for every week it replays, so both stay in
+ * sync. Any new timer the player watches count down belongs here.
+ */
+function advanceJobs(state: GameState, delta: number): GameState {
+  if (delta <= 0) return state
+  const busy =
+    state.researching.length > 0 ||
+    state.staffTraining.length > 0 ||
+    state.datacenterBuilds.length > 0 ||
+    state.campaignWeeksLeft > 0 ||
+    state.lobbyWeeksLeft > 0 ||
+    state.models.some((m) => m.status === 'training')
+  // nothing is running, so hand back the same object and skip the re-render
+  if (!busy) return state
+
+  const week = globalWeek(state)
+  const newEvents: GameEvent[] = []
+  const announce = (text: string) => {
+    newEvents.push({ id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, text, week })
+  }
+
+  // research
+  let researched = state.researched
+  const researching: GameState['researching'] = []
+  for (const rp of state.researching) {
+    const weeksRemaining = rp.weeksRemaining - delta
+    if (weeksRemaining <= 0) researched = [...researched, rp.id]
+    else researching.push({ ...rp, weeksRemaining })
+  }
+
+  // staff training — same shape as research, but levels up a person
+  const staffTraining: GameState['staffTraining'] = []
+  const trained: { staffId: string; toLevel: number }[] = []
+  for (const tp of state.staffTraining) {
+    const weeksRemaining = tp.weeksRemaining - delta
+    if (weeksRemaining <= 0) trained.push({ staffId: tp.staffId, toLevel: tp.toLevel })
+    else staffTraining.push({ ...tp, weeksRemaining })
+  }
+  let staff = state.staff
+  if (trained.length > 0) {
+    staff = staff.map((s) => {
+      const t = trained.find((x) => x.staffId === s.id)
+      if (!t) return s
+      const level = Math.min(MAX_STAFF_LEVEL, t.toLevel)
+      const leveled = { ...s, level }
+      // their market rate jumps with the level, so flag it before a rival notices
+      const market = marketSalaryFor(s.role, staffPower(leveled), week)
+      announce(
+        `🎓 ${s.name} reached level ${level} — worth ${staffPower(leveled).toLocaleString()} pts, ` +
+          `and now worth $${market.toLocaleString()}/wk on the open market.`,
+      )
+      return leveled
+    })
+  }
+
+  // model training — quality is locked in on completion, so it picks up any
+  // research that finished in the same step
+  const withResearch = { ...state, researched }
+  const models = state.models.map((m) => {
+    if (m.status !== 'training') return m
+    const weeksRemaining = m.weeksRemaining - delta
+    if (weeksRemaining > 0) return { ...m, weeksRemaining }
+    announce(`🎉 ${m.name} finished training! Publish it to start earning.`)
+    return {
+      ...m,
+      status: 'ready' as const,
+      weeksRemaining: 0,
+      customers: 0,
+      freeCustomers: 0,
+      quality: computeQuality(withResearch, m.gpus, m.dataTier, m.distillQuality),
+    }
+  })
+
+  // datacenter construction
+  let datacenters = state.datacenters
+  const datacenterBuilds: number[] = []
+  for (const w of state.datacenterBuilds) {
+    const left = w - delta
+    if (left <= 0) datacenters++
+    else datacenterBuilds.push(left)
+  }
+
+  return {
+    ...state,
+    researched,
+    researching,
+    staff,
+    staffTraining,
+    models,
+    datacenters,
+    datacenterBuilds,
+    campaignWeeksLeft: Math.max(0, state.campaignWeeksLeft - delta),
+    lobbyWeeksLeft: Math.max(0, state.lobbyWeeksLeft - delta),
+    events: newEvents.length > 0 ? [...newEvents, ...state.events].slice(0, 20) : state.events,
+  }
+}
+
 function advanceOneWeek(state: GameState): GameState {
+  const tuning = settingsOf(state)
   const date = advanceWeek(state.date)
   let money = state.money
-  let researched = state.researched
-  let researching = state.researching
   let models = state.models
   let datacenters = state.datacenters
-  let datacenterBuilds = state.datacenterBuilds
   let followers = state.followers
-  let campaignWeeksLeft = state.campaignWeeksLeft
   let staff = state.staff
   let activeRegulations = state.activeRegulations
-  let lobbyWeeksLeft = state.lobbyWeeksLeft
-  const lobbyActive = lobbyWeeksLeft > 0
-  if (lobbyWeeksLeft > 0) lobbyWeeksLeft--
-
-  if (campaignWeeksLeft > 0) campaignWeeksLeft--
+  // the countdowns themselves live in advanceJobs; this only reads them
+  const lobbyActive = state.lobbyWeeksLeft > 0
 
   // salaries (paid weekly)
   money -= state.staff.reduce((sum, s) => sum + s.salary, 0)
@@ -341,19 +533,6 @@ function advanceOneWeek(state: GameState): GameState {
 
   // rental fees
   money -= state.rentedDatacenters * RENT_WEEKLY_FEE
-
-  // datacenter construction progress
-  let completed = 0
-  datacenterBuilds = datacenterBuilds
-    .map((w) => w - 1)
-    .filter((w) => {
-      if (w <= 0) {
-        completed++
-        return false
-      }
-      return true
-    })
-  datacenters += completed
 
   // rental disputes (risk of losing rented datacenters)
   let rentedDatacenters = state.rentedDatacenters
@@ -389,42 +568,6 @@ function advanceOneWeek(state: GameState): GameState {
   }
   datacenters -= regulatoryShutdowns
 
-  // research progress
-  const stillResearching: typeof researching = []
-  for (const rp of researching) {
-    const next = { ...rp, weeksRemaining: rp.weeksRemaining - 1 }
-    if (next.weeksRemaining <= 0) {
-      researched = [...researched, rp.id]
-    } else {
-      stillResearching.push(next)
-    }
-  }
-  researching = stillResearching
-
-  // staff training progress — same shape as research, but levels up a person instead of the company
-  let staffTraining = state.staffTraining
-  const stillTraining: typeof staffTraining = []
-  const trainedNow: { staffId: string; scoreGain: number }[] = []
-  for (const tp of staffTraining) {
-    const next = { ...tp, weeksRemaining: tp.weeksRemaining - 1 }
-    if (next.weeksRemaining <= 0) {
-      trainedNow.push({ staffId: tp.staffId, scoreGain: tp.scoreGain })
-    } else {
-      stillTraining.push(next)
-    }
-  }
-  staffTraining = stillTraining
-  const trainedDescriptions: string[] = []
-  if (trainedNow.length > 0) {
-    staff = staff.map((s) => {
-      const t = trainedNow.find((x) => x.staffId === s.id)
-      if (!t) return s
-      const newScore = Math.min(MAX_SCORE, s.examScore + t.scoreGain)
-      trainedDescriptions.push(`${s.name} (now ${newScore})`)
-      return { ...s, examScore: newScore }
-    })
-  }
-
   const week = (date.year - START_YEAR) * WEEKS_PER_YEAR + date.week
 
   let trendingHashtag = state.trendingHashtag
@@ -449,20 +592,29 @@ function advanceOneWeek(state: GameState): GameState {
       if (cm.releaseWeek > week) return cm
       const sat = marketSaturation(cm.typeId, week, playerCustomersIn(cm.typeId), state.competitors)
       const followerFactor = 1 + c.followers / 2000000
-      const growth = Math.round(cm.growthBase * (cm.quality / 100) * sat * followerFactor)
-      return { ...cm, customers: cm.customers + growth, quality: Math.min(99, cm.quality + 0.2) }
+      const growth = Math.round(cm.growthBase * (cm.quality / 100) * sat * followerFactor * tuning.competitorGrowth)
+      return {
+        ...cm,
+        customers: cm.customers + growth,
+        quality: Math.min(99, cm.quality + COMPETITOR_QUALITY_CREEP),
+      }
     }),
   }))
 
   // competitors occasionally release new models
   let releaseEvent: string | null = null
-  if (Math.random() < 0.18) {
+  if (Math.random() < COMPETITOR_RELEASE_CHANCE) {
     const idx = Math.floor(Math.random() * state.competitors.length)
     const c = competitors[idx]
     const newModel = generateCompetitorModel(c, week)
-    competitors = competitors.map((cc, i) =>
-      i === idx ? { ...cc, models: [...cc.models, newModel] } : cc,
-    )
+    let kept = c.models
+    if (kept.length >= COMPETITOR_MAX_MODELS) {
+      // the successor replaces their oldest product and inherits its users
+      const oldest = kept.reduce((a, b) => (a.releaseWeek <= b.releaseWeek ? a : b))
+      newModel.customers += oldest.customers
+      kept = kept.filter((m) => m.id !== oldest.id)
+    }
+    competitors = competitors.map((cc, i) => (i === idx ? { ...cc, models: [...kept, newModel] } : cc))
     releaseEvent = `${c.icon} ${c.name} released a new model: ${newModel.name} (quality ${newModel.quality})!`
   }
 
@@ -476,19 +628,13 @@ function advanceOneWeek(state: GameState): GameState {
     competitorBotEvent = `${c.icon} ${c.name} bought a wave of hype bots! +${gained.toLocaleString()} followers.`
   }
 
-  // models
-  const finishedModels: string[] = []
+  // models — training countdowns are handled by advanceJobs
   const promoEndedModels: { name: string; converted: number; churned: number }[] = []
+  // the bar the rest of the world has set this week
+  const sota = stateOfTheArt(state.competitors, week)
+  const fadedModels: { name: string; lost: number }[] = []
   models = models.map((m) => {
-    if (m.status === 'training') {
-      const weeksRemaining = m.weeksRemaining - 1
-      if (weeksRemaining <= 0) {
-        finishedModels.push(m.name)
-        const quality = computeQuality(state, m.gpus, m.dataTier, m.distillQuality)
-        return { ...m, status: 'ready', weeksRemaining: 0, customers: 0, freeCustomers: 0, quality }
-      }
-      return { ...m, weeksRemaining }
-    }
+    if (m.status === 'training') return m
     if (m.status === 'published' && m.pricing) {
       const type = MODEL_TYPE_MAP[m.typeId]
       const pricing = PRICING_MAP[m.pricing]
@@ -496,6 +642,9 @@ function advanceOneWeek(state: GameState): GameState {
       const sat = marketSaturation(m.typeId, week, playerCustomersIn(m.typeId), state.competitors)
       const campaignMult = state.campaignWeeksLeft > 0 ? 2 : 1
       const promoGrowthMult = m.promo === 'discount' ? DISCOUNT_GROWTH_MULT : m.promo === 'free' ? FREE_TRIAL_GROWTH_MULT : 1
+      // how this model stands against the best in the world right now
+      const edge = m.quality - sota
+      const leadBonus = edge > 0 ? 1 + edge * SOTA_LEAD_BONUS : 1
       const growth = Math.round(
         type.growthBase *
           (m.quality / 100) *
@@ -504,7 +653,9 @@ function advanceOneWeek(state: GameState): GameState {
           followerBoost(state.followers) *
           sat *
           campaignMult *
-          promoGrowthMult,
+          promoGrowthMult *
+          leadBonus *
+          tuning.playerGrowth,
       )
       // signups made during a promo are trial users — they sit apart until the promo ends
       let customers = m.customers
@@ -537,6 +688,17 @@ function advanceOneWeek(state: GameState): GameState {
           promoWeeksLeft = undefined
         }
       }
+      // how far the world has moved on since this model shipped; a fresh one has drifted nothing
+      const drift = sota - (m.sotaAtPublish ?? sota)
+      if (drift > 0) {
+        const rate = Math.min(SOTA_DECAY_CAP, drift * SOTA_DRIFT_PER_POINT)
+        const lostPaying = Math.round(customers * rate)
+        const lostTrial = Math.round(freeCustomers * rate)
+        customers -= lostPaying
+        freeCustomers -= lostTrial
+        if (lostPaying + lostTrial > 0) fadedModels.push({ name: m.name, lost: lostPaying + lostTrial })
+      }
+
       return { ...m, customers, freeCustomers, promo, promoWeeksLeft }
     }
     return m
@@ -605,13 +767,17 @@ function advanceOneWeek(state: GameState): GameState {
     })
   }
 
-  // rival companies poach your underpaid staff — the longer a salary goes without a raise,
-  // the further it falls behind the market and the more tempting a rival's offer becomes
+  // rival companies come for your underpaid staff — the longer a salary goes without a raise,
+  // the further it falls behind the market and the more tempting a rival's offer becomes.
+  // Nobody walks out on their own: this raises a decision and the player answers it.
+  let poachOffer: PendingEvent | null = null
   if (week > COMPETITOR_POACH_GRACE_WEEKS && staff.length > 0 && state.competitors.length > 0) {
     const risk = staff.map((s) => {
-      const market = marketSalaryFor(s.role, s.examScore, week)
+      const market = marketSalaryFor(s.role, staffPower(s), week)
       const underpaid = Math.min(3, Math.max(1, market / s.salary))
-      return { s, chance: COMPETITOR_POACH_BASE_CHANCE * (s.examScore / MAX_SCORE) * underpaid }
+      // a levelled-up person is as desirable as talent gets
+      const desirability = Math.min(1, staffPower(s) / MAX_SCORE)
+      return { s, chance: COMPETITOR_POACH_BASE_CHANCE * desirability * underpaid }
     })
     const totalChance = Math.min(0.6, risk.reduce((sum, r) => sum + r.chance, 0))
     if (Math.random() < totalChance) {
@@ -625,28 +791,46 @@ function advanceOneWeek(state: GameState): GameState {
         }
       }
       const attacker = state.competitors[Math.floor(Math.random() * state.competitors.length)]
-      staff = staff.filter((s) => s.id !== target.id)
       const roleLabel = target.role.charAt(0).toUpperCase() + target.role.slice(1)
-      newEvents.push({
-        id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        text: `${attacker.icon} ${attacker.name} poached your ${roleLabel} ${target.name} (score ${target.examScore}) with a bigger paycheck!`,
-        week,
-      })
+      const offer = Math.round(marketSalaryFor(target.role, staffPower(target), week) * POACH_COUNTER_PREMIUM)
+      const bonus = offer * POACH_COUNTER_BONUS_WEEKS
+      poachOffer = {
+        id: `poach-${target.id}-${week}`,
+        icon: attacker.icon,
+        title: 'Poaching attempt',
+        text:
+          `${attacker.name} offered your ${roleLabel} ${target.name} (level ${target.level}, ${staffPower(target).toLocaleString()} pts) ` +
+          `$${offer.toLocaleString()}/wk. You pay $${target.salary.toLocaleString()}/wk. Match it?`,
+        choices: [
+          {
+            label: `Match the offer — $${bonus.toLocaleString()} now`,
+            hint:
+              money >= bonus
+                ? `${target.name} stays, and their salary rises to $${offer.toLocaleString()}/wk — back at market rate, so rivals stop circling.`
+                : money > 0
+                  ? `You only have $${Math.round(money).toLocaleString()}.`
+                  : 'You have no cash to spare.',
+            news: `${target.name} turned down ${attacker.name} after you matched the offer.`,
+            effects: { money: -bonus, keepStaffId: target.id, keepStaffSalary: offer },
+            disabled: money < bonus,
+          },
+          {
+            label: 'Let them go',
+            hint: `You lose ${target.name}, and all ${staffPower(target).toLocaleString()} pts go with them.`,
+            news: `${attacker.name} poached your ${roleLabel} ${target.name} (level ${target.level}, ${staffPower(target).toLocaleString()} pts).`,
+            effects: { loseStaffId: target.id },
+          },
+        ],
+      }
     }
   }
 
-  for (const name of finishedModels) {
+  const fadedTotal = fadedModels.reduce((sum, f) => sum + f.lost, 0)
+  if (fadedTotal >= 500) {
+    const worst = fadedModels.reduce((a, b) => (a.lost >= b.lost ? a : b))
     newEvents.push({
       id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      text: `🎉 ${name} finished training! Publish it to start earning.`,
-      week,
-    })
-  }
-
-  for (const desc of trainedDescriptions) {
-    newEvents.push({
-      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      text: `🎓 Training complete: ${desc}!`,
+      text: `📉 Better models are out there. You lost ${fadedTotal.toLocaleString()} users this week, most of them from ${worst.name}. Time to ship something newer.`,
       week,
     })
   }
@@ -747,25 +931,40 @@ function advanceOneWeek(state: GameState): GameState {
     ...state,
     date,
     money,
-    researched,
-    researching,
-    staffTraining,
     models,
     datacenters,
-    datacenterBuilds,
     rentedDatacenters,
     competitors,
     followers,
-    campaignWeeksLeft,
     events,
     trendingHashtag,
     trendingSetWeek,
     staff,
     activeRegulations,
-    lobbyWeeksLeft,
   }
 
-  if (!next.pendingEvent && Math.random() < 0.25) {
+  // a hundred billion dollars is the end of the run
+  if (!next.won) {
+    const valuation = companyValuation(next)
+    if (valuation >= WIN_VALUATION) {
+      next.won = true
+      next.paused = true // the run is over; the player can unpause to keep going
+      next.events = [
+        {
+          id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          text: `🏆 ${next.companyName} is worth $${(valuation / 1e9).toFixed(1)}B. You won the AI race!`,
+          week,
+        },
+        ...next.events,
+      ].slice(0, 20)
+      return next
+    }
+  }
+
+  // a poaching decision is waiting on the player, so it takes the slot
+  if (poachOffer) {
+    next.pendingEvent = poachOffer
+  } else if (!next.pendingEvent && Math.random() < 0.25) {
     next.pendingEvent = pickRandomEvent(next)
   }
 
@@ -780,14 +979,271 @@ export function reducer(state: GameState, action: Action): GameState {
       return migrateState(action.state)
     case 'SET_COMPANY_NAME':
       return { ...state, companyName: action.name, screen: 'main' }
+    case 'ATTACK_PLAYER': {
+      // Aimed at a real person rather than an AI rival. The cost, cooldown and
+      // risk of being traced are the same as the single-player versions; what is
+      // different is that the damage has to travel to their machine, so a paid-for
+      // attack is parked in the outbox for App to send.
+      const week = globalWeek(state)
+      const news: GameEvent[] = []
+      const add = (text: string) => news.push({ id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, text, week })
+
+      if (action.kind === 'bots') {
+        if (week - state.lastBotAttackWeek < BOT_ATTACK_COOLDOWN) return state
+        if (state.money < BOT_ATTACK_COST) return state
+        const money = state.money - BOT_ATTACK_COST
+        if (Math.random() < BOT_ATTACK_BACKFIRE_CHANCE) {
+          const lost = Math.round(state.followers * 0.1) + 200
+          add(`🕵️ Your bot army was traced back to you! ${action.targetName} called you out, and you lost ${lost.toLocaleString()} followers.`)
+          return {
+            ...state,
+            money,
+            followers: Math.max(0, state.followers - lost),
+            lastBotAttackWeek: week,
+            events: [...news, ...state.events].slice(0, 20),
+          }
+        }
+        add(`🤖 You unleashed a bot army on ${action.targetName}.`)
+        return {
+          ...state,
+          money,
+          lastBotAttackWeek: week,
+          outbox: { t: 'attack', id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, targetId: action.targetId, targetName: action.targetName, kind: 'bots' },
+          events: [...news, ...state.events].slice(0, 20),
+        }
+      }
+
+      if (week - state.lastHackerWeek < HACKER_COOLDOWN) return state
+      if (state.money < HACKER_COST) return state
+      let money = state.money - HACKER_COST
+      if (Math.random() < HACKER_CAUGHT_CHANCE) {
+        money -= HACKER_FINE
+        const lostFollowers = Math.round(state.followers * 0.15)
+        add(`🚨 Your hackers got caught breaking into ${action.targetName}! A $${HACKER_FINE.toLocaleString()} fine and ${lostFollowers.toLocaleString()} followers gone.`)
+        return {
+          ...state,
+          money,
+          followers: Math.max(0, state.followers - lostFollowers),
+          lastHackerWeek: week,
+          events: [...news, ...state.events].slice(0, 20),
+        }
+      }
+      add(`💻 Your hackers slipped into ${action.targetName}.`)
+      return {
+        ...state,
+        money,
+        lastHackerWeek: week,
+        outbox: { t: 'attack', id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, targetId: action.targetId, targetName: action.targetName, kind: 'hackers' },
+        events: [...news, ...state.events].slice(0, 20),
+      }
+    }
+    case 'BID_FOR_STAFF': {
+      // A headhunter takes their cut whether or not the offer is accepted.
+      const week = globalWeek(state)
+      const minimum = action.staff.salary * POACH_MIN_BID_WEEKS
+      if (action.amount < minimum) return state
+      const fee = Math.round(action.amount * POACH_BID_FEE_SHARE)
+      if (state.money < fee) return state
+      if (state.sentBid) return state // one offer at a time
+      const bidId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+      const bid: StaffBid = {
+        bidId,
+        fromId: action.fromId,
+        fromName: action.fromName,
+        staff: action.staff,
+        amount: action.amount,
+      }
+      return {
+        ...state,
+        money: state.money - fee,
+        sentBid: { bidId, amount: action.amount, staffName: action.staff.name, targetName: action.targetName },
+        outbox: { t: 'bid', id: bidId, targetId: action.targetId, bid },
+        events: [
+          {
+            id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            text: `🎯 You offered ${action.staff.name} $${action.amount.toLocaleString()} to leave ${action.targetName}. The headhunter took $${fee.toLocaleString()}.`,
+            week,
+          },
+          ...state.events,
+        ].slice(0, 20),
+      }
+    }
+    case 'INCOMING_BID': {
+      // already answering one offer, so this one is refused on the spot
+      if (state.pendingBid) {
+        return {
+          ...state,
+          outbox: {
+            t: 'bidResult',
+            id: action.bid.bidId,
+            targetId: action.bid.fromId,
+            bidId: action.bid.bidId,
+            matched: true,
+          },
+        }
+      }
+      // the person has to still work here
+      if (!state.staff.some((s) => s.id === action.bid.staff.id)) {
+        return {
+          ...state,
+          outbox: { t: 'bidResult', id: action.bid.bidId, targetId: action.bid.fromId, bidId: action.bid.bidId, matched: true },
+        }
+      }
+      return { ...state, pendingBid: action.bid }
+    }
+    case 'RESOLVE_BID': {
+      const bid = state.pendingBid
+      if (!bid) return state
+      const week = globalWeek(state)
+      const person = state.staff.find((s) => s.id === bid.staff.id)
+      if (!person) {
+        return {
+          ...state,
+          pendingBid: undefined,
+          outbox: { t: 'bidResult', id: bid.bidId, targetId: bid.fromId, bidId: bid.bidId, matched: true },
+        }
+      }
+      if (action.matched) {
+        if (state.money < bid.amount) return state
+        // they now know exactly what they are worth, so their pay goes to market
+        const market = Math.max(person.salary, marketSalaryFor(person.role, staffPower(person), week))
+        return {
+          ...state,
+          money: state.money - bid.amount,
+          staff: state.staff.map((s) => (s.id === person.id ? { ...s, salary: market } : s)),
+          pendingBid: undefined,
+          outbox: { t: 'bidResult', id: bid.bidId, targetId: bid.fromId, bidId: bid.bidId, matched: true },
+          events: [
+            {
+              id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+              text: `🤝 You matched ${bid.fromName}'s $${bid.amount.toLocaleString()} offer. ${person.name} stays, now on $${market.toLocaleString()}/wk.`,
+              week,
+            },
+            ...state.events,
+          ].slice(0, 20),
+        }
+      }
+      return {
+        ...state,
+        staff: state.staff.filter((s) => s.id !== person.id),
+        staffTraining: state.staffTraining.filter((t) => t.staffId !== person.id),
+        pendingBid: undefined,
+        outbox: { t: 'bidResult', id: bid.bidId, targetId: bid.fromId, bidId: bid.bidId, matched: false, staff: person },
+        events: [
+          {
+            id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            text: `💼 ${person.name} took ${bid.fromName}'s offer and walked out.`,
+            week,
+          },
+          ...state.events,
+        ].slice(0, 20),
+      }
+    }
+    case 'BID_RESULT': {
+      const sent = state.sentBid
+      if (!sent || sent.bidId !== action.bidId) return state
+      const week = globalWeek(state)
+      const news: GameEvent[] = []
+      const add = (text: string) =>
+        news.push({ id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, text, week })
+
+      if (action.matched || !action.staff) {
+        add(`🛡️ ${sent.targetName} matched your offer. ${sent.staffName} is staying put.`)
+        return { ...state, sentBid: undefined, events: [...news, ...state.events].slice(0, 20) }
+      }
+
+      const hire = action.staff
+      let staff = state.staff
+      // no desk free, so the newest arrival pushes out your weakest of that role
+      if (staff.length >= maxStaff(state)) {
+        const sameRole = staff.filter((s) => s.role === hire.role)
+        const pool = sameRole.length > 0 ? sameRole : staff
+        const weakest = pool.reduce((a, b) => (staffPower(a) <= staffPower(b) ? a : b))
+        staff = staff.filter((s) => s.id !== weakest.id)
+        add(`📦 No desk free, so ${weakest.name} was let go to make room for ${hire.name}.`)
+      }
+      add(
+        `🎉 ${hire.name} joined you from ${sent.targetName} for $${sent.amount.toLocaleString()}. Level ${hire.level}, ${staffPower(hire).toLocaleString()} pts.`,
+      )
+      return {
+        ...state,
+        money: state.money - sent.amount,
+        staff: [...staff, hire],
+        sentBid: undefined,
+        events: [...news, ...state.events].slice(0, 20),
+      }
+    }
+    case 'NOTE':
+      return {
+        ...state,
+        events: [
+          { id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, text: action.text, week: globalWeek(state) },
+          ...state.events,
+        ].slice(0, 20),
+      }
+    case 'CLEAR_OUTBOX':
+      return state.outbox ? { ...state, outbox: undefined } : state
+    case 'INCOMING_ATTACK': {
+      const week = globalWeek(state)
+      const news: GameEvent[] = []
+      const add = (text: string) => news.push({ id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, text, week })
+
+      if (action.kind === 'bots') {
+        const ratio = 0.05 + Math.random() * 0.07
+        const followersLost = Math.round(state.followers * ratio)
+        let customersLost = 0
+        const models = state.models.map((m) => {
+          if (m.status !== 'published') return m
+          const next = Math.round(m.customers * (1 - ratio * 0.5))
+          customersLost += m.customers - next
+          return { ...m, customers: next }
+        })
+        add(`🤖 ${action.from} unleashed a bot army on you! You lost ${followersLost.toLocaleString()} followers and ${customersLost.toLocaleString()} customers.`)
+        return {
+          ...state,
+          models,
+          followers: Math.max(0, state.followers - followersLost),
+          events: [...news, ...state.events].slice(0, 20),
+        }
+      }
+
+      let hit = 0
+      const models = state.models.map((m) => {
+        if (m.status !== 'published') return m
+        const quality = Math.max(1, m.quality - HACKER_QUALITY_DAMAGE)
+        if (quality < m.quality) hit++
+        return { ...m, quality }
+      })
+      add(
+        hit > 0
+          ? `💻 ${action.from} hacked your labs! ${hit} of your models lost ${HACKER_QUALITY_DAMAGE} quality.`
+          : `💻 ${action.from} tried to hack your labs, but you had nothing published to steal.`,
+      )
+      return { ...state, models, events: [...news, ...state.events].slice(0, 20) }
+    }
+    case 'SET_SCREEN':
+      return { ...state, screen: action.screen }
+    case 'SET_DIFFICULTY':
+      return { ...state, difficulty: action.difficulty }
+    case 'START_GAME':
+      // a fresh company on the agreed settings, used when a lobby starts a race
+      return { ...initialState(), companyName: action.name, difficulty: action.difficulty, screen: 'main' }
     case 'TOGGLE_PAUSE':
       return { ...state, paused: !state.paused }
-    case 'HIRE_STAFF':
+    case 'SET_PAUSED':
+      return state.paused === action.paused ? state : { ...state, paused: action.paused }
+    case 'HIRE_STAFF': {
+      // Nobody can be hired twice. Staff are found and removed by id, so letting a
+      // duplicate in would mean firing one of them removed every copy at once.
+      if (state.staff.some((s) => s.id === action.staff.id)) return state
+      if (state.staff.length >= maxStaff(state)) return state
+      if (state.money < action.staff.salary) return state
       return {
         ...state,
         staff: [...state.staff, action.staff],
         money: state.money - action.staff.salary,
       }
+    }
     case 'START_RESEARCH': {
       const item = RESEARCH_MAP[action.id]
       if (!item || state.money < item.cost) return state
@@ -882,13 +1338,14 @@ export function reducer(state: GameState, action: Action): GameState {
     }
     case 'IPO': {
       if (state.isPublic) return state
-      const totalCustomers = state.models.reduce((sum, m) => sum + (m.status === 'published' ? m.customers : 0), 0)
-      if (totalCustomers < 250000) return state
-      const payout = totalCustomers * 15
+      // you float once the market values the company at a billion
+      const valuation = companyValuation(state)
+      if (valuation < IPO_VALUATION) return state
+      const payout = Math.round(valuation * IPO_RAISE_SHARE)
       const events = [
         {
           id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-          text: `📈 ${state.companyName} went public! You raised $${payout.toLocaleString()}.`,
+          text: `📈 ${state.companyName} went public at a $${(valuation / 1e9).toFixed(2)}B valuation! You raised $${payout.toLocaleString()}.`,
           week: globalWeek(state),
         },
         ...state.events,
@@ -1088,22 +1545,55 @@ export function reducer(state: GameState, action: Action): GameState {
     }
     case 'START_STAFF_TRAINING': {
       const s = state.staff.find((x) => x.id === action.staffId)
-      if (!s || s.examScore >= MAX_SCORE) return state
+      if (!s || !canTrain(s)) return state
       if (state.staffTraining.some((t) => t.staffId === action.staffId)) return state
-      const cost = STAFF_TRAINING_SCORE_GAIN * STAFF_TRAINING_COST_PER_POINT
+      const cost = trainingCostFor(s.level)
       if (state.money < cost) return state
+      const weeks = trainingWeeksFor(s.level)
       return {
         ...state,
         money: state.money - cost,
         staffTraining: [
           ...state.staffTraining,
-          {
-            staffId: s.id,
-            weeksRemaining: STAFF_TRAINING_WEEKS,
-            totalWeeks: STAFF_TRAINING_WEEKS,
-            scoreGain: Math.min(STAFF_TRAINING_SCORE_GAIN, MAX_SCORE - s.examScore),
-          },
+          { staffId: s.id, weeksRemaining: weeks, totalWeeks: weeks, toLevel: s.level + 1 },
         ],
+      }
+    }
+    case 'FIRE_STAFF': {
+      const s = state.staff.find((x) => x.id === action.staffId)
+      if (!s) return state
+      // you owe them notice pay, so you cannot fire your way out of being broke
+      const severance = s.salary * FIRE_SEVERANCE_WEEKS
+      if (state.money < severance) return state
+      const news = {
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        text: `📦 You let ${s.name} go. Severance cost $${severance.toLocaleString()}.`,
+        week: globalWeek(state),
+      }
+      return {
+        ...state,
+        money: state.money - severance,
+        staff: state.staff.filter((x) => x.id !== action.staffId),
+        // any course they were part-way through goes with them
+        staffTraining: state.staffTraining.filter((t) => t.staffId !== action.staffId),
+        events: [news, ...state.events].slice(0, 20),
+      }
+    }
+    case 'GIVE_RAISE': {
+      const s = state.staff.find((x) => x.id === action.staffId)
+      if (!s) return state
+      const market = marketSalaryFor(s.role, staffPower(s), globalWeek(state))
+      // a raise only ever moves someone up to today's market rate
+      if (market <= s.salary) return state
+      const news = {
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        text: `💰 You raised ${s.name} from $${s.salary.toLocaleString()}/wk to $${market.toLocaleString()}/wk.`,
+        week: globalWeek(state),
+      }
+      return {
+        ...state,
+        staff: state.staff.map((x) => (x.id === action.staffId ? { ...x, salary: market } : x)),
+        events: [news, ...state.events].slice(0, 20),
       }
     }
     case 'RAISE_INVESTMENT': {
@@ -1193,12 +1683,67 @@ export function reducer(state: GameState, action: Action): GameState {
           : m,
       )
       const launchEvents: GameEvent[] = []
+      let followerGain = 0
+      let published = models
       if (model) {
+        // the public benchmark: where this model lands against everything already released
+        const field = state.competitors.flatMap((c) => c.models.filter((cm) => cm.releaseWeek <= week))
+        const better = field.filter((cm) => cm.quality > model.quality).length
+        const rank = better + 1
+        const total = field.length + 1
+
+        // users of your own older models of the same kind upgrade to the new one
+        let inheritedPaying = 0
+        let inheritedTrial = 0
+        published = published.map((m) => {
+          if (m.id === action.id || m.status !== 'published' || m.typeId !== model.typeId) return m
+          const moving = Math.round((m.customers + m.freeCustomers) * SUCCESSOR_MIGRATION)
+          if (moving <= 0) return m
+          const fromPaying = Math.min(m.customers, Math.round(m.customers * SUCCESSOR_MIGRATION))
+          const fromTrial = Math.min(m.freeCustomers, Math.round(m.freeCustomers * SUCCESSOR_MIGRATION))
+          inheritedPaying += fromPaying
+          inheritedTrial += fromTrial
+          return { ...m, customers: m.customers - fromPaying, freeCustomers: m.freeCustomers - fromTrial }
+        })
+        published = published.map((m) =>
+          m.id === action.id
+            ? ({
+                ...m,
+                customers: m.customers + inheritedPaying,
+                freeCustomers: m.freeCustomers + inheritedTrial,
+                publishedWeek: week,
+                sotaAtPublish: stateOfTheArt(state.competitors, week),
+                benchmarkRank: rank,
+                benchmarkField: total,
+              } as AIModel)
+            : m,
+        )
+
         launchEvents.push({
           id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-          text: `🚀 ${model.name} is now live! Customers are joining.`,
+          text:
+            rank === 1
+              ? `🏅 ${model.name} scored ${model.quality} and tops the public benchmark. The best model in the world right now.`
+              : `📊 ${model.name} scored ${model.quality} on the public benchmark: #${rank} of ${total} models in the world.`,
           week,
         })
+        // Topping the benchmark is only news when it is your own best work too.
+        // Otherwise re-shipping the same model over and over would farm followers.
+        const myBest = state.models.reduce(
+          (best, m) => (m.status === 'published' && m.quality > best ? m.quality : best),
+          0,
+        )
+        if (rank === 1 && model.quality > myBest) {
+          followerGain = Math.round(15000 + Math.min(60000, state.followers * 0.02))
+        }
+        const inherited = inheritedPaying + inheritedTrial
+        if (inherited > 0) {
+          launchEvents.push({
+            id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            text: `🔁 ${inherited.toLocaleString()} users upgraded from your older ${MODEL_TYPE_MAP[model.typeId]?.name ?? 'models'} to ${model.name}.`,
+            week,
+          })
+        }
       }
       // the feed is newest-first, so the scandal is prepended ahead of the launch note
       const scandalEvents: GameEvent[] = []
@@ -1235,7 +1780,7 @@ export function reducer(state: GameState, action: Action): GameState {
 
       const newEvents = [...scandalEvents, ...launchEvents]
       const events = newEvents.length > 0 ? [...newEvents, ...state.events].slice(0, 20) : state.events
-      return { ...state, models, events, money, followers, competitors }
+      return { ...state, models: published, events, money, followers: followers + followerGain, competitors }
     }
     case 'MAKE_POST': {
       const currentWeek = globalWeek(state)
@@ -1362,7 +1907,7 @@ export function reducer(state: GameState, action: Action): GameState {
       const ev = state.pendingEvent
       if (!ev || ev.id !== action.id) return state
       const choice = ev.choices[action.choiceIndex]
-      if (!choice) return state
+      if (!choice || choice.disabled) return state
       const e = choice.effects
 
       let money = state.money + (e.money ?? 0)
@@ -1382,10 +1927,19 @@ export function reducer(state: GameState, action: Action): GameState {
         }
       }
 
+      if (e.loseStaffId) {
+        staff = staff.filter((s) => s.id !== e.loseStaffId)
+      }
+
+      if (e.keepStaffId && e.keepStaffSalary) {
+        const salary = e.keepStaffSalary
+        staff = staff.map((s) => (s.id === e.keepStaffId ? { ...s, salary } : s))
+      }
+
       if (e.loseBestEngineer) {
         const engineers = staff.filter((s) => s.role === 'engineer')
         if (engineers.length > 0) {
-          const best = engineers.reduce((a, b) => (a.examScore > b.examScore ? a : b))
+          const best = engineers.reduce((a, b) => (staffPower(a) > staffPower(b) ? a : b))
           staff = staff.filter((s) => s.id !== best.id)
         }
       }
@@ -1425,12 +1979,17 @@ export function reducer(state: GameState, action: Action): GameState {
       if (state.paused || state.pendingEvent) return state
       return advanceOneWeek(state)
     }
+    case 'ADVANCE_JOBS': {
+      if (state.paused || state.pendingEvent) return state
+      return advanceJobs(state, action.delta)
+    }
     case 'SET_WEEK': {
       const current = globalWeek(state)
       const target = Math.max(1, action.week)
       if (target <= current) return state
       let next = state
-      for (let i = current; i < target; i++) next = advanceOneWeek(next)
+      // fast-forward replays both clocks so jobs land exactly where real time would put them
+      for (let i = current; i < target; i++) next = advanceJobs(advanceOneWeek(next), 1)
       return next
     }
     case 'SET_MONEY':

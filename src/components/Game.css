@@ -23,6 +23,35 @@
   margin-right: auto;
 }
 
+.valuation {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.valuation-label {
+  color: var(--text-dim);
+  font-size: 9px;
+}
+
+.valuation-value {
+  color: var(--gold);
+}
+
+.valuation-track {
+  display: inline-block;
+  width: 70px;
+  height: 8px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+}
+
+.valuation-fill {
+  display: block;
+  height: 100%;
+  background: var(--gold);
+}
+
 .money {
   color: var(--gold);
 }
@@ -201,7 +230,8 @@
 
 .candidate {
   display: grid;
-  grid-template-columns: 1fr auto auto auto;
+  /* the name column keeps a floor so longer level/price labels cannot squash it */
+  grid-template-columns: minmax(110px, 1fr) auto auto auto;
   gap: 8px;
   align-items: center;
   padding: 8px 10px;
@@ -225,6 +255,7 @@
   font-family: var(--pixel-font);
   font-size: 11px;
   color: var(--text-dim);
+  white-space: nowrap;
 }
 
 .candidate-score.elite {
@@ -236,7 +267,13 @@
   color: var(--gold);
 }
 
+.reroll-btn {
+  align-self: flex-start;
+  margin-bottom: 4px;
+}
+
 .hire-btn {
+  white-space: nowrap;
   font-size: 9px;
   padding: 6px 12px;
 }

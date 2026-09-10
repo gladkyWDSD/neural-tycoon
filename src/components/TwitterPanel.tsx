@@ -133,8 +133,8 @@ export function TwitterPanel({ state, onPost, onSmear, onLaunchCampaign, onBuyHy
         <h4 className="model-list-title">📣 Marketing Campaign</h4>
         {campaignActive ? (
           <p className="placeholder">
-            Campaign running: 2x customers for {state.campaignWeeksLeft} more week
-            {state.campaignWeeksLeft > 1 ? 's' : ''}.
+            Campaign running: 2x customers for {Math.ceil(state.campaignWeeksLeft)} more week
+            {Math.ceil(state.campaignWeeksLeft) > 1 ? 's' : ''}.
           </p>
         ) : (
           <div className="smear-row">

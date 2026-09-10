@@ -2,6 +2,12 @@ import { useState } from 'react'
 import type { AIModel, GameState, PostType, PricingModel, PromoKind, Staff } from '../game/types'
 import { TopBar } from './TopBar'
 import { OfficeView } from './OfficeView'
+import { StaffMenu } from './StaffMenu'
+import { VictoryModal } from './VictoryModal'
+import { Standings } from './Standings'
+import type { LobbyPlayer } from '../game/multiplayer'
+import type { AttackKind, StaffCard } from '../game/types'
+import { BidModal } from './BidModal'
 import { HirePanel } from './HirePanel'
 import { ResearchPanel } from './ResearchPanel'
 import { BuildPanel } from './BuildPanel'
@@ -12,7 +18,8 @@ import { CompanyPanel } from './CompanyPanel'
 import { AdsPanel } from './AdsPanel'
 import { GovernmentPanel } from './GovernmentPanel'
 import { NewsFeed } from './NewsFeed'
-import { DESKS_PER_LEVEL, CAMPAIGN_DURATION } from '../game/constants'
+import { CAMPAIGN_DURATION } from '../game/constants'
+import { maxStaff } from '../game/state'
 import './Game.css'
 
 type PanelId =
@@ -32,6 +39,8 @@ interface Props {
   musicOn: boolean
   onToggleMusic: () => void
   onTogglePause: () => void
+  /** in a race, the nickname of whoever holds the clock, when it is not you */
+  pauseLockedBy?: string | null
   onHire: (staff: Staff) => void
   onStartResearch: (id: string) => void
   onStartModel: (model: AIModel) => void
@@ -50,6 +59,14 @@ interface Props {
   onBuyBook: (id: string) => void
   onBuyHypeBots: () => void
   onStartTraining: (staffId: string) => void
+  onFireStaff: (staffId: string) => void
+  onGiveRaise: (staffId: string) => void
+  /** present only when this game is a multiplayer race */
+  race?: { players: LobbyPlayer[]; selfId: string; isHost: boolean; winner: string | null }
+  onAttackPlayer: (targetId: string, targetName: string, kind: AttackKind) => void
+  onBidForStaff: (targetId: string, targetName: string, staff: StaffCard, amount: number) => void
+  onResolveBid: (matched: boolean) => void
+  onKickPlayer: (playerId: string, nickname: string) => void
   onRaiseInvestment: () => void
   onStartPromo: (id: string, kind: PromoKind) => void
   onBotAttack: (competitorId: string) => void
@@ -64,6 +81,7 @@ export function GameScreen({
   musicOn,
   onToggleMusic,
   onTogglePause,
+  pauseLockedBy,
   onHire,
   onStartResearch,
   onStartModel,
@@ -82,6 +100,13 @@ export function GameScreen({
   onBuyBook,
   onBuyHypeBots,
   onStartTraining,
+  onFireStaff,
+  onGiveRaise,
+  race,
+  onAttackPlayer,
+  onBidForStaff,
+  onResolveBid,
+  onKickPlayer,
   onRaiseInvestment,
   onStartPromo,
   onBotAttack,
@@ -91,8 +116,14 @@ export function GameScreen({
   onHireLobbyists,
 }: Props) {
   const [panel, setPanel] = useState<PanelId>(null)
+  // right-clicking someone in the office opens their menu at the pointer
+  const [staffMenu, setStaffMenu] = useState<{ id: string; x: number; y: number } | null>(null)
+  const [winSeen, setWinSeen] = useState(false)
+  const myRaceName = race?.players.find((p) => (race.isHost ? p.isHost : p.id === race.selfId))?.name
+  const menuStaff = staffMenu ? state.staff.find((s) => s.id === staffMenu.id) : undefined
 
-  const deskCount = Math.min(state.officeLevel * DESKS_PER_LEVEL, 12)
+  // one desk per person the office can hold, all the way up to the top upgrade
+  const deskCount = maxStaff(state)
 
   const researchProgress = state.researching.length > 0
     ? 1 - Math.min(...state.researching.map((r) => r.weeksRemaining / (r.totalWeeks || 1)))
@@ -102,9 +133,6 @@ export function GameScreen({
   const trainingProgress = trainingModels.length > 0
     ? 1 - Math.min(...trainingModels.map((m) => m.weeksRemaining / (m.totalWeeks || 1)))
     : null
-
-  const researchTotalWeeks = state.researching.length > 0 ? state.researching[0].totalWeeks : null
-  const trainingTotalWeeks = trainingModels.length > 0 ? trainingModels[0].totalWeeks : null
 
   const campaignActive = state.campaignWeeksLeft > 0
   const campaignProgress = campaignActive ? 1 - state.campaignWeeksLeft / CAMPAIGN_DURATION : null
@@ -123,7 +151,13 @@ export function GameScreen({
 
   return (
     <div className="game-screen screen">
-      <TopBar state={state} musicOn={musicOn} onToggleMusic={onToggleMusic} onTogglePause={onTogglePause} />
+      <TopBar
+        state={state}
+        musicOn={musicOn}
+        onToggleMusic={onToggleMusic}
+        onTogglePause={onTogglePause}
+        pauseLockedBy={pauseLockedBy}
+      />
 
       <div className="game-body">
         <div className="office-wrap">
@@ -132,11 +166,10 @@ export function GameScreen({
             desks={deskCount}
             researchProgress={researchProgress}
             trainingProgress={trainingProgress}
-            researchTotalWeeks={researchTotalWeeks}
-            trainingTotalWeeks={trainingTotalWeeks}
             marketingProgress={campaignProgress}
-            marketingTotalWeeks={campaignActive ? CAMPAIGN_DURATION : null}
+            onStaffMenu={(id, x, y) => setStaffMenu({ id, x, y })}
           />
+          {race && <Standings players={race.players} selfId={race.selfId} isHost={race.isHost} />}
           <NewsFeed state={state} />
         </div>
 
@@ -188,7 +221,15 @@ export function GameScreen({
           />
         )}
         {panel === 'competitors' && (
-          <CompetitorsPanel state={state} onPoach={onPoach} onClose={() => setPanel(null)} />
+          <CompetitorsPanel
+            state={state}
+            onPoach={onPoach}
+            onClose={() => setPanel(null)}
+            race={race}
+            onAttackPlayer={onAttackPlayer}
+            onBidForStaff={onBidForStaff}
+            onKickPlayer={onKickPlayer}
+          />
         )}
         {panel === 'company' && (
           <CompanyPanel
@@ -215,6 +256,39 @@ export function GameScreen({
           </button>
         ))}
       </div>
+
+      {state.pendingBid && <BidModal state={state} onResolve={onResolveBid} />}
+
+      {race?.winner ? (
+        <div className="event-overlay">
+          <div className="event-modal">
+            <div className="event-icon">{race.winner === myRaceName ? '🏆' : '🥈'}</div>
+            <h3 className="event-title">
+              {race.winner === myRaceName ? 'You won the race' : `${race.winner} won the race`}
+            </h3>
+            <p className="event-text">
+              {race.winner === myRaceName
+                ? 'You reached $100B before anyone else.'
+                : `${race.winner} reached $100B first. Your company is still yours to run.`}
+            </p>
+          </div>
+        </div>
+      ) : (
+        state.won && !winSeen && <VictoryModal state={state} onKeepPlaying={() => setWinSeen(true)} />
+      )}
+
+      {staffMenu && menuStaff && (
+        <StaffMenu
+          staff={menuStaff}
+          state={state}
+          x={staffMenu.x}
+          y={staffMenu.y}
+          onTrain={onStartTraining}
+          onRaise={onGiveRaise}
+          onFire={onFireStaff}
+          onClose={() => setStaffMenu(null)}
+        />
+      )}
     </div>
   )
 }

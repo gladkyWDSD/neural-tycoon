@@ -13,6 +13,7 @@ import {
   LOBBY_RISK_REDUCTION,
 } from './constants'
 import type { Competitor, GameState } from './types'
+import { staffPower } from './hiring'
 
 export interface DistillTarget {
   modelId: string
@@ -76,7 +77,7 @@ export function distillTrainWeeks(weeks: number): number {
 export function distillCaughtChance(state: GameState): number {
   const protection = state.staff
     .filter((s) => s.role === 'lawyer')
-    .reduce((sum, s) => sum + DISTILL_LAWYER_PROTECTION * (0.5 + s.examScore / 200), 0)
+    .reduce((sum, s) => sum + DISTILL_LAWYER_PROTECTION * (0.5 + staffPower(s) / 200), 0)
   const transparency = state.activeRegulations.includes('ai-transparency-act') ? DISTILL_TRANSPARENCY_RISK : 0
   const lobbyMult = state.lobbyWeeksLeft > 0 ? LOBBY_RISK_REDUCTION : 1
   const chance = (DISTILL_CAUGHT_CHANCE + transparency - protection) * lobbyMult

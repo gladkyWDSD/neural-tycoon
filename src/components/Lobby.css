@@ -1,0 +1,224 @@
+.lobby-box {
+  max-width: 520px;
+  gap: 14px;
+  padding: 24px 32px;
+}
+
+/* a full lobby is taller than a short window, so the screen scrolls */
+.naming-screen.screen {
+  overflow-y: auto;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 24px 0;
+}
+
+.lobby-box .difficulty-blurb {
+  font-size: 14px;
+}
+
+.lobby-note {
+  font-size: 16px;
+  color: var(--text-dim);
+  line-height: 1.35;
+  margin: 0;
+  text-align: center;
+}
+
+.lobby-code-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-content: center;
+}
+
+.lobby-code {
+  font-family: var(--pixel-font);
+  font-size: 20px;
+  color: var(--gold);
+  letter-spacing: 2px;
+  padding: 8px 12px;
+  background: var(--panel-2);
+  border: 2px solid var(--border);
+  user-select: all;
+}
+
+.lobby-code-input {
+  font-family: var(--pixel-font);
+  font-size: 12px;
+  letter-spacing: 2px;
+  text-align: center;
+}
+
+.lobby-join {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+  width: 100%;
+}
+
+.lobby-join .lobby-code-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.lobby-players {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+
+.lobby-player {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  background: var(--panel-2);
+  border: 2px solid var(--border-dark);
+}
+
+.lobby-player-name {
+  font-size: 18px;
+  color: var(--text);
+}
+
+.lobby-player-ready {
+  font-family: var(--pixel-font);
+  font-size: 9px;
+  color: var(--text-dim);
+}
+
+.lobby-player-ready.yes {
+  color: var(--accent);
+}
+
+.lobby-player-value {
+  font-family: var(--pixel-font);
+  font-size: 10px;
+  color: var(--gold);
+}
+
+/* live standings shown over the office during a race */
+.standings {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 500;
+  background: rgba(26, 28, 37, 0.92);
+  border: 2px solid var(--border);
+  padding: 8px 10px;
+  min-width: 190px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.standings-title {
+  font-family: var(--pixel-font);
+  font-size: 9px;
+  color: var(--text-dim);
+  margin: 0 0 2px;
+}
+
+.standings-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 16px;
+  color: var(--text-dim);
+}
+
+.standings-row.me {
+  color: var(--text);
+}
+
+.standings-row .value {
+  color: var(--gold);
+}
+
+.lobby-player-company {
+  display: block;
+  font-size: 14px;
+  color: var(--text-dim);
+}
+
+/* real players, listed above the AI rivals in the Competitors panel */
+.comp-players {
+  padding: 10px 16px 12px;
+  border-bottom: 2px solid var(--border-dark);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.comp-players-title {
+  font-family: var(--pixel-font);
+  font-size: 10px;
+  color: var(--gold);
+  margin: 0;
+}
+
+.comp-players-note {
+  font-size: 15px;
+  color: var(--text-dim);
+  margin: 0 0 2px;
+  line-height: 1.25;
+}
+
+.comp-sub {
+  display: block;
+  font-size: 14px;
+  color: var(--text-dim);
+}
+
+.comp-attacks {
+  display: flex;
+  gap: 6px;
+  grid-column: 1 / -1;
+  margin-top: 4px;
+}
+
+.poach-list {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border-dark);
+}
+
+.poach-row {
+  display: grid;
+  grid-template-columns: 1fr 84px auto;
+  gap: 6px;
+  align-items: center;
+}
+
+.poach-who {
+  font-size: 16px;
+  color: var(--text);
+  min-width: 0;
+}
+
+.poach-bid {
+  font-size: 15px;
+  text-align: right;
+  padding: 3px 6px;
+  min-width: 0;
+}
+
+.event-choice.is-danger .event-choice-label {
+  color: var(--danger);
+}
+
+.kick-btn {
+  font-size: 9px;
+  padding: 4px 8px;
+}
+
+.kick-btn:hover {
+  color: var(--danger);
+  border-color: var(--danger);
+}
