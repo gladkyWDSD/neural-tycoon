@@ -173,6 +173,7 @@ export function initialState(): GameState {
     poached: [],
     officeLevel: 1,
     difficulty: DEFAULT_DIFFICULTY,
+    inRace: false,
     isPublic: false,
     won: false,
     campaignWeeksLeft: 0,
@@ -316,6 +317,7 @@ export function migrateState(raw: Partial<GameState>): GameState {
     poached: raw.poached ?? [],
     officeLevel: raw.officeLevel ?? 1,
     difficulty: raw.difficulty ?? DEFAULT_DIFFICULTY,
+    inRace: raw.inRace ?? false,
     isPublic: raw.isPublic ?? false,
     won: raw.won ?? false,
     campaignWeeksLeft: raw.campaignWeeksLeft ?? 0,
@@ -1227,7 +1229,7 @@ export function reducer(state: GameState, action: Action): GameState {
       return { ...state, difficulty: action.difficulty }
     case 'START_GAME':
       // a fresh company on the agreed settings, used when a lobby starts a race
-      return { ...initialState(), companyName: action.name, difficulty: action.difficulty, screen: 'main' }
+      return { ...initialState(), companyName: action.name, difficulty: action.difficulty, inRace: true, screen: 'main' }
     case 'TOGGLE_PAUSE':
       return { ...state, paused: !state.paused }
     case 'SET_PAUSED':
@@ -1976,11 +1978,16 @@ export function reducer(state: GameState, action: Action): GameState {
       }
     }
     case 'TICK': {
-      if (state.paused || state.pendingEvent) return state
+      // In a race the world does not wait while you read a modal. Everyone is on
+      // one clock, so a decision you take slowly costs you weeks rather than
+      // quietly putting your whole game behind everyone else's.
+      if (state.paused) return state
+      if (state.pendingEvent && !state.inRace) return state
       return advanceOneWeek(state)
     }
     case 'ADVANCE_JOBS': {
-      if (state.paused || state.pendingEvent) return state
+      if (state.paused) return state
+      if (state.pendingEvent && !state.inRace) return state
       return advanceJobs(state, action.delta)
     }
     case 'SET_WEEK': {

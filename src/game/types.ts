@@ -217,6 +217,8 @@ export interface GameState {
   poached: string[]
   officeLevel: number
   difficulty: Difficulty
+  /** this run is a multiplayer race, so the clock is shared and never waits for you */
+  inRace: boolean
   /** set when something has been decided locally and needs sending to another player */
   outbox?: Outbound
   /** another player is bidding for one of your staff and you must answer */

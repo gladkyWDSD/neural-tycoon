@@ -19,7 +19,12 @@ import { EventModal } from './components/EventModal'
 const JOB_TICK_MS = 250
 // a sleeping machine or a throttled background tab must not dump hours of game
 // time into one step, so each step is capped
+// Solo, a long gap (a sleeping laptop) should not dump hours of game time into
+// one step. In a race the opposite is true: every player must credit the same
+// real time or their weeks drift apart, so the cap is only there to survive a
+// machine that was actually asleep.
 const MAX_STEP_MS = 1000
+const MAX_RACE_STEP_MS = 60000
 
 export default function App() {
   const [savedState] = useState(() => loadState())
@@ -99,18 +104,43 @@ export default function App() {
     let sinceWeek = 0
     const id = setInterval(() => {
       const now = performance.now()
-      const dt = Math.min(MAX_STEP_MS, now - last)
+      const racing = stateRef.current.inRace
+      // A background tab gets its timers throttled, so the callback fires far less
+      // often. Crediting only the interval length would quietly lose real time and
+      // leave that player weeks behind everyone else, so a race credits the whole
+      // gap. Being paused credits nothing, and the host pauses everyone together.
+      const gap = now - last
+      const dt = stateRef.current.paused ? 0 : Math.min(racing ? MAX_RACE_STEP_MS : MAX_STEP_MS, gap)
       last = now
+      if (dt <= 0) return
       dispatch({ type: 'ADVANCE_JOBS', delta: dt / tickMs })
       // both clocks are driven off the same elapsed time, so they never drift apart
       sinceWeek += dt
+      let weeks = 0
       while (sinceWeek >= tickMs) {
         sinceWeek -= tickMs
-        dispatch({ type: 'TICK' })
+        weeks++
       }
+      // catching up in one go would freeze the tab, so a long gap is paid off over
+      // a few steps while the rest stays owed in sinceWeek
+      const burst = Math.min(weeks, 8)
+      sinceWeek += (weeks - burst) * tickMs
+      for (let i = 0; i < burst; i++) dispatch({ type: 'TICK' })
     }, JOB_TICK_MS)
     return () => clearInterval(id)
   }, [tickMs, playing])
+
+  // Right-click belongs to the game, not to the browser. Text fields keep their
+  // own menu so right-click paste still works on things like the lobby code.
+  useEffect(() => {
+    const swallow = (e: MouseEvent) => {
+      const el = e.target as HTMLElement | null
+      if (el?.closest('input, textarea')) return
+      e.preventDefault()
+    }
+    window.addEventListener('contextmenu', swallow)
+    return () => window.removeEventListener('contextmenu', swallow)
+  }, [])
 
   // reaching the main screen always follows a click, which satisfies the browser's autoplay gesture rule
   useEffect(() => {

@@ -433,11 +433,10 @@ export function OfficeView({
       width={W * SCALE}
       height={H * SCALE}
       onContextMenu={(e) => {
-        const id = staffAt(e.clientX, e.clientY)
-        // empty floor keeps the browser's own menu
-        if (!id || !onStaffMenu) return
+        // the browser menu is suppressed app-wide; this only decides whose menu opens
         e.preventDefault()
-        onStaffMenu(id, e.clientX, e.clientY)
+        const id = staffAt(e.clientX, e.clientY)
+        if (id && onStaffMenu) onStaffMenu(id, e.clientX, e.clientY)
       }}
       style={{
         imageRendering: 'pixelated',
