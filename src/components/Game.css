@@ -114,8 +114,8 @@
 }
 
 .panel {
-  flex: 0 0 460px;
-  width: 460px;
+  flex: 0 0 560px;
+  width: 560px;
   max-width: 90%;
   margin: 12px 12px 12px 0;
   background: var(--panel);
@@ -744,6 +744,7 @@
 .comp-row {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
   padding: 6px 8px;
   background: var(--panel-2);
@@ -769,11 +770,14 @@
   font-size: 18px;
   color: var(--text);
   flex: 1;
+  min-width: 0;
 }
 
 .comp-customers {
   font-size: 16px;
   color: var(--gold);
+  text-align: right;
+  white-space: nowrap;
 }
 
 .comp-detail-list {

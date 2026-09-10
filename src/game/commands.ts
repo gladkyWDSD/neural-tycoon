@@ -28,6 +28,8 @@ export function parseCommand(input: string, state: GameState): CommandResult {
       return {
         response: [
           'Commands:',
+          '/players — who is in this race',
+          '/kick <nickname> — host only, remove a player',
           '  /setweek N    - jump to week N (simulates all weeks)',
           '  /setmoney N   - set money to $N',
           '  /addmoney N   - add $N',

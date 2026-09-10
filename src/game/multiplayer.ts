@@ -64,12 +64,14 @@ export interface LobbyState {
   winner: string | null
   /** the host has halted the race for everyone */
   hostPaused: boolean
+  /** the week the host's calendar is on; everyone else follows it */
+  hostWeek: number
   error: string | null
 }
 
 type Message =
   | { t: 'hello'; name: string; nickname: string }
-  | { t: 'roster'; players: LobbyPlayer[]; difficulty: Difficulty; phase: LobbyState['phase']; winner: string | null }
+  | { t: 'roster'; players: LobbyPlayer[]; difficulty: Difficulty; phase: LobbyState['phase']; winner: string | null; week: number }
   | { t: 'ready'; ready: boolean }
   | { t: 'start'; difficulty: Difficulty }
   | { t: 'progress'; valuation: number; customers: number; staff: StaffCard[] }
@@ -124,6 +126,7 @@ export class LobbySession {
     difficulty: DEFAULT_DIFFICULTY,
     winner: null,
     hostPaused: false,
+    hostWeek: 1,
     error: null,
   }
 
@@ -172,6 +175,17 @@ export class LobbySession {
   onPause(fn: (paused: boolean) => void): () => void {
     this.pauseListeners.add(fn)
     return () => this.pauseListeners.delete(fn)
+  }
+
+  /**
+   * Host only: publish the week the race is on. Everyone else follows this rather
+   * than counting for themselves, so a late joiner lands on the right week and
+   * nobody's calendar can drift away from the room's.
+   */
+  setRaceWeek(week: number) {
+    if (!this.state.isHost || week === this.state.hostWeek) return
+    this.emit({ hostWeek: week })
+    this.broadcastRoster()
   }
 
   /** Host only: stop or restart the clock for everyone in the race. */
@@ -348,6 +362,7 @@ export class LobbySession {
       difficulty: this.state.difficulty,
       phase: this.state.phase,
       winner: this.state.winner,
+      week: this.state.hostWeek,
     }
     for (const c of this.conns.values()) if (c.open) c.send(msg)
   }
@@ -388,6 +403,7 @@ export class LobbySession {
             players: msg.players,
             difficulty: msg.difficulty,
             winner: msg.winner,
+            hostWeek: msg.week ?? this.state.hostWeek,
             phase: msg.winner ? 'over' : this.state.phase === 'playing' ? 'playing' : msg.phase === 'playing' ? 'playing' : 'lobby',
           })
         } else if (msg.t === 'start') {

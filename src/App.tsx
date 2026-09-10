@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useReducer, useRef, useState } from 'react'
-import { companyValuation, initialState, reducer, settingsOf } from './game/state'
+import { companyValuation, globalWeek, initialState, reducer, settingsOf } from './game/state'
 import { LobbySession } from './game/multiplayer'
 import type { LobbyState } from './game/multiplayer'
 import { LobbyScreen } from './components/LobbyScreen'
@@ -67,6 +67,16 @@ export default function App() {
   useEffect(() => {
     stateRef.current = state
   }, [state])
+  const lobbyRef = useRef(lobby)
+  useEffect(() => {
+    lobbyRef.current = lobby
+  }, [lobby])
+
+  // the host publishes the week; everyone else follows it instead of counting
+  const week = globalWeek(state)
+  useEffect(() => {
+    if (inRace && lobby.isHost) session.setRaceWeek(week)
+  }, [inRace, lobby.isHost, week, session])
   useEffect(() => {
     if (lobby.phase !== 'playing') return
     const id = setInterval(() => {
@@ -105,6 +115,7 @@ export default function App() {
     const id = setInterval(() => {
       const now = performance.now()
       const racing = stateRef.current.inRace
+      const following = racing && !lobbyRef.current.isHost
       // A background tab gets its timers throttled, so the callback fires far less
       // often. Crediting only the interval length would quietly lose real time and
       // leave that player weeks behind everyone else, so a race credits the whole
@@ -113,7 +124,18 @@ export default function App() {
       const dt = stateRef.current.paused ? 0 : Math.min(racing ? MAX_RACE_STEP_MS : MAX_STEP_MS, gap)
       last = now
       if (dt <= 0) return
+      // jobs always run on the local clock, since each company is its own
       dispatch({ type: 'ADVANCE_JOBS', delta: dt / tickMs })
+
+      if (following) {
+        // The host owns the calendar. Everyone else only ever catches up to the
+        // week it publishes, so a player who joins late, or whose machine was
+        // asleep, lands on the room's week instead of their own.
+        const owed = lobbyRef.current.hostWeek - globalWeek(stateRef.current)
+        for (let i = 0; i < Math.min(owed, 12); i++) dispatch({ type: 'TICK' })
+        return
+      }
+
       // both clocks are driven off the same elapsed time, so they never drift apart
       sinceWeek += dt
       let weeks = 0
@@ -163,6 +185,38 @@ export default function App() {
   }, [state])
 
   function runCommand(text: string): string {
+    // Multiplayer commands act on the connection, not on the reducer, so they are
+    // handled here rather than in the command parser.
+    const [name, ...rest] = text.trim().replace(/^\//, '').split(/\s+/)
+    const verb = name.toLowerCase()
+
+    if (verb === 'players') {
+      if (!inRace) return 'Not in a race.'
+      return lobby.players
+        .map((p) => {
+          const me = lobby.isHost ? p.isHost : p.id === lobby.selfId
+          return `${p.isHost ? '👑' : '  '} ${p.nickname}${me ? ' (you)' : ''} — ${p.name}`
+        })
+        .join('\n')
+    }
+
+    if (verb === 'kick') {
+      if (!inRace) return 'Not in a race.'
+      if (!lobby.isHost) return 'Only the host can kick.'
+      const who = rest.join(' ').trim().toLowerCase()
+      if (!who) return 'Usage: /kick <nickname>. Type /players to see who is here.'
+      const target = lobby.players.find((p) => !p.isHost && p.nickname.toLowerCase() === who)
+      if (!target) {
+        const others = lobby.players.filter((p) => !p.isHost).map((p) => p.nickname)
+        return others.length
+          ? `No player called "${rest.join(' ')}". In this race: ${others.join(', ')}`
+          : 'Nobody else is in this race.'
+      }
+      session.kick(target.id)
+      dispatch({ type: 'NOTE', text: `🚪 You removed ${target.nickname} from the race.` })
+      return `Kicked ${target.nickname}.`
+    }
+
     const result = parseCommand(text, state)
     if (result.action) dispatch(result.action)
     return result.response

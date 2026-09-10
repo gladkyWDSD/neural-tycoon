@@ -34,13 +34,20 @@ them. Nothing is stored anywhere: the host holds the roster in memory while the 
   result.
 
 #### The host runs the room
+The host is the only source of truth for the race. It publishes the week, and everyone else
+follows it rather than counting for themselves, so a player who joins after the start, or whose
+machine was asleep, lands on the room's week instead of their own. Guests only ever catch up; they
+never run ahead.
+
 The clock belongs to the host. During a race their pause button stops the week for **everyone**,
 and it is the only pause button that works: a guest's is locked and reads who is holding the clock,
 so nobody can quietly freeze their own game to think while the others run.
 
 
 Only the host sees a **Kick** button, on every other player's row: in the lobby roster before the
-race, and in the Competitors panel once it has started.
+race, and in the Competitors panel once it has started. There is also `/kick <nickname>` in the dev
+console, with `/players` to list who is in the race. Both refuse politely: a guest is told only the
+host can kick, and an unknown name comes back with the list of who is actually there.
 
 - Kicking drops them from the address book first, so no later message reaches them, then tells them
   why and closes the connection.
