@@ -317,7 +317,14 @@ export function migrateState(raw: Partial<GameState>): GameState {
     poached: raw.poached ?? [],
     officeLevel: raw.officeLevel ?? 1,
     difficulty: raw.difficulty ?? DEFAULT_DIFFICULTY,
-    inRace: raw.inRace ?? false,
+    // A multiplayer race lives in the connection, not on disk. Reloading a save
+    // taken mid-race used to leave a ghost behind it: a bid modal from a player
+    // who is no longer there, an offer that could never be answered and so
+    // blocked poaching forever, and a solo game that still followed race rules.
+    inRace: false,
+    outbox: undefined,
+    pendingBid: undefined,
+    sentBid: undefined,
     isPublic: raw.isPublic ?? false,
     won: raw.won ?? false,
     campaignWeeksLeft: raw.campaignWeeksLeft ?? 0,
@@ -439,8 +446,9 @@ function advanceJobs(state: GameState, delta: number): GameState {
   const researching: GameState['researching'] = []
   for (const rp of state.researching) {
     const weeksRemaining = rp.weeksRemaining - delta
-    if (weeksRemaining <= 0) researched = [...researched, rp.id]
-    else researching.push({ ...rp, weeksRemaining })
+    if (weeksRemaining <= 0) {
+      if (!researched.includes(rp.id)) researched = [...researched, rp.id]
+    } else researching.push({ ...rp, weeksRemaining })
   }
 
   // staff training — same shape as research, but levels up a person
@@ -1249,6 +1257,10 @@ export function reducer(state: GameState, action: Action): GameState {
     case 'START_RESEARCH': {
       const item = RESEARCH_MAP[action.id]
       if (!item || state.money < item.cost) return state
+      // The panel only offers what is available, but the rule belongs here. Without
+      // it the same research could be bought over and over, and every copy counted
+      // its quality bonus and its slice of the valuation again.
+      if (!isResearchAvailable(item.id, state.researched, state.researching.map((r) => r.id))) return state
       const researchers = state.staff.filter((s) => s.role === 'researcher').length
       if (researchers < 1) return state
       const duration = Math.max(1, Math.ceil(item.weeks / researchers))
@@ -1929,8 +1941,16 @@ export function reducer(state: GameState, action: Action): GameState {
         }
       }
 
+      // Anyone who leaves takes their half-finished course with them, or the
+      // company keeps paying for training nobody is attending.
+      let staffTraining = state.staffTraining
+      const dropTraining = (id: string) => {
+        staffTraining = staffTraining.filter((t) => t.staffId !== id)
+      }
+
       if (e.loseStaffId) {
         staff = staff.filter((s) => s.id !== e.loseStaffId)
+        dropTraining(e.loseStaffId)
       }
 
       if (e.keepStaffId && e.keepStaffSalary) {
@@ -1943,6 +1963,7 @@ export function reducer(state: GameState, action: Action): GameState {
         if (engineers.length > 0) {
           const best = engineers.reduce((a, b) => (staffPower(a) > staffPower(b) ? a : b))
           staff = staff.filter((s) => s.id !== best.id)
+          dropTraining(best.id)
         }
       }
 
@@ -1972,6 +1993,7 @@ export function reducer(state: GameState, action: Action): GameState {
         followers,
         gpuCards,
         staff,
+        staffTraining,
         models,
         pendingEvent: null,
         events: [newsEvent, ...state.events].slice(0, 20),
@@ -2004,7 +2026,7 @@ export function reducer(state: GameState, action: Action): GameState {
     case 'ADD_MONEY':
       return { ...state, money: state.money + action.amount }
     case 'FINISH_ALL': {
-      const researched = [...state.researched, ...state.researching.map((r) => r.id)]
+      const researched = [...new Set([...state.researched, ...state.researching.map((r) => r.id)])]
       const models = state.models.map((m) =>
         m.status === 'training'
           ? { ...m, status: 'ready' as const, weeksRemaining: 0, customers: 0, freeCustomers: 0, quality: computeQuality(state, m.gpus, m.dataTier, m.distillQuality) }
