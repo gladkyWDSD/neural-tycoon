@@ -46,7 +46,10 @@ so nobody can quietly freeze their own game to think while the others run.
 
 Only the host sees a **Kick** button, on every other player's row: in the lobby roster before the
 race, and in the Competitors panel once it has started. There is also `/kick <nickname>` in the dev
-console, with `/players` to list who is in the race. Both refuse politely: a guest is told only the
+console, with `/players` to list who is in the race. **The dev console itself is the host's alone
+during a race**: guests do not get the button and cannot open it with the backtick either, since
+the component is not mounted for them. In a solo game everyone has it, and a player who is kicked
+out of a race gets it back, because the game returns to solo rules the moment the connection ends. Both refuse politely: a guest is told only the
 host can kick, and an unknown name comes back with the list of who is actually there.
 
 - Kicking drops them from the address book first, so no later message reaches them, then tells them

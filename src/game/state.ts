@@ -198,6 +198,7 @@ export type Action =
   | { type: 'ATTACK_PLAYER'; targetId: string; targetName: string; kind: AttackKind }
   | { type: 'CLEAR_OUTBOX' }
   | { type: 'NOTE'; text: string }
+  | { type: 'SET_IN_RACE'; inRace: boolean }
   | { type: 'INCOMING_ATTACK'; kind: AttackKind; from: string }
   | { type: 'BID_FOR_STAFF'; targetId: string; targetName: string; fromId: string; fromName: string; staff: StaffCard; amount: number }
   | { type: 'INCOMING_BID'; bid: StaffBid }
@@ -1183,6 +1184,10 @@ export function reducer(state: GameState, action: Action): GameState {
         events: [...news, ...state.events].slice(0, 20),
       }
     }
+    case 'SET_IN_RACE':
+      // kept in step with the connection: once a race ends, is left, or the player
+      // is kicked out of it, the game goes back to solo rules
+      return state.inRace === action.inRace ? state : { ...state, inRace: action.inRace }
     case 'NOTE':
       return {
         ...state,

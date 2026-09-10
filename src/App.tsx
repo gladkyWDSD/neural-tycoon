@@ -38,6 +38,11 @@ export default function App() {
   useEffect(() => session.subscribe(setLobby), [session])
   const inRace = lobby.phase === 'playing' || lobby.phase === 'over'
 
+  // the reducer's race rules follow the live connection, not a flag left behind
+  useEffect(() => {
+    dispatch({ type: 'SET_IN_RACE', inRace })
+  }, [inRace])
+
   // dirty tricks aimed at this company by another player
   useEffect(() => session.onAttack((kind, from) => dispatch({ type: 'INCOMING_ATTACK', kind, from })), [session])
   useEffect(() => session.onBid((bid) => dispatch({ type: 'INCOMING_BID', bid })), [session])
@@ -320,7 +325,8 @@ export default function App() {
           onHireLobbyists={() => dispatch({ type: 'HIRE_LOBBYISTS' })}
         />
       )}
-      <DevConsole onCommand={runCommand} />
+      {/* the terminal is the host's: in a race nobody else gets cheats, or the button */}
+      {(!inRace || lobby.isHost) && <DevConsole onCommand={runCommand} />}
       {playing && state.pendingEvent && (
         <EventModal
           event={state.pendingEvent}
