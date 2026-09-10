@@ -1,4 +1,4 @@
-import type { AIModel, AttackKind, Difficulty, GameEvent, GameState, Pact, PendingEvent, PostType, PricingModel, PromoKind, RunStats, Staff, StaffBid, StaffCard, TradeKind, TradeOffer } from './types'
+import type { AIModel, AttackKind, Contract, Difficulty, GameEvent, GameState, Pact, PendingEvent, PostType, PricingModel, PromoKind, RunStats, Staff, StaffBid, StaffCard, TradeKind, TradeOffer } from './types'
 import {
   DESKS_PER_LEVEL,
   CAMPAIGN_COOLDOWN,
@@ -17,6 +17,35 @@ import {
   COMPETITOR_POACH_BASE_CHANCE,
   COMPETITOR_POACH_GRACE_WEEKS,
   FIRE_SEVERANCE_WEEKS,
+  ACQUISITION_FOLLOWERS_KEPT,
+  ACQUISITION_PREMIUM,
+  ACQUISITION_USER_KEPT,
+  AUDIT_COOLDOWN,
+  CONTRACT_BREACH_LOAD,
+  CONTRACT_CLIENTS,
+  CONTRACT_MAX_OFFERS,
+  CONTRACT_MAX_WEEKS,
+  CONTRACT_MIN_WEEKS,
+  CONTRACT_OFFER_CHANCE,
+  CONTRACT_OFFER_LIFE,
+  CONTRACT_PENALTY_WEEKS,
+  CONTRACT_REV_PER_SEAT,
+  CONTRACT_START_WEEK,
+  AUDIT_CUT,
+  AUDIT_COST_PER_POINT,
+  AUDIT_MIN_COST,
+  HYPE_DRIFT,
+  HYPE_GROWTH_SHARE,
+  HYPE_MAX,
+  HYPE_MIN,
+  HYPE_SHOCK_CHANCE,
+  HYPE_SHOCK_SIZE,
+  HYPE_START,
+  INCIDENT_CHANCE_AT_MAX,
+  INCIDENT_START_WEEK,
+  OVERLOAD_FOLLOWER_LOSS,
+  OVERLOAD_GRACE,
+  OVERLOAD_MAX_CHURN,
   PACT_BREAK_FOLLOWER_LOSS,
   PACT_WEEKS,
   POACH_BID_FEE_SHARE,
@@ -83,6 +112,15 @@ import {
   SOTA_DRIFT_PER_POINT,
   SOTA_LEAD_BONUS,
   SUCCESSOR_MIGRATION,
+  RISK_CHEAP_DATA,
+  RISK_DECAY_PER_WEEK,
+  RISK_DISTILLED,
+  RISK_MAX,
+  RISK_PER_PUBLISH,
+  RISK_PER_RESEARCHER,
+  RISK_RUSHED,
+  RISK_RUSHED_WEEKS,
+  USERS_PER_CARD,
   WEEKS_PER_YEAR,
 } from './constants'
 import { advanceWeek } from './date'
@@ -190,6 +228,12 @@ export function initialState(): GameState {
     lastCampaignWeek: -CAMPAIGN_COOLDOWN,
     books: [],
     amenities: [],
+    hype: HYPE_START,
+    hypeTrend: HYPE_DRIFT,
+    risk: 0,
+    lastAuditWeek: -AUDIT_COOLDOWN,
+    contracts: [],
+    contractOffers: [],
     stats: freshStats(),
     competitors: COMPETITOR_SEED.map((c) => ({ ...c, models: c.models.map((m) => ({ ...m })) })),
     events: [],
@@ -226,6 +270,8 @@ export type Action =
       price: number
       gpus?: number
       researchId?: string
+      modelId?: string
+      datacenters?: number
     }
   | { type: 'INCOMING_TRADE'; offer: TradeOffer }
   | { type: 'RESOLVE_TRADE'; accepted: boolean }
@@ -254,6 +300,10 @@ export type Action =
   | { type: 'LAUNCH_CAMPAIGN' }
   | { type: 'BUY_BOOK'; id: string }
   | { type: 'BUY_AMENITY'; id: string }
+  | { type: 'RUN_SAFETY_AUDIT' }
+  | { type: 'ACQUIRE_COMPETITOR'; id: string }
+  | { type: 'SIGN_CONTRACT'; id: string }
+  | { type: 'DECLINE_CONTRACT'; id: string }
   | { type: 'BUY_HYPE_BOTS' }
   | { type: 'BOT_ATTACK'; competitorId: string }
   | { type: 'HIRE_HACKERS'; competitorId: string }
@@ -313,6 +363,9 @@ function freshStats(): RunStats {
     poachedIn: 0,
     poachedOut: 0,
     modelsShipped: 0,
+    contractsSigned: 0,
+    contractsBroken: 0,
+    acquisitions: 0,
     pactsSigned: 0,
     pactsBroken: 0,
   }
@@ -384,6 +437,12 @@ export function migrateState(raw: Partial<GameState>): GameState {
     lastCampaignWeek: raw.lastCampaignWeek ?? -CAMPAIGN_COOLDOWN,
     books: raw.books ?? [],
     amenities: raw.amenities ?? [],
+    hype: raw.hype ?? HYPE_START,
+    hypeTrend: raw.hypeTrend ?? HYPE_DRIFT,
+    risk: raw.risk ?? 0,
+    lastAuditWeek: raw.lastAuditWeek ?? -AUDIT_COOLDOWN,
+    contracts: raw.contracts ?? [],
+    contractOffers: raw.contractOffers ?? [],
     stats: { ...freshStats(), ...(raw.stats ?? {}) },
     activeRegulations: raw.activeRegulations ?? [],
     lobbyWeeksLeft: raw.lobbyWeeksLeft ?? 0,
@@ -419,6 +478,60 @@ function computeQuality(state: GameState, gpus: number, dataTier?: string, disti
  * buyer pays on top. This is the number the IPO and the win condition read, and
  * it is shown in the top bar so the player can watch it climb.
  */
+/** What an audit costs right now: more debt, more work to clear it. */
+export function auditCost(state: GameState): number {
+  return Math.max(AUDIT_MIN_COST, Math.round(state.risk * AUDIT_COST_PER_POINT))
+}
+
+/** What the mood is called, for the readout in the Company panel. */
+export function marketMood(hype: number): string {
+  if (hype >= 1.45) return 'Mania'
+  if (hype >= 1.15) return 'Hot'
+  if (hype >= 0.9) return 'Steady'
+  if (hype >= 0.72) return 'Cooling'
+  return 'AI winter'
+}
+
+/** How many people your hardware can serve at once. */
+export function servingCapacity(state: GameState): number {
+  return activeCards(state) * USERS_PER_CARD
+}
+
+/** Everyone using your service: the public product plus enterprise seats. */
+export function servedUsers(state: GameState): number {
+  const users = state.models.reduce(
+    (sum, m) => sum + (m.status === 'published' ? m.customers + m.freeCustomers : 0),
+    0,
+  )
+  return users + state.contracts.reduce((sum, c) => sum + c.seats, 0)
+}
+
+/**
+ * What it would take to buy a rival outright: what their users and following
+ * are worth, plus the premium anyone pays to take a competitor off the board.
+ * Only a public company can do this, because it is paying in stock.
+ */
+export function acquisitionCost(state: GameState, competitorId: string): number {
+  const c = state.competitors.find((x) => x.id === competitorId)
+  if (!c) return 0
+  const users = c.models.reduce((sum, m) => sum + m.customers, 0)
+  return Math.round(
+    (users * VALUATION_PER_CUSTOMER + c.followers * VALUATION_PER_FOLLOWER) * ACQUISITION_PREMIUM,
+  )
+}
+
+/** The best thing you have live, which is what enterprise clients are buying. */
+export function bestPublishedQuality(state: GameState): number {
+  return state.models.reduce((best, m) => (m.status === 'published' ? Math.max(best, m.quality) : best), 0)
+}
+
+/** 0 when comfortable, above 1 when the service is over its head. */
+export function serviceLoad(state: GameState): number {
+  const capacity = servingCapacity(state)
+  if (capacity <= 0) return servedUsers(state) > 0 ? Infinity : 0
+  return servedUsers(state) / capacity
+}
+
 export function companyValuation(state: GameState): number {
   let paying = 0
   let trial = 0
@@ -429,14 +542,15 @@ export function companyValuation(state: GameState): number {
     trial += m.freeCustomers
     perWeek += weeklyRevenue(m)
   }
-  return Math.round(
-    Math.max(0, state.money) +
-      perWeek * 52 * VALUATION_REVENUE_MULTIPLE +
-      paying * VALUATION_PER_CUSTOMER +
-      trial * VALUATION_PER_TRIAL_USER +
-      state.followers * VALUATION_PER_FOLLOWER +
-      state.researched.length * VALUATION_PER_RESEARCH,
-  )
+  // Cash is cash. Everything else is what the market thinks the company is
+  // worth this week, and that moves with the mood.
+  const multiples =
+    perWeek * 52 * VALUATION_REVENUE_MULTIPLE +
+    paying * VALUATION_PER_CUSTOMER +
+    trial * VALUATION_PER_TRIAL_USER +
+    state.followers * VALUATION_PER_FOLLOWER +
+    state.researched.length * VALUATION_PER_RESEARCH
+  return Math.round(Math.max(0, state.money) + multiples * (state.hype ?? 1))
 }
 
 export function investmentRaiseAmount(state: GameState): number {
@@ -741,6 +855,8 @@ function advanceOneWeek(state: GameState): GameState {
           campaignMult *
           promoGrowthMult *
           leadBonus *
+          // strangers try things when the world is excited, and not when it is not
+          (1 + (state.hype - 1) * HYPE_GROWTH_SHARE) *
           tuning.playerGrowth,
       )
       // signups made during a promo are trial users — they sit apart until the promo ends
@@ -789,6 +905,199 @@ function advanceOneWeek(state: GameState): GameState {
     }
     return m
   })
+
+  // Safety debt. It falls a little on its own each week, faster with researchers
+  // on staff, and every week it is also the chance that something goes wrong in
+  // public. A lawyer is who you want when it does.
+  let risk = Math.max(
+    0,
+    state.risk - RISK_DECAY_PER_WEEK - state.staff.filter((p) => p.role === 'researcher').length * RISK_PER_RESEARCHER,
+  )
+  let incident: { text: string } | null = null
+  if (week > INCIDENT_START_WEEK && risk > 0 && models.some((m) => m.status === 'published')) {
+    const chance = (risk / RISK_MAX) * INCIDENT_CHANCE_AT_MAX
+    if (Math.random() < chance) {
+      const lawyers = state.staff.filter((p) => p.role === 'lawyer').length
+      // lawyers do not stop it happening, they stop it costing everything
+      const shield = Math.min(0.7, lawyers * 0.22)
+      const severity = (0.35 + Math.random() * 0.65) * (risk / RISK_MAX) * (1 - shield)
+      const kind = Math.floor(Math.random() * 3)
+      const fine = Math.round(severity * 2_000_000)
+      const userRate = severity * 0.18
+      const followerRate = severity * 0.25
+      let lostUsers = 0
+      models = models.map((m) => {
+        if (m.status !== 'published') return m
+        const goPaying = Math.round(m.customers * userRate)
+        const goTrial = Math.round(m.freeCustomers * userRate)
+        lostUsers += goPaying + goTrial
+        return { ...m, customers: m.customers - goPaying, freeCustomers: m.freeCustomers - goTrial }
+      })
+      const lostFollowers = Math.round(followers * followerRate)
+      followers = Math.max(0, followers - lostFollowers)
+      money -= fine
+      risk = Math.max(0, risk - 12) // the reckoning clears some of the debt
+      const what =
+        kind === 0
+          ? 'Someone jailbroke your model and posted the transcript'
+          : kind === 1
+            ? 'Your model gave a confidently wrong answer that made the news'
+            : 'A regulator opened a case into how your model was trained'
+      incident = {
+        text:
+          `${what}. ${lostUsers.toLocaleString()} users and ${lostFollowers.toLocaleString()} followers gone, ` +
+          `$${fine.toLocaleString()} in costs` +
+          (lawyers > 0 ? `, and your ${lawyers === 1 ? 'lawyer' : 'lawyers'} kept it from being worse.` : '. Hire a lawyer.'),
+      }
+    }
+  }
+
+  // The mood of the whole market. It wanders, occasionally gets shoved, and
+  // turns around when it hits the ends of its range, so a run has a boom in it
+  // somewhere and a winter somewhere else.
+  let hype = state.hype
+  let hypeTrend = state.hypeTrend
+  let moodNews: string | null = null
+  {
+    if (Math.random() < HYPE_SHOCK_CHANCE) {
+      const shock = (Math.random() - 0.5) * 2 * HYPE_SHOCK_SIZE
+      hype += shock
+      hypeTrend = shock > 0 ? HYPE_DRIFT : -HYPE_DRIFT
+    }
+    hype += hypeTrend * (0.4 + Math.random() * 1.2)
+    if (hype >= HYPE_MAX) {
+      hype = HYPE_MAX
+      hypeTrend = -HYPE_DRIFT
+    } else if (hype <= HYPE_MIN) {
+      hype = HYPE_MIN
+      hypeTrend = HYPE_DRIFT
+    } else if (Math.random() < 0.04) {
+      hypeTrend = -hypeTrend // the mood turns on its own now and then
+    }
+    const wasHot = state.hype >= 1.4
+    const wasCold = state.hype <= 0.75
+    if (!wasHot && hype >= 1.4) {
+      moodNews =
+        'The market has gone mad for AI. Valuations are running hot and everyone wants to try what you have built.'
+    } else if (!wasCold && hype <= 0.75) {
+      moodNews =
+        'The mood has turned. Talk of an AI winter is everywhere, valuations are down and signups have gone quiet.'
+    }
+  }
+
+  // Enterprise contracts. They pay several times what the public product does,
+  // and they hold you to a quality floor and to keeping the service up.
+  let contracts = state.contracts
+  let contractOffers = state.contractOffers
+  const contractNews: string[] = []
+  let brokenThisWeek = 0
+  {
+    const bestQuality = models.reduce((best, m) => (m.status === 'published' ? Math.max(best, m.quality) : best), 0)
+    const capacityNow = activeCards(state) * USERS_PER_CARD
+    const servedNow =
+      models.reduce((sum, m) => sum + (m.status === 'published' ? m.customers + m.freeCustomers : 0), 0) +
+      contracts.reduce((sum, c) => sum + c.seats, 0)
+    const loadNow = capacityNow > 0 ? servedNow / capacityNow : servedNow > 0 ? Infinity : 0
+
+    const kept: Contract[] = []
+    let contractsBroken = 0
+    for (const c of contracts) {
+      if (bestQuality < c.minQuality) {
+        money -= c.penalty
+        followers = Math.max(0, followers - Math.round(followers * 0.05))
+        contractNews.push(
+          `${c.client} ended their contract: your best model is quality ${Math.round(bestQuality)} and they were promised ${c.minQuality}. Penalty $${c.penalty.toLocaleString()}.`,
+        )
+        contractsBroken++
+        continue
+      }
+      if (loadNow > CONTRACT_BREACH_LOAD) {
+        money -= c.penalty
+        contractNews.push(
+          `${c.client} walked over reliability. Their seats kept hitting errors. Penalty $${c.penalty.toLocaleString()}.`,
+        )
+        contractsBroken++
+        continue
+      }
+      money += c.weeklyFee
+      const weeksLeft = c.weeksLeft - 1
+      if (weeksLeft <= 0) {
+        followers += Math.round(c.seats * 0.05)
+        contractNews.push(`You saw out the ${c.client} contract in full. They are telling people.`)
+        continue
+      }
+      kept.push({ ...c, weeksLeft })
+    }
+    contracts = kept
+    if (contractsBroken > 0) {
+      brokenThisWeek = contractsBroken
+    }
+
+    // offers on the table go stale if you leave them
+    contractOffers = contractOffers
+      .map((o) => ({ ...o, expiresIn: o.expiresIn - 1 }))
+      .filter((o) => o.expiresIn > 0)
+
+    if (
+      week >= CONTRACT_START_WEEK &&
+      bestQuality > 0 &&
+      contractOffers.length < CONTRACT_MAX_OFFERS &&
+      Math.random() < CONTRACT_OFFER_CHANCE
+    ) {
+      const client = CONTRACT_CLIENTS[Math.floor(Math.random() * CONTRACT_CLIENTS.length)]
+      if (!contracts.some((c) => c.client === client) && !contractOffers.some((o) => o.client === client)) {
+        // what they ask for is just inside what you can already do
+        const minQuality = Math.max(10, Math.round(bestQuality - 4 - Math.random() * 8))
+        const seats = Math.round((4_000 + Math.random() * 40_000) * (0.5 + bestQuality / 100))
+        const weeklyFee = Math.round(seats * CONTRACT_REV_PER_SEAT * (0.8 + Math.random() * 0.5))
+        const weeks = Math.round(CONTRACT_MIN_WEEKS + Math.random() * (CONTRACT_MAX_WEEKS - CONTRACT_MIN_WEEKS))
+        contractOffers = [
+          ...contractOffers,
+          {
+            id: `contract-${week}-${Math.random().toString(36).slice(2, 8)}`,
+            client,
+            seats,
+            weeklyFee,
+            minQuality,
+            weeksLeft: weeks,
+            penalty: weeklyFee * CONTRACT_PENALTY_WEEKS,
+            expiresIn: CONTRACT_OFFER_LIFE,
+          },
+        ]
+        contractNews.push(
+          `${client} wants ${seats.toLocaleString()} seats for $${weeklyFee.toLocaleString()} a week, on quality ${minQuality} for ${weeks} weeks. See the Company panel.`,
+        )
+      }
+    }
+  }
+
+  // Running over capacity. Serving people costs hardware the same way training
+  // does, and a service that cannot keep up sheds users and goodwill until you
+  // buy your way out of it.
+  let overload: { load: number; lost: number; followersLost: number } | null = null
+  {
+    const capacity = activeCards(state) * USERS_PER_CARD
+    const served =
+      models.reduce((sum, m) => sum + (m.status === 'published' ? m.customers + m.freeCustomers : 0), 0) +
+      contracts.reduce((sum, c) => sum + c.seats, 0)
+    const load = capacity > 0 ? served / capacity : served > 0 ? Infinity : 0
+    if (served > 0 && load > OVERLOAD_GRACE) {
+      // how far past the line you are, capped so it is a squeeze and not a cliff
+      const over = Math.min(1, (load - OVERLOAD_GRACE) / OVERLOAD_GRACE)
+      const rate = OVERLOAD_MAX_CHURN * over
+      let lost = 0
+      models = models.map((m) => {
+        if (m.status !== 'published') return m
+        const goPaying = Math.round(m.customers * rate)
+        const goTrial = Math.round(m.freeCustomers * rate)
+        lost += goPaying + goTrial
+        return { ...m, customers: m.customers - goPaying, freeCustomers: m.freeCustomers - goTrial }
+      })
+      const followersLost = Math.round(followers * OVERLOAD_FOLLOWER_LOSS * over)
+      followers = Math.max(0, followers - followersLost)
+      if (lost > 0 || followersLost > 0) overload = { load, lost, followersLost }
+    }
+  }
 
   // rival bot armies swarm you too — the mirror of your own BOT_ATTACK
   let botSwarm: { attacker: string; followersLost: number; customersLost: number } | null = null
@@ -912,6 +1221,30 @@ function advanceOneWeek(state: GameState): GameState {
     }
   }
 
+  for (const text of contractNews) {
+    newEvents.push({ id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}-c`, text, week })
+  }
+
+  if (incident) {
+    newEvents.push({ id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, text: incident.text, week })
+  }
+
+  if (moodNews) {
+    newEvents.push({ id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, text: moodNews, week })
+  }
+
+  if (overload) {
+    newEvents.push({
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      text:
+        `Your service is over capacity at ${Math.round(overload.load * 100)}% of what your cards can serve. ` +
+        `${overload.lost.toLocaleString()} users hit errors and left` +
+        (overload.followersLost > 0 ? `, and ${overload.followersLost.toLocaleString()} followers went with them.` : '.') +
+        ' Buy GPUs and somewhere to put them.',
+      week,
+    })
+  }
+
   const fadedTotal = fadedModels.reduce((sum, f) => sum + f.lost, 0)
   if (fadedTotal >= 500) {
     const worst = fadedModels.reduce((a, b) => (a.lost >= b.lost ? a : b))
@@ -1023,6 +1356,11 @@ function advanceOneWeek(state: GameState): GameState {
     rentedDatacenters,
     competitors,
     followers,
+    hype,
+    hypeTrend,
+    risk,
+    contracts,
+    contractOffers,
     events,
     trendingHashtag,
     trendingSetWeek,
@@ -1035,6 +1373,7 @@ function advanceOneWeek(state: GameState): GameState {
   const weekSwing = Math.round(next.money - state.money)
   next.stats = {
     ...next.stats,
+    contractsBroken: next.stats.contractsBroken + brokenThisWeek,
     peakCustomers: Math.max(next.stats.peakCustomers, weekCustomers),
     peakValuation: Math.max(next.stats.peakValuation, companyValuation(next)),
     peakFollowers: Math.max(next.stats.peakFollowers, next.followers),
@@ -1309,6 +1648,37 @@ export function reducer(state: GameState, action: Action): GameState {
         }
       }
 
+      if (action.kind === 'datacenter') {
+        const halls = Math.floor(action.datacenters ?? 0)
+        if (halls < 1 || halls > state.datacenters) return state
+        offer.datacenters = halls
+        return {
+          ...state,
+          datacenters: state.datacenters - halls,
+          sentTrade: sent,
+          outbox: { t: 'trade', id: tradeId, targetId: action.targetId, offer },
+          events: note(
+            `You offered ${action.targetName} ${halls} datacenter${halls > 1 ? 's' : ''} for $${price.toLocaleString()}.`,
+          ),
+        }
+      }
+
+      if (action.kind === 'model') {
+        const model = state.models.find((m) => m.id === action.modelId && m.status === 'published')
+        if (!model) return state
+        offer.model = model
+        // the model goes with its users, so it leaves your books now
+        return {
+          ...state,
+          models: state.models.filter((m) => m.id !== model.id),
+          sentTrade: sent,
+          outbox: { t: 'trade', id: tradeId, targetId: action.targetId, offer },
+          events: note(
+            `You offered ${action.targetName} ${model.name} and its ${(model.customers + model.freeCustomers).toLocaleString()} users for $${price.toLocaleString()}.`,
+          ),
+        }
+      }
+
       if (action.kind === 'research') {
         const id = action.researchId ?? ''
         if (!state.researched.includes(id)) return state
@@ -1388,6 +1758,29 @@ export function reducer(state: GameState, action: Action): GameState {
           ),
         }
       }
+      if (offer.kind === 'datacenter') {
+        const halls = offer.datacenters ?? 0
+        return {
+          ...accepted,
+          datacenters: state.datacenters + halls,
+          events: note(
+            `You bought ${halls} datacenter${halls > 1 ? 's' : ''} from ${offer.fromName} for $${offer.price.toLocaleString()}.`,
+          ),
+        }
+      }
+      if (offer.kind === 'model') {
+        const model = offer.model
+        if (!model) return decline(`${offer.fromName}'s offer arrived broken.`)
+        // it keeps its users, but it is yours now, under a new id
+        const mine = { ...model, id: `traded-${offer.tradeId}` }
+        return {
+          ...accepted,
+          models: [...state.models, mine],
+          events: note(
+            `You bought ${model.name} from ${offer.fromName} for $${offer.price.toLocaleString()}, with ${(model.customers + model.freeCustomers).toLocaleString()} users.`,
+          ),
+        }
+      }
       if (offer.kind === 'research') {
         const id = offer.researchId ?? ''
         const name = RESEARCH_MAP[id]?.name ?? 'their findings'
@@ -1424,6 +1817,8 @@ export function reducer(state: GameState, action: Action): GameState {
           ...state,
           // whatever was held for the deal comes back
           gpuCards: offer.kind === 'compute' ? state.gpuCards + (offer.gpus ?? 0) : state.gpuCards,
+          datacenters: offer.kind === 'datacenter' ? state.datacenters + (offer.datacenters ?? 0) : state.datacenters,
+          models: offer.kind === 'model' && offer.model ? [...state.models, offer.model] : state.models,
           sentTrade: undefined,
           events: note(`${sent.targetName} turned your offer down.`),
         }
@@ -1443,7 +1838,11 @@ export function reducer(state: GameState, action: Action): GameState {
       const what =
         offer.kind === 'compute'
           ? `${offer.gpus} GPU${(offer.gpus ?? 0) > 1 ? 's' : ''}`
-          : (RESEARCH_MAP[offer.researchId ?? '']?.name ?? 'your research')
+          : offer.kind === 'datacenter'
+            ? `${offer.datacenters} datacenter${(offer.datacenters ?? 0) > 1 ? 's' : ''}`
+            : offer.kind === 'model'
+              ? (offer.model?.name ?? 'your model')
+              : (RESEARCH_MAP[offer.researchId ?? '']?.name ?? 'your research')
       return {
         ...state,
         money: state.money + offer.price,
@@ -1569,6 +1968,86 @@ export function reducer(state: GameState, action: Action): GameState {
             id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
             text: `The ${item.name.toLowerCase()} is in. ${item.effect}.`,
             week: globalWeek(state),
+          },
+          ...state.events,
+        ].slice(0, 20),
+      }
+    }
+    case 'ACQUIRE_COMPETITOR': {
+      // Buying a rival is a late-game move: you need the stock of a public
+      // company behind you, and it takes their users off the board for good.
+      if (!state.isPublic) return state
+      const target = state.competitors.find((c) => c.id === action.id)
+      if (!target) return state
+      const cost = acquisitionCost(state, action.id)
+      if (state.money < cost) return state
+      const week = globalWeek(state)
+      const users = target.models.reduce((sum, m) => sum + m.customers, 0)
+      const arriving = Math.round(users * ACQUISITION_USER_KEPT)
+      const live = state.models.filter((m) => m.status === 'published')
+      const best = live.length > 0 ? live.reduce((a, b) => (b.quality > a.quality ? b : a)) : null
+      const models = best
+        ? state.models.map((m) => (m.id === best.id ? { ...m, customers: m.customers + arriving } : m))
+        : state.models
+      return {
+        ...state,
+        money: state.money - cost,
+        competitors: state.competitors.filter((c) => c.id !== action.id),
+        models,
+        followers: state.followers + Math.round(target.followers * ACQUISITION_FOLLOWERS_KEPT),
+        stats: { ...state.stats, acquisitions: state.stats.acquisitions + 1 },
+        events: [
+          {
+            id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            text: best
+              ? `You bought ${target.name} for $${cost.toLocaleString()}. ${arriving.toLocaleString()} of their users moved across to ${best.name}.`
+              : `You bought ${target.name} for $${cost.toLocaleString()}, but you have nothing live for their users to move to.`,
+            week,
+          },
+          ...state.events,
+        ].slice(0, 20),
+      }
+    }
+    case 'SIGN_CONTRACT': {
+      const offer = state.contractOffers.find((o) => o.id === action.id)
+      if (!offer) return state
+      const { expiresIn: _drop, ...contract } = offer
+      void _drop
+      return {
+        ...state,
+        contracts: [...state.contracts, contract],
+        contractOffers: state.contractOffers.filter((o) => o.id !== action.id),
+        stats: { ...state.stats, contractsSigned: state.stats.contractsSigned + 1 },
+        events: [
+          {
+            id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            text: `Signed with ${contract.client}: ${contract.seats.toLocaleString()} seats at $${contract.weeklyFee.toLocaleString()} a week for ${contract.weeksLeft} weeks.`,
+            week: globalWeek(state),
+          },
+          ...state.events,
+        ].slice(0, 20),
+      }
+    }
+    case 'DECLINE_CONTRACT':
+      return state.contractOffers.some((o) => o.id === action.id)
+        ? { ...state, contractOffers: state.contractOffers.filter((o) => o.id !== action.id) }
+        : state
+    case 'RUN_SAFETY_AUDIT': {
+      const week = globalWeek(state)
+      if (week - state.lastAuditWeek < AUDIT_COOLDOWN) return state
+      const cost = auditCost(state)
+      if (state.money < cost || state.risk <= 0) return state
+      const cut = Math.min(state.risk, AUDIT_CUT)
+      return {
+        ...state,
+        money: state.money - cost,
+        risk: state.risk - cut,
+        lastAuditWeek: week,
+        events: [
+          {
+            id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            text: `A safety audit went through everything you have shipped. ${Math.round(cut)} points of risk dealt with, $${cost.toLocaleString()} spent.`,
+            week,
           },
           ...state.events,
         ].slice(0, 20),
@@ -2130,6 +2609,15 @@ export function reducer(state: GameState, action: Action): GameState {
         })
       }
 
+      // Shipping adds safety debt, and how it was built decides how much: cheap
+      // data, a distilled teacher and a rushed training run all add to it.
+      let riskAdded = RISK_PER_PUBLISH
+      if (model) {
+        if (!model.dataTier || model.dataTier === 'scraped') riskAdded += RISK_CHEAP_DATA
+        if (model.distilledFrom) riskAdded += RISK_DISTILLED
+        if ((model.totalWeeks ?? 0) > 0 && model.totalWeeks < RISK_RUSHED_WEEKS) riskAdded += RISK_RUSHED
+      }
+
       const newEvents = [...scandalEvents, ...launchEvents]
       const events = newEvents.length > 0 ? [...newEvents, ...state.events].slice(0, 20) : state.events
       return {
@@ -2139,6 +2627,7 @@ export function reducer(state: GameState, action: Action): GameState {
         money,
         followers: followers + followerGain,
         competitors,
+        risk: Math.min(RISK_MAX, state.risk + riskAdded),
         stats: { ...state.stats, modelsShipped: state.stats.modelsShipped + 1 },
       }
     }

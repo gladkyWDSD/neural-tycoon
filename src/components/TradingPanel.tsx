@@ -3,7 +3,7 @@ import type { GameState, TradeKind } from '../game/types'
 import type { LobbyPlayer } from '../game/multiplayer'
 import { formatMoney } from '../game/format'
 import { RESEARCH_MAP } from '../game/research'
-import { GPU_CARD_COST, activeCards } from '../game/gpu'
+import { DATACENTER_COST, GPU_CARD_COST, activeCards } from '../game/gpu'
 import { PACT_BREAK_FOLLOWER_LOSS, PACT_WEEKS } from '../game/constants'
 import './Game.css'
 
@@ -15,7 +15,7 @@ interface Props {
     targetName: string,
     kind: TradeKind,
     price: number,
-    extra: { gpus?: number; researchId?: string },
+    extra: { gpus?: number; researchId?: string; modelId?: string; datacenters?: number },
   ) => void
   onBreakPact: (playerId: string) => void
   onClose: () => void
@@ -27,11 +27,14 @@ export function TradingPanel({ state, race, onOfferTrade, onBreakPact, onClose }
   const [kind, setKind] = useState<TradeKind>('compute')
   const [gpus, setGpus] = useState(4)
   const [researchId, setResearchId] = useState('')
+  const [modelId, setModelId] = useState('')
+  const [halls, setHalls] = useState(1)
   const [price, setPrice] = useState(GPU_CARD_COST * 4)
 
   const player = others.find((p) => p.id === target) ?? null
   const idle = Math.max(0, state.gpuCards - activeCards(state))
   const sellable = state.researched.filter((id) => RESEARCH_MAP[id])
+  const live = state.models.filter((m) => m.status === 'published')
   const pactWith = (id: string) => state.pacts.find((p) => p.playerId === id)
   const waiting = state.sentTrade
 
@@ -45,6 +48,14 @@ export function TradingPanel({ state, race, onOfferTrade, onBreakPact, onClose }
     if (kind === 'research' && !state.researched.includes(researchId)) {
       return sellable.length === 0 ? 'Finish some research first.' : 'Pick which findings to sell.'
     }
+    if (kind === 'datacenter' && (halls < 1 || halls > state.datacenters)) {
+      return state.datacenters === 0
+        ? 'You have no datacenters of your own. Rented ones cannot be sold.'
+        : `You own ${state.datacenters} built datacenter${state.datacenters === 1 ? '' : 's'}.`
+    }
+    if (kind === 'model' && !live.some((m) => m.id === modelId)) {
+      return live.length === 0 ? 'You have nothing published to sell.' : 'Pick which model to sell.'
+    }
     if (kind === 'pact' && pactWith(player.id)) return `You already have a pact with ${player.nickname}.`
     return null
   }
@@ -56,6 +67,8 @@ export function TradingPanel({ state, race, onOfferTrade, onBreakPact, onClose }
     onOfferTrade(player.id, player.nickname, kind, kind === 'pact' ? 0 : price, {
       gpus: kind === 'compute' ? gpus : undefined,
       researchId: kind === 'research' ? researchId : undefined,
+      modelId: kind === 'model' ? modelId : undefined,
+      datacenters: kind === 'datacenter' ? halls : undefined,
     })
   }
 
@@ -132,6 +145,18 @@ export function TradingPanel({ state, race, onOfferTrade, onBreakPact, onClose }
                 onClick={() => setKind('research')}
               >
                 License research
+              </button>
+              <button
+                className={`hire-btn ${kind === 'datacenter' ? 'active' : ''}`}
+                onClick={() => setKind('datacenter')}
+              >
+                Sell a datacenter
+              </button>
+              <button
+                className={`hire-btn ${kind === 'model' ? 'active' : ''}`}
+                onClick={() => setKind('model')}
+              >
+                Sell a model
               </button>
               <button
                 className={`hire-btn ${kind === 'pact' ? 'active' : ''}`}
@@ -214,6 +239,78 @@ export function TradingPanel({ state, race, onOfferTrade, onBreakPact, onClose }
                     {RESEARCH_MAP[researchId].cost.toLocaleString()} and{' '}
                     {RESEARCH_MAP[researchId].weeks} weeks of a researcher's time.
                   </p>
+                )}
+              </>
+            )}
+
+            {kind === 'datacenter' && (
+              <>
+                <p className="placeholder">
+                  Built halls only, with their ten card slots each. Rented ones are not yours to
+                  sell. They are held aside until the other player answers.
+                </p>
+                <div className="trade-fields">
+                  <label className="trade-field">
+                    <span className="trade-label">Datacenters</span>
+                    <input
+                      type="number"
+                      min={1}
+                      max={Math.max(1, state.datacenters)}
+                      value={halls}
+                      onChange={(e) => setHalls(Math.max(1, Math.floor(Number(e.target.value) || 1)))}
+                    />
+                  </label>
+                  <label className="trade-field">
+                    <span className="trade-label">Price</span>
+                    <input
+                      type="number"
+                      min={0}
+                      step={10000}
+                      value={price}
+                      onChange={(e) => setPrice(Math.max(0, Math.floor(Number(e.target.value) || 0)))}
+                    />
+                  </label>
+                </div>
+                <p className="placeholder">
+                  You own {state.datacenters} built and {state.rentedDatacenters} rented. Building one
+                  costs ${DATACENTER_COST.toLocaleString()} and takes two weeks.
+                </p>
+              </>
+            )}
+
+            {kind === 'model' && (
+              <>
+                <p className="placeholder">
+                  The model goes across with everyone using it. You lose the users and the revenue,
+                  they gain both.
+                </p>
+                {live.length === 0 ? (
+                  <p className="placeholder">You have nothing published to sell.</p>
+                ) : (
+                  <div className="trade-fields">
+                    <label className="trade-field wide">
+                      <span className="trade-label">Model</span>
+                      <select value={modelId} onChange={(e) => setModelId(e.target.value)}>
+                        <option value="">Pick one</option>
+                        {live.map((m) => (
+                          <option key={m.id} value={m.id}>
+                            {m.name} — quality {Math.round(m.quality)},{' '}
+                            {(m.customers + m.freeCustomers).toLocaleString()} users
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="trade-field">
+                      <span className="trade-label">Price</span>
+                      <input
+                        type="number"
+                        min={0}
+                        step={10000}
+                        value={price}
+                        onChange={(e) => setPrice(Math.max(0, Math.floor(Number(e.target.value) || 0)))}
+                      />
+                    </label>
+                  </div>
                 )}
               </>
             )}

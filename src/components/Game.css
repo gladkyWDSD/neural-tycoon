@@ -1303,3 +1303,40 @@
   color: var(--text);
   text-align: right;
 }
+
+/* ------------------------------------------------------- serving load bar */
+
+.load-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  margin: 4px 0;
+  background: var(--panel-2);
+  border: 2px solid var(--border-dark);
+}
+
+.load-track {
+  display: block;
+  height: 10px;
+  background: #0b0c11;
+  border: 1px solid var(--border);
+}
+
+.load-fill {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+
+.load-fill.warn {
+  background: var(--gold);
+}
+
+.load-fill.over {
+  background: var(--danger);
+}
+
+.danger-text {
+  color: var(--danger);
+}

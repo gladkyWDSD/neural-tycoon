@@ -1,6 +1,7 @@
 import type { GameState } from '../game/types'
 import { maxStaff } from '../game/state'
 import { activeCards } from '../game/gpu'
+import { serviceLoad } from '../game/state'
 import { RESEARCH_MAP } from '../game/research'
 import { CAMPAIGN_DURATION } from '../game/constants'
 import './Game.css'
@@ -45,6 +46,8 @@ function tilesFor(state: GameState, racing: boolean): Tile[] {
     ? [...state.researching].sort((a, b) => a.weeksRemaining - b.weeksRemaining)[0]
     : null
   const learning = state.staffTraining.length
+  const rawLoad = serviceLoad(state)
+  const load = Number.isFinite(rawLoad) ? rawLoad : 9.99
 
   return [
     {
@@ -85,10 +88,12 @@ function tilesFor(state: GameState, racing: boolean): Tile[] {
       id: 'datacenters',
       label: 'Compute',
       value: `${activeCards(state)} GPU`,
-      note: state.datacenterBuilds.length > 0
-        ? `${state.datacenterBuilds.length} building`
-        : `${state.datacenters + state.rentedDatacenters} datacenters`,
-      busy: state.datacenterBuilds.length > 0,
+      note: load > 1
+        ? `over capacity, ${Math.round(load * 100)}%`
+        : state.datacenterBuilds.length > 0
+          ? `${state.datacenterBuilds.length} building`
+          : `${Math.round(load * 100)}% of capacity used`,
+      busy: state.datacenterBuilds.length > 0 || load > 1,
       title: 'Buy hardware and datacenters',
     },
     {

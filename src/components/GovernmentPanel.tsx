@@ -1,21 +1,32 @@
 import type { GameState } from '../game/types'
-import { globalWeek } from '../game/state'
-import { LOBBY_COOLDOWN, LOBBY_COST, LOBBY_DURATION, REGULATION_START_WEEK } from '../game/constants'
+import { auditCost, globalWeek } from '../game/state'
+import {
+  AUDIT_COOLDOWN,
+  AUDIT_CUT,
+  INCIDENT_CHANCE_AT_MAX,
+  LOBBY_COOLDOWN,
+  LOBBY_COST,
+  LOBBY_DURATION,
+  REGULATION_START_WEEK,
+  RISK_MAX,
+} from '../game/constants'
 import { REGULATION_MAP, regulationEffectSummary } from '../game/regulations'
 import './Game.css'
 
 interface Props {
   state: GameState
   onHireLobbyists: () => void
+  onRunAudit: () => void
   onClose: () => void
 }
 
-export function GovernmentPanel({ state, onHireLobbyists, onClose }: Props) {
+export function GovernmentPanel({ state, onHireLobbyists, onRunAudit, onClose }: Props) {
   const week = globalWeek(state)
   const lobbyWait = LOBBY_COOLDOWN - (week - state.lastLobbyWeek)
   const lobbyReady = lobbyWait <= 0
   const lobbyActive = state.lobbyWeeksLeft > 0
   const regulations = state.activeRegulations.map((id) => REGULATION_MAP[id]).filter(Boolean)
+  const auditWait = Math.max(0, AUDIT_COOLDOWN - (week - state.lastAuditWeek))
 
   return (
     <div className="panel">
@@ -24,6 +35,42 @@ export function GovernmentPanel({ state, onHireLobbyists, onClose }: Props) {
         <button className="close-btn" onClick={onClose}>
           ✕
         </button>
+      </div>
+
+      <div className="smear-section">
+        <h4 className="model-list-title">Safety debt</h4>
+        <p className="placeholder">
+          Every model you ship adds to this, and cheap data, a distilled teacher or a rushed
+          training run add more. It is the chance each week that something goes publicly wrong.
+          Researchers work it down; lawyers make it hurt less when it lands.
+        </p>
+        <div className="load-block">
+          <p className="dc-note">
+            {Math.round(state.risk)} of {RISK_MAX}, about{' '}
+            {((state.risk / RISK_MAX) * INCIDENT_CHANCE_AT_MAX * 100).toFixed(1)}% a week that something
+            goes wrong.
+          </p>
+          <span className="load-track">
+            <span
+              className={`load-fill ${state.risk > 60 ? 'over' : state.risk > 30 ? 'warn' : ''}`}
+              style={{ width: `${Math.min(100, (state.risk / RISK_MAX) * 100).toFixed(1)}%` }}
+            />
+          </span>
+        </div>
+        <div className="smear-row">
+          <span className="smear-name">
+            {auditWait > 0
+              ? `Auditors are booked up for ${auditWait}wk`
+              : `An audit clears up to ${AUDIT_CUT} points`}
+          </span>
+          <button
+            className="hire-btn"
+            disabled={auditWait > 0 || state.risk <= 0 || state.money < auditCost(state)}
+            onClick={onRunAudit}
+          >
+            Audit (${auditCost(state).toLocaleString()})
+          </button>
+        </div>
       </div>
 
       <div className="smear-section">

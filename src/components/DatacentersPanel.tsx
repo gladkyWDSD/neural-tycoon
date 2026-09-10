@@ -11,7 +11,8 @@ import {
   SSD_COST,
   activeCards,
 } from '../game/gpu'
-import { REGULATION_BASE_DATACENTER_SHUTDOWN_CHANCE } from '../game/constants'
+import { REGULATION_BASE_DATACENTER_SHUTDOWN_CHANCE, USERS_PER_CARD } from '../game/constants'
+import { serviceLoad, servedUsers, servingCapacity } from '../game/state'
 import {
   regulationDatacenterShutdownChance,
   regulationElectricityMultiplier,
@@ -33,6 +34,9 @@ export function DatacentersPanel({ state, onBuyGpu, onBuyRam, onBuySsd, onBuildD
   const cards = activeCards(state)
   const capacity = (state.datacenters + state.rentedDatacenters) * DATACENTER_CAPACITY
   const idle = Math.max(0, state.gpuCards - capacity)
+  const served = servedUsers(state)
+  const load = serviceLoad(state)
+  const capacityPct = Number.isFinite(load) ? Math.round(load * 100) : 999
   const building = state.datacenterBuilds.length
   const gpuCostMult = regulationGpuCostMultiplier(state.activeRegulations)
   const gpuCost = Math.round(GPU_CARD_COST * gpuCostMult)
@@ -72,6 +76,24 @@ export function DatacentersPanel({ state, onBuyGpu, onBuyRam, onBuySsd, onBuildD
         Electricity ${Math.round(cards * ELECTRICITY_PER_CARD_WEEK * electricityMult).toLocaleString()}/wk · Rent $
         {(state.rentedDatacenters * RENT_WEEKLY_FEE).toLocaleString()}/wk
       </p>
+
+      <div className="load-block">
+        <p className="dc-note">
+          Serving {served.toLocaleString()} of {servingCapacity(state).toLocaleString()} people your cards can
+          handle ({capacityPct}%). Every card serves {USERS_PER_CARD.toLocaleString()}.
+        </p>
+        <span className="load-track">
+          <span
+            className={`load-fill ${load > 1 ? 'over' : load > 0.85 ? 'warn' : ''}`}
+            style={{ width: `${Math.min(100, load * 100).toFixed(1)}%` }}
+          />
+        </span>
+        {load > 1 && (
+          <p className="dc-note danger-text">
+            Over capacity. People are hitting errors and leaving. Buy cards and somewhere to put them.
+          </p>
+        )}
+      </div>
 
       {idle > 0 && (
         <p className="dc-note">

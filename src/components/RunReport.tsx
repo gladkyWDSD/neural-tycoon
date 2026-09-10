@@ -1,6 +1,6 @@
 import type { GameState } from '../game/types'
 import { formatMoney } from '../game/format'
-import { companyValuation, globalWeek } from '../game/state'
+import { companyValuation, globalWeek, marketMood } from '../game/state'
 import { formatDate } from '../game/date'
 import { AMENITY_MAP } from '../game/amenities'
 import { DESKS_PER_LEVEL, DIFFICULTIES } from '../game/constants'
@@ -64,6 +64,10 @@ export function RunReport({ state, outcome, onClose, closeLabel, closeHint }: Pr
     ['Poached off you', `${s.poachedOut}`],
     ['Compute', `${activeCards(state)} active cards, ${state.datacenters + state.rentedDatacenters} datacenters`],
     ['Laws you live under', `${state.activeRegulations.length}`],
+    ['Safety debt left', `${Math.round(state.risk)} of 100`],
+    ['Market mood at the end', `${marketMood(state.hype)} (${state.hype.toFixed(2)}x)`],
+    ['Enterprise contracts', `${s.contractsSigned} signed, ${s.contractsBroken} lost`],
+    ['Rivals bought outright', `${s.acquisitions}`],
   ]
 
   if (state.inRace || s.pactsSigned > 0 || s.pactsBroken > 0) {

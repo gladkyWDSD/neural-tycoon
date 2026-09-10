@@ -386,6 +386,62 @@ Rivals get the same weapons the player does. Besides buying hype bots and poachi
 
 The current risk is shown in the Ads panel, which is also where you launch your own swarms.
 
+### Serving capacity and outages
+
+Published models are used, not just trained. Every active GPU card serves **25,000** people, and
+enterprise seats count too. Go more than 5% past what your cards can handle and the service starts
+falling over: up to **6%** of your users a week hit errors and leave, and your following goes with
+them. The Datacenters panel shows the load as a bar, and the Compute tile in the rail turns gold
+when you are over. Scaling hardware is therefore a permanent job, not a one-off purchase for
+training.
+
+### The hype cycle
+
+A single number for how the world feels about AI, between **0.55** and **1.75**. It multiplies
+everything the company is judged to be worth except its cash, and half of it feeds through to how
+fast strangers sign up. It drifts a little every week, is occasionally shoved by a shock, and turns
+around at the ends of its range, so a run has a mania in it somewhere and a winter somewhere else.
+The Company panel names the mood; the news feed calls out the turns.
+
+### Safety debt and incidents
+
+Every model you publish adds safety debt: **4** points for shipping at all, **5** more for scraped
+data, **10** for a distilled teacher and **8** for a training run under three weeks. It decays by
+**1** a week on its own and **0.35** more per researcher.
+
+Debt is the weekly chance that something goes publicly wrong, up to **7%** at the maximum. An
+incident is a jailbreak, a hallucination in the press or a regulator opening a case: you lose users,
+followers and cash, and some of the debt is cleared by the reckoning. Lawyers do not stop incidents
+happening, they cut the damage by **22%** each, up to 70%. A safety audit in the Government panel
+clears **35** points for a price that scales with the debt, on a twelve-week cooldown.
+
+### Enterprise contracts
+
+From week 18, companies offer to buy seats. They pay **$2.20** per seat per week against **$0.50**
+for a subscriber, for twenty to forty-four weeks, and they hold you to two things: your best live
+model staying above a quality floor, and the service staying under **1.25x** capacity. Slip on
+either and they leave that week and take a penalty worth six weeks of fees with them. Seats count
+against your serving capacity like any other user. Offers go stale after six weeks if you ignore
+them.
+
+### Acquisitions
+
+Once you are public you can buy an AI rival outright from the Competitors panel. The price is what
+their users and following are worth plus a **40%** premium. **70%** of their users move to your best
+model, you keep **40%** of their following, and they stop competing for good.
+
+### Model versions
+
+Publishing a model of a type you already have live migrates **35%** of the older models' users to
+the new one on day one. The Build panel says so before you start training, so shipping v2 of a
+product is an explicit move rather than something you discover.
+
+### Office life
+
+People do not sit still for eight hours. Every fifty to ninety seconds someone gets up, walks to the
+water cooler or to whatever the company has bought, stands there a moment and walks back. It is
+worked out from the clock and their id, so it costs nothing and looks the same on every machine.
+
 ### Office amenities
 
 Bought once each from the Company panel, and every one of them appears in the office along the
@@ -425,6 +481,9 @@ rail once a race is running, and every deal is an offer one player makes and ano
 - **License research.** Offer any item you have finished. If they accept, it lands on them
   completed: no researcher time, no waiting. You keep your own copy and the money. Research they
   already know is refused rather than paid for.
+- **Sell a datacenter.** Built halls only, ten card slots each. Rented ones are not yours to sell.
+- **Sell a model.** It goes across with everyone using it. You lose the users and the revenue, they
+  gain both, and it lands under an id of their own.
 - **Non-aggression pact.** No money, only a promise. For **20 weeks** neither side can swarm or
   hack the other, and the buttons in Competitors say so. Poaching still works, both ways.
   Either side can tear a pact up early, which frees them to attack again and costs them **15%**

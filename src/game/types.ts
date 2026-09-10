@@ -48,6 +48,20 @@ export interface StaffBid {
   amount: number
 }
 
+/** A company paying for seats on terms, or an offer of one. */
+export interface Contract {
+  id: string
+  client: string
+  /** seats, which count as users of your service and against your capacity */
+  seats: number
+  weeklyFee: number
+  /** the quality your best published model has to keep up */
+  minQuality: number
+  weeksLeft: number
+  /** what walking away from it costs you */
+  penalty: number
+}
+
 /** Kept as the run goes, because none of it can be worked out from the end state. */
 export interface RunStats {
   peakCustomers: number
@@ -62,12 +76,15 @@ export interface RunStats {
   poachedIn: number
   poachedOut: number
   modelsShipped: number
+  contractsSigned: number
+  contractsBroken: number
+  acquisitions: number
   pactsSigned: number
   pactsBroken: number
 }
 
 /** What one player is offering another in the Trading tab. */
-export type TradeKind = 'compute' | 'research' | 'pact'
+export type TradeKind = 'compute' | 'research' | 'pact' | 'model' | 'datacenter'
 
 export interface TradeOffer {
   tradeId: string
@@ -83,6 +100,10 @@ export interface TradeOffer {
   researchId?: string
   /** pacts: how many weeks of peace are being promised */
   weeks?: number
+  /** model deals: the whole thing, users and all */
+  model?: AIModel
+  /** datacenter deals: how many halls change hands */
+  datacenters?: number
 }
 
 /** An agreement not to attack, live until it runs out or someone breaks it. */
@@ -286,6 +307,16 @@ export interface GameState {
   books: string[]
   /** office extras you have paid for, by id */
   amenities: string[]
+  /** how the world feels about AI: a multiplier on valuations and on growth */
+  hype: number
+  /** unaddressed safety debt, 0 to 100, and when you last paid it down */
+  risk: number
+  lastAuditWeek: number
+  /** enterprise deals you are running, and the ones on the table */
+  contracts: Contract[]
+  contractOffers: (Contract & { expiresIn: number })[]
+  /** which way the mood is heading, so it swings rather than jitters */
+  hypeTrend: number
   /** the run so far, for the report at the end of it */
   stats: RunStats
   competitors: Competitor[]

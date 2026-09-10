@@ -1,4 +1,5 @@
 import { px } from './officeArt'
+import { hash } from './sprites'
 
 // Furniture for the parts of the office nobody works in: the margins either
 // side of the desk grid. Everything here is drawn in art pixels on the same
@@ -343,6 +344,74 @@ export function drawDecor(ctx: CanvasRenderingContext2D, room: RoomInfo) {
   if (rightW >= 2) drawWhiteboard(ctx, rightStart + (rightW >= 3 ? 1 : 0), floorTop + 2)
   if (rightW >= 2) drawFilingCabinet(ctx, rightStart, floorBottom - 1)
   if (rightW >= 3) drawFloorPlant(ctx, rightStart + 2, floorBottom - 1)
+}
+
+// Nobody sits still for eight hours. Every so often a person gets up, walks to
+// the cooler or whatever the company has bought, stands there a moment and
+// walks back. It is all worked out from the clock and their id, so it costs
+// nothing and looks the same on every machine.
+const BREAK_PERIOD_MS = 52_000
+const BREAK_JITTER_MS = 38_000
+const BREAK_WALK_MS = 2_600
+const BREAK_STAY_MS = 5_000
+
+interface Trip {
+  x: number
+  y: number
+  /** true while they are away from the desk, so they face the room */
+  walking: boolean
+}
+
+export function tripFor(
+  id: string,
+  deskX: number,
+  deskY: number,
+  now: number,
+  spots: { x: number; y: number }[],
+): Trip {
+  if (spots.length === 0) return { x: deskX, y: deskY, walking: false }
+  const seed = hash(id)
+  const period = BREAK_PERIOD_MS + (seed % BREAK_JITTER_MS)
+  const t = (now + seed * 7) % period
+  const round = BREAK_WALK_MS * 2 + BREAK_STAY_MS
+  if (t > round) return { x: deskX, y: deskY, walking: false }
+  const spot = spots[seed % spots.length]
+  const ease = (k: number) => k * k * (3 - 2 * k)
+  const lerp = (a: number, b: number, k: number) => Math.round(a + (b - a) * ease(k))
+  if (t < BREAK_WALK_MS) {
+    const k = t / BREAK_WALK_MS
+    return { x: lerp(deskX, spot.x, k), y: lerp(deskY, spot.y, k), walking: true }
+  }
+  if (t < BREAK_WALK_MS + BREAK_STAY_MS) return { x: spot.x, y: spot.y, walking: true }
+  const k = (t - BREAK_WALK_MS - BREAK_STAY_MS) / BREAK_WALK_MS
+  return { x: lerp(spot.x, deskX, k), y: lerp(spot.y, deskY, k), walking: true }
+}
+
+/**
+ * Somewhere for people to walk to. The water cooler is always there; the coffee
+ * bar and the meeting table only once they have been paid for. Coordinates are
+ * world pixels, matching where a person stands.
+ */
+export function breakSpots(room: RoomInfo, owned: string[]): { x: number; y: number }[] {
+  const TILE = 16
+  const spots = [{ x: (room.roomCols - 3) * TILE + 8, y: 2 * TILE }]
+  const pieces = owned.map((id) => AMENITY_ART[id]).filter(Boolean)
+  if (pieces.length > 0) {
+    const span = room.roomCols - 2
+    const used = pieces.reduce((sum, a) => sum + a.width, 0)
+    const gap = Math.max(1, Math.floor((span - used) / (pieces.length + 1)))
+    let col = 1 + Math.max(0, Math.floor((span - used - gap * (pieces.length + 1)) / 2)) + gap
+    for (let i = 0; i < pieces.length; i++) {
+      const art = pieces[i]
+      if (col + art.width > room.roomCols - 1) break
+      // stand in front of it, not on it
+      if (owned[i] === 'coffee' || owned[i] === 'meeting' || owned[i] === 'gym') {
+        spots.push({ x: col * TILE + art.width * 8, y: (room.roomRows - 2) * TILE })
+      }
+      col += art.width + gap
+    }
+  }
+  return spots
 }
 
 /** Where the rack ended up, so its lights can be animated over the top. */

@@ -77,6 +77,15 @@ the `App.tsx` clock) plus the player and rival growth multipliers (read by `adva
 `settingsOf(state)`). Never reintroduce a global growth constant; the run's preset is the source
 of truth.
 
+**Weekly pressure systems.** `advanceOneWeek` now runs four things in a fixed order that all read
+from the same week's numbers: enterprise contracts (paid, or lost on quality or reliability),
+serving capacity (users over `activeCards * USERS_PER_CARD` churn), safety debt (decays, then rolls
+for an incident), and the hype cycle (drifts, and multiplies everything in `companyValuation`
+except cash). Contract seats count as served users, so contracts and capacity are deliberately
+coupled — signing a big deal can push you over the line. Balance for all of them is in
+`constants.ts`; the scripted run in the balance simulation is the instrument for checking a change
+has not made the game unwinnable.
+
 **The run report.** `state.stats` (`RunStats` in `types.ts`) holds what the end-of-run report
 cannot work out from the end state: high-water marks, the best and worst weeks, and counts of
 hires, departures, poaches and pacts. Peaks and weekly swings are recorded once per week at the

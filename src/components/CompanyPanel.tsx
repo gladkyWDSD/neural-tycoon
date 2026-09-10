@@ -10,7 +10,8 @@ import {
 } from '../game/constants'
 import { formatMoney } from '../game/format'
 import { AMENITIES } from '../game/amenities'
-import { companyValuation, globalWeek, investmentRaiseAmount, maxStaff } from '../game/state'
+import { bestPublishedQuality } from '../game/state'
+import { companyValuation, globalWeek, investmentRaiseAmount, marketMood, maxStaff } from '../game/state'
 import './Game.css'
 
 interface Props {
@@ -19,6 +20,8 @@ interface Props {
   onIpo: () => void
   onRaiseInvestment: () => void
   onBuyAmenity: (id: string) => void
+  onSignContract: (id: string) => void
+  onDeclineContract: (id: string) => void
   onShowReport: () => void
   onClose: () => void
 }
@@ -29,6 +32,8 @@ export function CompanyPanel({
   onIpo,
   onRaiseInvestment,
   onBuyAmenity,
+  onSignContract,
+  onDeclineContract,
   onShowReport,
   onClose,
 }: Props) {
@@ -69,6 +74,12 @@ export function CompanyPanel({
         <div className="company-stat">
           <span className="company-label">Valuation</span>
           <span className="company-value">{formatMoney(valuation)}</span>
+        </div>
+        <div className="company-stat">
+          <span className="company-label">Market mood</span>
+          <span className="company-value" title="What the world thinks of AI this week. It multiplies everything except your cash.">
+            {marketMood(state.hype)} ({state.hype.toFixed(2)}x)
+          </span>
         </div>
         <div className="company-stat">
           <span className="company-label">Office level</span>
@@ -136,6 +147,56 @@ export function CompanyPanel({
           <button className="big-button" disabled={!investmentReady} onClick={onRaiseInvestment}>
             Raise Investment
           </button>
+        </div>
+
+        <div className="amenity-section">
+          <h4 className="model-list-title">Enterprise contracts</h4>
+          <p className="placeholder">
+            Companies pay several times what the public product does, for seats. They hold you to a
+            quality floor and to keeping the service up, and they leave the week you slip. Your best
+            model is quality {Math.round(bestPublishedQuality(state))}.
+          </p>
+          {state.contracts.length === 0 && state.contractOffers.length === 0 && (
+            <p className="placeholder">Nothing on the table. Ship something good and they will come.</p>
+          )}
+          {state.contracts.map((c) => (
+            <div className="amenity-row owned" key={c.id}>
+              <span className="amenity-what">
+                {c.client}
+                <span className="comp-sub">
+                  {c.seats.toLocaleString()} seats · ${c.weeklyFee.toLocaleString()}/wk · quality{' '}
+                  {c.minQuality} · {c.weeksLeft}wk left
+                </span>
+              </span>
+              <span className="dc-label">Running</span>
+            </div>
+          ))}
+          {state.contractOffers.map((o) => (
+            <div className="amenity-row" key={o.id}>
+              <span className="amenity-what">
+                {o.client}
+                <span className="comp-sub">
+                  {o.seats.toLocaleString()} seats · ${o.weeklyFee.toLocaleString()}/wk · needs quality{' '}
+                  {o.minQuality} · {o.weeksLeft}wk · breaking it costs ${o.penalty.toLocaleString()}
+                </span>
+              </span>
+              <button
+                className="hire-btn"
+                disabled={bestPublishedQuality(state) < o.minQuality}
+                title={
+                  bestPublishedQuality(state) < o.minQuality
+                    ? `Your best model is quality ${Math.round(bestPublishedQuality(state))}, short of ${o.minQuality}`
+                    : 'Sign it'
+                }
+                onClick={() => onSignContract(o.id)}
+              >
+                Sign
+              </button>
+              <button className="hire-btn danger" onClick={() => onDeclineContract(o.id)}>
+                Pass
+              </button>
+            </div>
+          ))}
         </div>
 
         <div className="amenity-section">

@@ -10,6 +10,7 @@ import {
   FREE_TRIAL_CONVERSION,
   FREE_TRIAL_COST,
   FREE_TRIAL_DURATION,
+  SUCCESSOR_MIGRATION,
 } from '../game/constants'
 import { validateCompanyName } from '../game/profanity'
 import {
@@ -263,6 +264,11 @@ export function BuildPanel({ state, onStartModel, onPublish, onStartPromo, onBuy
   const totalCost = dataCost + (teacher ? distillCost(teacher.quality) : 0)
   const canAfford = state.money >= totalCost
 
+  // anything live of the same kind hands its users on when this one ships
+  const predecessors = modelType
+    ? state.models.filter((m) => m.status === 'published' && m.typeId === modelType.id)
+    : []
+
   const canStart =
     Boolean(modelType) && name.trim().length > 0 && hasEngineer && hasGpu && canAfford
 
@@ -471,6 +477,17 @@ export function BuildPanel({ state, onStartModel, onPublish, onStartPromo, onBuy
             RAM {state.ram} · SSD {state.ssd} (+{ssdQualityBonus(state.ssd)} quality)
           </span>
         </div>
+
+        {predecessors.length > 0 && modelType && (
+          <p className="hint">
+            This ships as a successor to{' '}
+            {predecessors.map((m) => m.name).join(', ')}. When you publish it,{' '}
+            {Math.round(SUCCESSOR_MIGRATION * 100)}% of the{' '}
+            {predecessors.reduce((sum, m) => sum + m.customers + m.freeCustomers, 0).toLocaleString()} people
+            on {predecessors.length === 1 ? 'it' : 'them'} move across on day one. Name it like a version
+            and they will follow it.
+          </p>
+        )}
 
         <button className="big-button" disabled={!canStart} onClick={start}>
           Start Training

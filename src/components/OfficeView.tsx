@@ -4,7 +4,7 @@ import { playWorkSfx } from '../game/audio'
 import { SPRITE_H, SPRITE_W, drawCharacter, hash } from './sprites'
 import type { WorkKind } from './officeArt'
 import { SCALE, TILE, drawBurst, drawDesk, drawDeskProp, drawToilet, drawWorkIcon, drawWorkToken } from './officeArt'
-import { drawAmenities, drawDecor, drawRackLights, drawWallClock, rackTile } from './officeDecor'
+import { breakSpots, drawAmenities, drawDecor, drawRackLights, drawWallClock, rackTile, tripFor } from './officeDecor'
 
 const FLOOR_A = '#232634'
 const FLOOR_B = '#262a38'
@@ -233,6 +233,7 @@ export function OfficeView({ staff, desks, jobs, amenities, onStaffMenu }: Props
     ctx.imageSmoothingEnabled = false
 
     const rack = rackTile(layout)
+    const spots = breakSpots(layout, amenities)
     const bars = jobs.slice(0, MAX_BARS)
     const barOf = (id: string) => bars.findIndex((b) => b.id === id)
     // work that finished is no longer on screen, so drop what it was tracking
@@ -301,8 +302,9 @@ export function OfficeView({ staff, desks, jobs, amenities, onStaffMenu }: Props
         const working = kind !== null && activeKinds.has(kind)
         const hasDesk = i < deskList.length
         if (hasDesk) {
-          drawCharacter(ctx, s, p.x, p.y, now, working, false)
-          hits.current.push({ id: s.id, x: p.x, y: p.y })
+          const trip = tripFor(s.id, p.x, p.y, now, spots)
+          drawCharacter(ctx, s, trip.x, trip.y, now, working && !trip.walking, trip.walking)
+          hits.current.push({ id: s.id, x: trip.x, y: trip.y })
         } else {
           // no desk: pace back and forth along the bottom corridor
           const phase = hash(s.id) % 1000
@@ -441,7 +443,7 @@ export function OfficeView({ staff, desks, jobs, amenities, onStaffMenu }: Props
 
     raf = requestAnimationFrame(loop)
     return () => cancelAnimationFrame(raf)
-  }, [background, staff, deskList, layout, barX, barW, jobs])
+  }, [background, staff, deskList, layout, barX, barW, jobs, amenities])
 
   /** Which person, if any, is under a client-space point. */
   function staffAt(clientX: number, clientY: number): string | null {

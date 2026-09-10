@@ -14,6 +14,7 @@ import {
 } from '../game/constants'
 import { staffPower } from '../game/hiring'
 import { formatMoney } from '../game/format'
+import { acquisitionCost } from '../game/state'
 import './Game.css'
 
 interface Props {
@@ -26,9 +27,20 @@ interface Props {
   onBidForStaff?: (targetId: string, targetName: string, staff: StaffCard, amount: number) => void
   /** host only: remove a player from the race */
   onKickPlayer?: (playerId: string, nickname: string) => void
+  /** buy an AI rival outright, once you are public */
+  onAcquire?: (competitorId: string, name: string) => void
 }
 
-export function CompetitorsPanel({ state, onPoach, onClose, race, onAttackPlayer, onBidForStaff, onKickPlayer }: Props) {
+export function CompetitorsPanel({
+  state,
+  onPoach,
+  onClose,
+  race,
+  onAttackPlayer,
+  onBidForStaff,
+  onKickPlayer,
+  onAcquire,
+}: Props) {
   const [poachOpen, setPoachOpen] = useState<string | null>(null)
   const [bids, setBids] = useState<Record<string, string>>({})
   // the same cooldowns and prices as the tricks you can pull on an AI rival
@@ -223,7 +235,21 @@ export function CompetitorsPanel({ state, onPoach, onClose, race, onAttackPlayer
               <span className="comp-name">
                 {c.icon} {c.name}
               </span>
-              <span className="comp-model-customers">👥 {c.followers.toLocaleString()}</span>
+              <span className="comp-model-customers">{c.followers.toLocaleString()} followers</span>
+              {onAcquire && (
+                <button
+                  className="hire-btn"
+                  disabled={!state.isPublic || state.money < acquisitionCost(state, c.id)}
+                  title={
+                    !state.isPublic
+                      ? 'Go public first. Buying a company takes stock behind you.'
+                      : `Buy ${c.name} outright for $${acquisitionCost(state, c.id).toLocaleString()}. Most of their users move to your best model and they stop competing.`
+                  }
+                  onClick={() => onAcquire(c.id, c.name)}
+                >
+                  Buy ${formatMoney(acquisitionCost(state, c.id)).replace('$', '')}
+                </button>
+              )}
             </div>
             {c.models.map((m) => {
               const t = MODEL_TYPE_MAP[m.typeId]

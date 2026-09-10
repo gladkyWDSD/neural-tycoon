@@ -62,12 +62,16 @@ interface Props {
   onBidForStaff: (targetId: string, targetName: string, staff: StaffCard, amount: number) => void
   onResolveBid: (matched: boolean) => void
   onBuyAmenity: (id: string) => void
+  onRunAudit: () => void
+  onAcquireCompetitor: (id: string, name: string) => void
+  onSignContract: (id: string) => void
+  onDeclineContract: (id: string) => void
   onOfferTrade: (
     targetId: string,
     targetName: string,
     kind: TradeKind,
     price: number,
-    extra: { gpus?: number; researchId?: string },
+    extra: { gpus?: number; researchId?: string; modelId?: string; datacenters?: number },
   ) => void
   onResolveTrade: (accepted: boolean) => void
   onBreakPact: (playerId: string) => void
@@ -112,6 +116,10 @@ export function GameScreen({
   onBidForStaff,
   onResolveBid,
   onBuyAmenity,
+  onRunAudit,
+  onAcquireCompetitor,
+  onSignContract,
+  onDeclineContract,
   onOfferTrade,
   onResolveTrade,
   onBreakPact,
@@ -248,6 +256,7 @@ export function GameScreen({
             onAttackPlayer={onAttackPlayer}
             onBidForStaff={onBidForStaff}
             onKickPlayer={onKickPlayer}
+            onAcquire={onAcquireCompetitor}
           />
         )}
         {panel === 'company' && (
@@ -257,6 +266,8 @@ export function GameScreen({
             onIpo={onIpo}
             onRaiseInvestment={onRaiseInvestment}
             onBuyAmenity={onBuyAmenity}
+            onSignContract={onSignContract}
+            onDeclineContract={onDeclineContract}
             onShowReport={() => setReportOpen(true)}
             onClose={() => setPanel(null)}
           />
@@ -271,7 +282,12 @@ export function GameScreen({
           />
         )}
         {panel === 'government' && (
-          <GovernmentPanel state={state} onHireLobbyists={onHireLobbyists} onClose={() => setPanel(null)} />
+          <GovernmentPanel
+            state={state}
+            onHireLobbyists={onHireLobbyists}
+            onRunAudit={onRunAudit}
+            onClose={() => setPanel(null)}
+          />
         )}
       </div>
 

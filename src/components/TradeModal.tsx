@@ -22,10 +22,19 @@ export function TradeModal({ state, onResolve }: Props) {
       ? `${offer.fromName} is selling you compute`
       : offer.kind === 'research'
         ? `${offer.fromName} is selling you research`
-        : `${offer.fromName} wants a truce`
+        : offer.kind === 'datacenter'
+          ? `${offer.fromName} is selling you a datacenter`
+          : offer.kind === 'model'
+            ? `${offer.fromName} is selling you a model`
+            : `${offer.fromName} wants a truce`
 
+  const model = offer.model
   const body =
-    offer.kind === 'compute'
+    offer.kind === 'datacenter'
+      ? `${offer.datacenters} datacenter${(offer.datacenters ?? 0) === 1 ? '' : 's'} for ${money(offer.price)}, ten card slots each. Building one costs ${money(100_000)} and takes two weeks.`
+      : offer.kind === 'model' && model
+        ? `${model.name}, quality ${Math.round(model.quality)}, with ${(model.customers + model.freeCustomers).toLocaleString()} people already using it, for ${money(offer.price)}. Their revenue becomes yours.`
+        : offer.kind === 'compute'
       ? `${offer.gpus} GPU card${(offer.gpus ?? 0) === 1 ? '' : 's'} for ${money(offer.price)}. New cards run ${money(GPU_CARD_COST)} each, so list price would be ${money((offer.gpus ?? 0) * GPU_CARD_COST)}.`
       : offer.kind === 'research'
         ? `${RESEARCH_MAP[offer.researchId ?? '']?.name ?? 'Their findings'} for ${money(offer.price)}. It lands finished, no researcher time and no waiting.`

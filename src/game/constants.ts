@@ -256,6 +256,87 @@ export const LOBBY_COST = 80000
 export const LOBBY_COOLDOWN = 6 // weeks
 export const LOBBY_DURATION = 8 // weeks of reduced regulatory risk
 
+// ----------------------------------------------------------- acquisitions
+// Buying a rival outright, once you are public. You pay over the odds for what
+// they have, most of their users come with it, and they stop competing.
+export const ACQUISITION_PREMIUM = 1.4
+export const ACQUISITION_USER_KEPT = 0.7
+export const ACQUISITION_FOLLOWERS_KEPT = 0.4
+
+// ------------------------------------------------------------- enterprise
+// Companies that pay properly for seats, on terms. They are worth far more per
+// user than the public product, and they leave the moment you cannot hold up
+// your end.
+export const CONTRACT_START_WEEK = 18
+export const CONTRACT_OFFER_CHANCE = 0.1
+export const CONTRACT_MAX_OFFERS = 2
+export const CONTRACT_OFFER_LIFE = 6 // weeks an unanswered offer stays on the table
+// what a seat is worth per week, against $0.5 for a subscriber
+export const CONTRACT_REV_PER_SEAT = 2.2
+export const CONTRACT_MIN_WEEKS = 20
+export const CONTRACT_MAX_WEEKS = 44
+// the load at which an enterprise client walks over reliability
+export const CONTRACT_BREACH_LOAD = 1.25
+export const CONTRACT_PENALTY_WEEKS = 6
+export const CONTRACT_CLIENTS = [
+  'Northwind Bank',
+  'Verdant Health',
+  'Kestrel Logistics',
+  'Halcyon Media',
+  'Meridian Legal',
+  'Ironclad Insurance',
+  'Brightline Retail',
+  'Fathom Energy',
+]
+
+// --------------------------------------------------------------- ai safety
+// Risk you build up by shipping fast and cheap. It never causes anything on its
+// own; it is the chance each week that something goes publicly wrong.
+export const RISK_MAX = 100
+// added when a model is published, by how it was built
+export const RISK_PER_PUBLISH = 4
+export const RISK_CHEAP_DATA = 5 // scraped data instead of licensed
+export const RISK_DISTILLED = 10 // trained on somebody else's model
+export const RISK_RUSHED = 8 // shipped in under this many weeks of training
+export const RISK_RUSHED_WEEKS = 3
+// what a safety team does about it, per week, per safety-minded head
+export const RISK_DECAY_PER_WEEK = 1
+export const RISK_PER_RESEARCHER = 0.35
+// an audit is the deliberate way to buy it down
+export const AUDIT_COST_PER_POINT = 9_000
+export const AUDIT_MIN_COST = 60_000
+export const AUDIT_CUT = 35 // points removed
+export const AUDIT_COOLDOWN = 12
+// the weekly chance of an incident, at full risk
+export const INCIDENT_CHANCE_AT_MAX = 0.07
+export const INCIDENT_START_WEEK = 12
+
+// --------------------------------------------------------------- hype cycle
+// How the world feels about AI this week. It multiplies what the company is
+// judged to be worth and how fast strangers try the product, and it swings
+// slowly between mania and an AI winter over the course of a run.
+export const HYPE_START = 1
+export const HYPE_MIN = 0.55
+export const HYPE_MAX = 1.75
+// how far the mood can move in a single week
+export const HYPE_DRIFT = 0.035
+// and the chance each week that something happens to shove it
+export const HYPE_SHOCK_CHANCE = 0.05
+export const HYPE_SHOCK_SIZE = 0.22
+// growth only feels part of the mood; valuations feel all of it
+export const HYPE_GROWTH_SHARE = 0.5
+
+// ------------------------------------------------------------- serving load
+// Published models are used, not just trained. Every active card serves this
+// many people; go past that and the service starts falling over.
+export const USERS_PER_CARD = 25_000
+// how far over capacity you can run before anyone notices
+export const OVERLOAD_GRACE = 1.05
+// the worst weekly churn an overloaded service can cause, as a share of users
+export const OVERLOAD_MAX_CHURN = 0.06
+// and what it does to your following when it happens
+export const OVERLOAD_FOLLOWER_LOSS = 0.04
+
 // ------------------------------------------------------------------ trading
 export const PACT_WEEKS = 20 // how long a non-aggression pact holds before it lapses
 // Breaking your word is public. You keep the freedom to attack and lose this
