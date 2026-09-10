@@ -201,6 +201,121 @@ export function drawWallClock(
   px(ctx, cx, cy, 1, 1, '#1a1c25')
 }
 
+// --------------------------------------------------------------- amenities
+
+function drawCoffeeBar(ctx: CanvasRenderingContext2D, tx: number, ty: number) {
+  const x = tx * FT
+  const y = ty * FT + 6
+  px(ctx, x + 2, y + 8, 60, 18, '#4a3018') // counter body
+  px(ctx, x + 2, y + 6, 60, 4, '#6b4a2a') // counter top
+  px(ctx, x + 2, y + 6, 60, 1, '#a8763f')
+  for (let i = 0; i < 5; i++) px(ctx, x + 6 + i * 12, y + 12, 10, 10, '#3a2a18') // cupboard doors
+  px(ctx, x + 8, y - 4, 14, 12, '#2b3141') // the machine
+  px(ctx, x + 9, y - 3, 12, 6, '#3d4459')
+  px(ctx, x + 10, y - 2, 4, 3, '#ff5c5c') // its little red light
+  px(ctx, x + 12, y + 3, 6, 4, '#1a1c25') // spout and cup
+  px(ctx, x + 13, y + 5, 4, 3, '#e8ecf6')
+  px(ctx, x + 30, y + 1, 6, 6, '#c9cddb') // cups waiting
+  px(ctx, x + 38, y + 1, 6, 6, '#c9cddb')
+  px(ctx, x + 46, y + 1, 6, 6, '#b5544a')
+}
+
+function drawMeetingTable(ctx: CanvasRenderingContext2D, tx: number, ty: number) {
+  const x = tx * FT
+  const y = ty * FT + 1
+  for (const cx of [x + 12, x + 28, x + 44]) {
+    px(ctx, cx, y + 1, 10, 7, '#3a4257') // chairs along both sides
+    px(ctx, cx, y + 1, 10, 2, '#4f596f')
+    px(ctx, cx, y + 22, 10, 7, '#3a4257')
+    px(ctx, cx, y + 22, 10, 2, '#4f596f')
+  }
+  px(ctx, x + 6, y + 8, 52, 14, '#8a6038') // table
+  px(ctx, x + 6, y + 8, 52, 2, '#a8763f')
+  px(ctx, x + 6, y + 20, 52, 2, '#5c3f22')
+  px(ctx, x + 16, y + 12, 10, 6, '#e8ecf6') // papers on it
+  px(ctx, x + 34, y + 13, 8, 4, '#c9cddb')
+  px(ctx, x + 46, y + 12, 5, 5, '#b5544a') // and somebody's mug
+}
+
+function drawGym(ctx: CanvasRenderingContext2D, tx: number, ty: number) {
+  const x = tx * FT
+  const y = ty * FT + 2
+  // a bench and a loaded bar read as a gym at this size; a treadmill does not
+  px(ctx, x + 10, y + 10, 30, 10, '#3a4257') // bench pad
+  px(ctx, x + 10, y + 10, 30, 2, '#59627a')
+  px(ctx, x + 12, y + 20, 4, 5, '#20242f') // bench legs
+  px(ctx, x + 34, y + 20, 4, 5, '#20242f')
+  px(ctx, x + 6, y + 6, 38, 3, '#8e94a8') // the bar
+  px(ctx, x + 2, y + 2, 5, 11, '#12141c') // plates
+  px(ctx, x + 3, y + 3, 3, 9, '#20242f')
+  px(ctx, x + 43, y + 2, 5, 11, '#12141c')
+  px(ctx, x + 44, y + 3, 3, 9, '#20242f')
+  px(ctx, x + 52, y + 4, 10, 22, '#2b3141') // dumbbell rack
+  px(ctx, x + 52, y + 4, 10, 2, '#4a5268')
+  for (let i = 0; i < 3; i++) {
+    px(ctx, x + 53, y + 9 + i * 6, 8, 2, '#8e94a8')
+    px(ctx, x + 52, y + 8 + i * 6, 3, 4, '#12141c')
+    px(ctx, x + 59, y + 8 + i * 6, 3, 4, '#12141c')
+  }
+}
+
+function drawCooling(ctx: CanvasRenderingContext2D, tx: number, ty: number) {
+  const x = tx * FT + 4
+  const y = ty * FT + 2
+  px(ctx, x, y + 6, 24, 24, '#2b3141') // the chiller
+  px(ctx, x + 1, y + 7, 22, 22, '#3a4459')
+  px(ctx, x + 3, y + 9, 18, 12, '#1a1c25') // grille
+  for (let i = 0; i < 6; i++) px(ctx, x + 4, y + 10 + i * 2, 16, 1, '#4a5268')
+  px(ctx, x + 3, y + 23, 18, 4, '#20242f')
+  px(ctx, x + 5, y + 24, 6, 2, '#4aa3ff') // readout
+  px(ctx, x + 8, y, 3, 6, '#4a5268') // pipes going up the wall
+  px(ctx, x + 14, y, 3, 6, '#4a5268')
+}
+
+function drawTrainingRoom(ctx: CanvasRenderingContext2D, tx: number, ty: number) {
+  const x = tx * FT
+  const y = ty * FT + 2
+  px(ctx, x + 6, y, 52, 4, '#5d6376') // screen rail
+  px(ctx, x + 8, y + 3, 48, 20, '#e8ecf6') // projector screen
+  px(ctx, x + 10, y + 6, 20, 3, '#4aa3ff') // a slide nobody is reading
+  px(ctx, x + 10, y + 11, 32, 2, '#9aa0b4')
+  px(ctx, x + 10, y + 15, 26, 2, '#9aa0b4')
+  px(ctx, x + 44, y + 6, 10, 10, '#3ddc84')
+  for (let i = 0; i < 4; i++) {
+    px(ctx, x + 8 + i * 14, y + 26, 10, 5, '#333a4d') // a row of chairs
+    px(ctx, x + 8 + i * 14, y + 26, 10, 1, '#4a5268')
+  }
+}
+
+const AMENITY_ART: Record<string, { width: number; draw: (ctx: CanvasRenderingContext2D, tx: number, ty: number) => void }> = {
+  coffee: { width: 2, draw: drawCoffeeBar },
+  meeting: { width: 2, draw: drawMeetingTable },
+  gym: { width: 2, draw: drawGym },
+  cooling: { width: 1, draw: drawCooling },
+  academy: { width: 2, draw: drawTrainingRoom },
+}
+
+/**
+ * Everything the company has bought for the office, laid out left to right
+ * along the free row at the bottom of the room. Anything that will not fit is
+ * left out rather than drawn on top of a desk.
+ */
+export function drawAmenities(ctx: CanvasRenderingContext2D, room: RoomInfo, owned: string[]) {
+  const row = room.roomRows - 2
+  const pieces = owned.map((id) => AMENITY_ART[id]).filter(Boolean)
+  if (pieces.length === 0) return
+  const span = room.roomCols - 2 // the floor between the two side walls
+  const used = pieces.reduce((sum, a) => sum + a.width, 0)
+  // spread them across the back of the room rather than bunching them on the left
+  const gap = Math.max(1, Math.floor((span - used) / (pieces.length + 1)))
+  let col = 1 + Math.max(0, Math.floor((span - used - gap * (pieces.length + 1)) / 2)) + gap
+  for (const art of pieces) {
+    if (col + art.width > room.roomCols - 1) break
+    art.draw(ctx, col, row)
+    col += art.width + gap
+  }
+}
+
 // ------------------------------------------------------------------ layout
 
 /**

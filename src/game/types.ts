@@ -48,6 +48,24 @@ export interface StaffBid {
   amount: number
 }
 
+/** Kept as the run goes, because none of it can be worked out from the end state. */
+export interface RunStats {
+  peakCustomers: number
+  peakValuation: number
+  peakFollowers: number
+  /** the best and worst weeks the company ever had, in cash */
+  bestWeek: number
+  worstWeek: number
+  hires: number
+  departures: number
+  /** people taken from other companies, and taken from you */
+  poachedIn: number
+  poachedOut: number
+  modelsShipped: number
+  pactsSigned: number
+  pactsBroken: number
+}
+
 /** What one player is offering another in the Trading tab. */
 export type TradeKind = 'compute' | 'research' | 'pact'
 
@@ -266,6 +284,10 @@ export interface GameState {
   campaignWeeksLeft: number
   lastCampaignWeek: number
   books: string[]
+  /** office extras you have paid for, by id */
+  amenities: string[]
+  /** the run so far, for the report at the end of it */
+  stats: RunStats
   competitors: Competitor[]
   events: GameEvent[]
   pendingEvent: PendingEvent | null

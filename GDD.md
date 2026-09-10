@@ -386,6 +386,34 @@ Rivals get the same weapons the player does. Besides buying hype bots and poachi
 
 The current risk is shown in the Ads panel, which is also where you launch your own swarms.
 
+### Office amenities
+
+Bought once each from the Company panel, and every one of them appears in the office along the
+back of the room, so what you have spent is visible in the place you look at all game.
+
+| Amenity | Cost | What it does |
+| --- | --- | --- |
+| Coffee bar | $180k | +3 quality on every model you train |
+| Meeting room | $450k | Research finishes 20% sooner |
+| Gym | $900k | Rivals poach your staff 40% less often |
+| Cooling loop | $1.4M | 25% off the weekly electricity bill |
+| Training room | $2.5M | Staff courses finish 25% sooner |
+
+The two speed bonuses are applied after the duration has been rounded to whole weeks, not before,
+or a 20% cut would round straight back up on any short job. Job timers are fractional; only the
+display rounds.
+
+### The run report
+
+A single screen of numbers: weeks run, valuation now and at its best, cash, users now and at their
+peak, best and worst week, models shipped, best model, research finished, people hired and lost,
+who you poached and who was poached off you, compute, laws, pacts signed and torn up, and what you
+bought for the office. Most of it cannot be worked out from the end state, so `state.stats` keeps
+it as the run goes.
+
+It is shown when the company passes $100B, when a race is decided, and any time from the Run
+Report button in the Company panel.
+
 ### Trading (multiplayer only)
 
 The Trading tab is where players deal with each other instead of fighting. It appears in the left

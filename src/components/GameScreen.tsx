@@ -4,7 +4,7 @@ import { TopBar } from './TopBar'
 import { MAX_BARS, OfficeView } from './OfficeView'
 import type { Job } from './OfficeView'
 import { StaffMenu } from './StaffMenu'
-import { VictoryModal } from './VictoryModal'
+import { RunReport } from './RunReport'
 import { Standings } from './Standings'
 import type { LobbyPlayer } from '../game/multiplayer'
 import type { AttackKind, StaffCard, TradeKind } from '../game/types'
@@ -61,6 +61,7 @@ interface Props {
   onAttackPlayer: (targetId: string, targetName: string, kind: AttackKind) => void
   onBidForStaff: (targetId: string, targetName: string, staff: StaffCard, amount: number) => void
   onResolveBid: (matched: boolean) => void
+  onBuyAmenity: (id: string) => void
   onOfferTrade: (
     targetId: string,
     targetName: string,
@@ -110,6 +111,7 @@ export function GameScreen({
   onAttackPlayer,
   onBidForStaff,
   onResolveBid,
+  onBuyAmenity,
   onOfferTrade,
   onResolveTrade,
   onBreakPact,
@@ -126,6 +128,8 @@ export function GameScreen({
   // right-clicking someone in the office opens their menu at the pointer
   const [staffMenu, setStaffMenu] = useState<{ id: string; x: number; y: number } | null>(null)
   const [winSeen, setWinSeen] = useState(false)
+  // the report can also be opened on purpose, from the Company panel
+  const [reportOpen, setReportOpen] = useState(false)
   const myRaceName = race?.players.find((p) => (race.isHost ? p.isHost : p.id === race.selfId))?.name
   const menuStaff = staffMenu ? state.staff.find((s) => s.id === staffMenu.id) : undefined
 
@@ -181,6 +185,7 @@ export function GameScreen({
             staff={state.staff}
             desks={deskCount}
             jobs={jobs}
+            amenities={state.amenities}
             onStaffMenu={(id, x, y) => setStaffMenu({ id, x, y })}
           />
           {race && <Standings players={race.players} selfId={race.selfId} isHost={race.isHost} />}
@@ -251,6 +256,8 @@ export function GameScreen({
             onUpgradeOffice={onUpgradeOffice}
             onIpo={onIpo}
             onRaiseInvestment={onRaiseInvestment}
+            onBuyAmenity={onBuyAmenity}
+            onShowReport={() => setReportOpen(true)}
             onClose={() => setPanel(null)}
           />
         )}
@@ -272,21 +279,32 @@ export function GameScreen({
       {state.pendingTrade && <TradeModal state={state} onResolve={onResolveTrade} />}
 
       {race?.winner ? (
-        <div className="event-overlay">
-          <div className="event-modal">
-            <div className="event-icon">{race.winner === myRaceName ? '🏆' : '🥈'}</div>
-            <h3 className="event-title">
-              {race.winner === myRaceName ? 'You won the race' : `${race.winner} won the race`}
-            </h3>
-            <p className="event-text">
-              {race.winner === myRaceName
-                ? 'You reached $100B before anyone else.'
-                : `${race.winner} reached $100B first. Your company is still yours to run.`}
-            </p>
-          </div>
-        </div>
+        <RunReport
+          state={state}
+          outcome={{ won: race.winner === myRaceName, winner: race.winner, isMe: race.winner === myRaceName }}
+          onClose={() => setReportOpen(false)}
+          closeLabel="Close"
+          closeHint="Your company is still yours to run."
+        />
       ) : (
-        state.won && !winSeen && <VictoryModal state={state} onKeepPlaying={() => setWinSeen(true)} />
+        state.won &&
+        !winSeen && (
+          <RunReport
+            state={state}
+            outcome={{ won: true }}
+            onClose={() => setWinSeen(true)}
+            closeLabel="Keep playing"
+            closeHint={
+              state.paused
+                ? 'The game is paused. Press play when you want to carry on.'
+                : 'Carry on building for as long as you like.'
+            }
+          />
+        )
+      )}
+
+      {reportOpen && !race?.winner && !(state.won && !winSeen) && (
+        <RunReport state={state} onClose={() => setReportOpen(false)} />
       )}
 
       {staffMenu && menuStaff && (

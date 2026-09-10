@@ -322,6 +322,7 @@ export default function App() {
             })
           }
           onResolveBid={(matched) => dispatch({ type: 'RESOLVE_BID', matched })}
+          onBuyAmenity={(id) => dispatch({ type: 'BUY_AMENITY', id })}
           onOfferTrade={(targetId, targetName, kind, price, extra) =>
             dispatch({
               type: 'OFFER_TRADE',

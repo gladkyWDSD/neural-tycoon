@@ -1,4 +1,4 @@
-import type { AIModel, AttackKind, Difficulty, GameEvent, GameState, Pact, PendingEvent, PostType, PricingModel, PromoKind, Staff, StaffBid, StaffCard, TradeKind, TradeOffer } from './types'
+import type { AIModel, AttackKind, Difficulty, GameEvent, GameState, Pact, PendingEvent, PostType, PricingModel, PromoKind, RunStats, Staff, StaffBid, StaffCard, TradeKind, TradeOffer } from './types'
 import {
   DESKS_PER_LEVEL,
   CAMPAIGN_COOLDOWN,
@@ -86,6 +86,14 @@ import {
   WEEKS_PER_YEAR,
 } from './constants'
 import { advanceWeek } from './date'
+import {
+  AMENITY_MAP,
+  amenityElectricityMultiplier,
+  amenityQualityBonus,
+  amenityResearchSpeed,
+  amenityRetention,
+  amenityTrainingSpeed,
+} from './amenities'
 import { DATA_TIER_MAP, BOOK_MAP, MODEL_TYPE_MAP, PRICING_MAP, RESEARCH_ITEMS, RESEARCH_MAP, weeklyRevenue } from './research'
 import {
   COMPETITOR_CLAPBACKS,
@@ -181,6 +189,8 @@ export function initialState(): GameState {
     campaignWeeksLeft: 0,
     lastCampaignWeek: -CAMPAIGN_COOLDOWN,
     books: [],
+    amenities: [],
+    stats: freshStats(),
     competitors: COMPETITOR_SEED.map((c) => ({ ...c, models: c.models.map((m) => ({ ...m })) })),
     events: [],
     pendingEvent: null,
@@ -243,6 +253,7 @@ export type Action =
   | { type: 'IPO' }
   | { type: 'LAUNCH_CAMPAIGN' }
   | { type: 'BUY_BOOK'; id: string }
+  | { type: 'BUY_AMENITY'; id: string }
   | { type: 'BUY_HYPE_BOTS' }
   | { type: 'BOT_ATTACK'; competitorId: string }
   | { type: 'HIRE_HACKERS'; competitorId: string }
@@ -288,6 +299,23 @@ export function globalWeek(state: GameState): number {
 
 export function maxStaff(state: GameState): number {
   return state.officeLevel * DESKS_PER_LEVEL
+}
+
+function freshStats(): RunStats {
+  return {
+    peakCustomers: 0,
+    peakValuation: 0,
+    peakFollowers: 0,
+    bestWeek: 0,
+    worstWeek: 0,
+    hires: 0,
+    departures: 0,
+    poachedIn: 0,
+    poachedOut: 0,
+    modelsShipped: 0,
+    pactsSigned: 0,
+    pactsBroken: 0,
+  }
 }
 
 export function migrateState(raw: Partial<GameState>): GameState {
@@ -355,6 +383,8 @@ export function migrateState(raw: Partial<GameState>): GameState {
     campaignWeeksLeft: raw.campaignWeeksLeft ?? 0,
     lastCampaignWeek: raw.lastCampaignWeek ?? -CAMPAIGN_COOLDOWN,
     books: raw.books ?? [],
+    amenities: raw.amenities ?? [],
+    stats: { ...freshStats(), ...(raw.stats ?? {}) },
     activeRegulations: raw.activeRegulations ?? [],
     lobbyWeeksLeft: raw.lobbyWeeksLeft ?? 0,
     lastLobbyWeek: raw.lastLobbyWeek ?? -LOBBY_COOLDOWN,
@@ -370,7 +400,13 @@ function computeQuality(state: GameState, gpus: number, dataTier?: string, disti
   const booksBonus = state.books.reduce((sum, id) => sum + (BOOK_MAP[id]?.quality ?? 0), 0)
   const ceiling = QUALITY_CEILING_BASE + avgResearcher * QUALITY_CEILING_PER_SCORE
   const realization = QUALITY_REALIZATION_BASE + avgEngineer * QUALITY_REALIZATION_PER_SCORE
-  const raw = ceiling * realization * factor + techBonus + dataQuality + ssdQualityBonus(state.ssd) + booksBonus
+  const raw =
+    ceiling * realization * factor +
+    techBonus +
+    dataQuality +
+    ssdQualityBonus(state.ssd) +
+    booksBonus +
+    amenityQualityBonus(state.amenities)
   // diminishing returns instead of a wall: every point past here costs more than the last
   let q = 100 * (1 - Math.exp(-Math.max(0, raw) / QUALITY_SOFTNESS))
   if (distillQuality != null) q = distilledQuality(q, distillQuality)
@@ -577,6 +613,7 @@ function advanceOneWeek(state: GameState): GameState {
     activeCards(state) *
       ELECTRICITY_PER_CARD_WEEK *
       (1 - companyEfficiency(state)) *
+      amenityElectricityMultiplier(state.amenities) *
       regulationElectricityMultiplier(activeRegulations),
   )
 
@@ -828,7 +865,8 @@ function advanceOneWeek(state: GameState): GameState {
       const desirability = Math.min(1, staffPower(s) / MAX_SCORE)
       return { s, chance: COMPETITOR_POACH_BASE_CHANCE * desirability * underpaid }
     })
-    const totalChance = Math.min(0.6, risk.reduce((sum, r) => sum + r.chance, 0))
+    const totalChance =
+      Math.min(0.6, risk.reduce((sum, r) => sum + r.chance, 0)) * (1 - amenityRetention(state.amenities))
     if (Math.random() < totalChance) {
       let roll = Math.random() * risk.reduce((sum, r) => sum + r.chance, 0)
       let target = risk[0].s
@@ -990,6 +1028,18 @@ function advanceOneWeek(state: GameState): GameState {
     trendingSetWeek,
     staff,
     activeRegulations,
+  }
+
+  // the high-water marks and the week's swing, for the report at the end
+  const weekCustomers = next.models.reduce((sum, m) => sum + m.customers + m.freeCustomers, 0)
+  const weekSwing = Math.round(next.money - state.money)
+  next.stats = {
+    ...next.stats,
+    peakCustomers: Math.max(next.stats.peakCustomers, weekCustomers),
+    peakValuation: Math.max(next.stats.peakValuation, companyValuation(next)),
+    peakFollowers: Math.max(next.stats.peakFollowers, next.followers),
+    bestWeek: Math.max(next.stats.bestWeek, weekSwing),
+    worstWeek: Math.min(next.stats.worstWeek, weekSwing),
   }
 
   // a hundred billion dollars is the end of the run
@@ -1180,6 +1230,11 @@ export function reducer(state: GameState, action: Action): GameState {
         staff: state.staff.filter((s) => s.id !== person.id),
         staffTraining: state.staffTraining.filter((t) => t.staffId !== person.id),
         pendingBid: undefined,
+        stats: {
+          ...state.stats,
+          departures: state.stats.departures + 1,
+          poachedOut: state.stats.poachedOut + 1,
+        },
         outbox: { t: 'bidResult', id: bid.bidId, targetId: bid.fromId, bidId: bid.bidId, matched: false, staff: person },
         events: [
           {
@@ -1222,6 +1277,7 @@ export function reducer(state: GameState, action: Action): GameState {
         money: state.money - sent.amount,
         staff: [...staff, hire],
         sentBid: undefined,
+        stats: { ...state.stats, hires: state.stats.hires + 1, poachedIn: state.stats.poachedIn + 1 },
         events: [...news, ...state.events].slice(0, 20),
       }
     }
@@ -1351,6 +1407,7 @@ export function reducer(state: GameState, action: Action): GameState {
           ...state.pacts.filter((p) => p.playerId !== offer.fromId),
           { playerId: offer.fromId, name: offer.fromName, weeksLeft: offer.weeks ?? PACT_WEEKS },
         ],
+        stats: { ...state.stats, pactsSigned: state.stats.pactsSigned + 1 },
         events: note(`You signed a non-aggression pact with ${offer.fromName}.`),
       }
     }
@@ -1379,6 +1436,7 @@ export function reducer(state: GameState, action: Action): GameState {
             ...state.pacts.filter((p) => p.playerId !== sent.targetId),
             { playerId: sent.targetId, name: sent.targetName, weeksLeft: offer.weeks ?? PACT_WEEKS },
           ],
+          stats: { ...state.stats, pactsSigned: state.stats.pactsSigned + 1 },
           events: note(`${sent.targetName} signed your non-aggression pact.`),
         }
       }
@@ -1401,6 +1459,7 @@ export function reducer(state: GameState, action: Action): GameState {
         ...state,
         followers: Math.max(0, state.followers - lost),
         pacts: state.pacts.filter((p) => p.playerId !== action.playerId),
+        stats: { ...state.stats, pactsBroken: state.stats.pactsBroken + 1 },
         outbox: {
           t: 'pactBroken',
           id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -1424,6 +1483,7 @@ export function reducer(state: GameState, action: Action): GameState {
       return {
         ...state,
         pacts: state.pacts.filter((p) => p.playerId !== pact.playerId),
+        stats: { ...state.stats, pactsBroken: state.stats.pactsBroken + 1 },
         events: [
           {
             id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -1497,6 +1557,23 @@ export function reducer(state: GameState, action: Action): GameState {
       return { ...state, paused: !state.paused }
     case 'SET_PAUSED':
       return state.paused === action.paused ? state : { ...state, paused: action.paused }
+    case 'BUY_AMENITY': {
+      const item = AMENITY_MAP[action.id]
+      if (!item || state.amenities.includes(item.id) || state.money < item.cost) return state
+      return {
+        ...state,
+        money: state.money - item.cost,
+        amenities: [...state.amenities, item.id],
+        events: [
+          {
+            id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            text: `The ${item.name.toLowerCase()} is in. ${item.effect}.`,
+            week: globalWeek(state),
+          },
+          ...state.events,
+        ].slice(0, 20),
+      }
+    }
     case 'HIRE_STAFF': {
       // Nobody can be hired twice. Staff are found and removed by id, so letting a
       // duplicate in would mean firing one of them removed every copy at once.
@@ -1507,6 +1584,7 @@ export function reducer(state: GameState, action: Action): GameState {
         ...state,
         staff: [...state.staff, action.staff],
         money: state.money - action.staff.salary,
+        stats: { ...state.stats, hires: state.stats.hires + 1 },
       }
     }
     case 'START_RESEARCH': {
@@ -1518,7 +1596,10 @@ export function reducer(state: GameState, action: Action): GameState {
       if (!isResearchAvailable(item.id, state.researched, state.researching.map((r) => r.id))) return state
       const researchers = state.staff.filter((s) => s.role === 'researcher').length
       if (researchers < 1) return state
-      const duration = Math.max(1, Math.ceil(item.weeks / researchers))
+      // The office bonus is applied after the rounding, not before it, or a 20%
+      // cut would vanish on any job short enough to round back up. Job timers are
+      // fractional anyway; only the display rounds.
+      const duration = Math.max(1, Math.ceil(item.weeks / researchers) * amenityResearchSpeed(state.amenities))
       return {
         ...state,
         money: state.money - item.cost,
@@ -1818,7 +1899,7 @@ export function reducer(state: GameState, action: Action): GameState {
       if (state.staffTraining.some((t) => t.staffId === action.staffId)) return state
       const cost = trainingCostFor(s.level)
       if (state.money < cost) return state
-      const weeks = trainingWeeksFor(s.level)
+      const weeks = Math.max(1, trainingWeeksFor(s.level) * amenityTrainingSpeed(state.amenities))
       return {
         ...state,
         money: state.money - cost,
@@ -1831,6 +1912,7 @@ export function reducer(state: GameState, action: Action): GameState {
     case 'FIRE_STAFF': {
       const s = state.staff.find((x) => x.id === action.staffId)
       if (!s) return state
+      // counted for the end-of-run report, where leaving is leaving
       // you owe them notice pay, so you cannot fire your way out of being broke
       const severance = s.salary * FIRE_SEVERANCE_WEEKS
       if (state.money < severance) return state
@@ -1845,6 +1927,7 @@ export function reducer(state: GameState, action: Action): GameState {
         staff: state.staff.filter((x) => x.id !== action.staffId),
         // any course they were part-way through goes with them
         staffTraining: state.staffTraining.filter((t) => t.staffId !== action.staffId),
+        stats: { ...state.stats, departures: state.stats.departures + 1 },
         events: [news, ...state.events].slice(0, 20),
       }
     }
@@ -2049,7 +2132,15 @@ export function reducer(state: GameState, action: Action): GameState {
 
       const newEvents = [...scandalEvents, ...launchEvents]
       const events = newEvents.length > 0 ? [...newEvents, ...state.events].slice(0, 20) : state.events
-      return { ...state, models: published, events, money, followers: followers + followerGain, competitors }
+      return {
+        ...state,
+        models: published,
+        events,
+        money,
+        followers: followers + followerGain,
+        competitors,
+        stats: { ...state.stats, modelsShipped: state.stats.modelsShipped + 1 },
+      }
     }
     case 'MAKE_POST': {
       const currentWeek = globalWeek(state)
@@ -2203,9 +2294,14 @@ export function reducer(state: GameState, action: Action): GameState {
         staffTraining = staffTraining.filter((t) => t.staffId !== id)
       }
 
+      let departures = 0
+      let poachedOut = 0
       if (e.loseStaffId) {
         staff = staff.filter((s) => s.id !== e.loseStaffId)
         dropTraining(e.loseStaffId)
+        departures++
+        // the only event that takes someone by offering them more is a poaching one
+        if (ev.id.startsWith('poach-')) poachedOut++
       }
 
       if (e.keepStaffId && e.keepStaffSalary) {
@@ -2219,6 +2315,7 @@ export function reducer(state: GameState, action: Action): GameState {
           const best = engineers.reduce((a, b) => (staffPower(a) > staffPower(b) ? a : b))
           staff = staff.filter((s) => s.id !== best.id)
           dropTraining(best.id)
+          departures++
         }
       }
 
@@ -2251,6 +2348,11 @@ export function reducer(state: GameState, action: Action): GameState {
         staffTraining,
         models,
         pendingEvent: null,
+        stats: {
+          ...state.stats,
+          departures: state.stats.departures + departures,
+          poachedOut: state.stats.poachedOut + poachedOut,
+        },
         events: [newsEvent, ...state.events].slice(0, 20),
       }
     }

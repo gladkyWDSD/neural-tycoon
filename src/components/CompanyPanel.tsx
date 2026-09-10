@@ -9,6 +9,7 @@ import {
   WIN_VALUATION,
 } from '../game/constants'
 import { formatMoney } from '../game/format'
+import { AMENITIES } from '../game/amenities'
 import { companyValuation, globalWeek, investmentRaiseAmount, maxStaff } from '../game/state'
 import './Game.css'
 
@@ -17,10 +18,20 @@ interface Props {
   onUpgradeOffice: () => void
   onIpo: () => void
   onRaiseInvestment: () => void
+  onBuyAmenity: (id: string) => void
+  onShowReport: () => void
   onClose: () => void
 }
 
-export function CompanyPanel({ state, onUpgradeOffice, onIpo, onRaiseInvestment, onClose }: Props) {
+export function CompanyPanel({
+  state,
+  onUpgradeOffice,
+  onIpo,
+  onRaiseInvestment,
+  onBuyAmenity,
+  onShowReport,
+  onClose,
+}: Props) {
   const staffCount = state.staff.length
   const max = maxStaff(state)
   const maxed = state.officeLevel >= MAX_OFFICE_LEVEL
@@ -124,6 +135,39 @@ export function CompanyPanel({ state, onUpgradeOffice, onIpo, onRaiseInvestment,
           </p>
           <button className="big-button" disabled={!investmentReady} onClick={onRaiseInvestment}>
             Raise Investment
+          </button>
+        </div>
+
+        <div className="amenity-section">
+          <h4 className="model-list-title">Office amenities</h4>
+          <p className="placeholder">
+            Bought once, and every one of them shows up in the room along the back wall.
+          </p>
+          {AMENITIES.map((a) => {
+            const owned = state.amenities.includes(a.id)
+            return (
+              <div className={`amenity-row ${owned ? 'owned' : ''}`} key={a.id}>
+                <span className="amenity-what">
+                  {a.name}
+                  <span className="comp-sub">{owned ? a.effect : a.blurb}</span>
+                </span>
+                <button
+                  className="hire-btn"
+                  disabled={owned || state.money < a.cost}
+                  title={owned ? 'Already installed' : a.effect}
+                  onClick={() => onBuyAmenity(a.id)}
+                >
+                  {owned ? 'Installed' : `$${a.cost.toLocaleString()}`}
+                </button>
+              </div>
+            )
+          })}
+        </div>
+
+        <div className="office-upgrade">
+          <p className="placeholder">See how the run has gone so far.</p>
+          <button className="big-button" onClick={onShowReport}>
+            Run Report
           </button>
         </div>
       </div>

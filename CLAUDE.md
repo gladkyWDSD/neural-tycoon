@@ -77,10 +77,17 @@ the `App.tsx` clock) plus the player and rival growth multipliers (read by `adva
 `settingsOf(state)`). Never reintroduce a global growth constant; the run's preset is the source
 of truth.
 
+**The run report.** `state.stats` (`RunStats` in `types.ts`) holds what the end-of-run report
+cannot work out from the end state: high-water marks, the best and worst weeks, and counts of
+hires, departures, poaches and pacts. Peaks and weekly swings are recorded once per week at the
+end of `advanceOneWeek`; the counters are incremented in the actions that cause them. A new figure
+needs a field in `RunStats`, a default in `freshStats()`, and a row in `RunReport.tsx` — the
+`migrateState` merge over `freshStats()` backfills old saves.
+
 **Content is data, not code.** Game content (research tree, model types, pricing tiers, data
 tiers, books, GPU costs, social post types, competitor seed data, random events) is defined as
 static tables/maps in dedicated `src/game/*.ts` modules (`research.ts`, `gpu.ts`, `social.ts`,
-`competitors.ts`, `events.ts`, `hiring.ts`, `constants.ts`) and looked up by id from `state.ts`.
+`competitors.ts`, `events.ts`, `hiring.ts`, `amenities.ts`, `constants.ts`) and looked up by id from `state.ts`.
 Adding new content (e.g. a research item or model type) means extending these tables, not the
 reducer, unless the new content needs genuinely new mechanics.
 

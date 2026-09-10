@@ -4,7 +4,7 @@ import { playWorkSfx } from '../game/audio'
 import { SPRITE_H, SPRITE_W, drawCharacter, hash } from './sprites'
 import type { WorkKind } from './officeArt'
 import { SCALE, TILE, drawBurst, drawDesk, drawDeskProp, drawToilet, drawWorkIcon, drawWorkToken } from './officeArt'
-import { drawDecor, drawRackLights, drawWallClock, rackTile } from './officeDecor'
+import { drawAmenities, drawDecor, drawRackLights, drawWallClock, rackTile } from './officeDecor'
 
 const FLOOR_A = '#232634'
 const FLOOR_B = '#262a38'
@@ -166,11 +166,13 @@ interface Props {
   desks: number
   /** everything running right now, one bar each, already capped at MAX_BARS */
   jobs: Job[]
+  /** office extras that have been paid for, drawn along the back of the room */
+  amenities: string[]
   /** right-clicking a person opens their menu at the pointer */
   onStaffMenu?: (staffId: string, clientX: number, clientY: number) => void
 }
 
-export function OfficeView({ staff, desks, jobs, onStaffMenu }: Props) {
+export function OfficeView({ staff, desks, jobs, amenities, onStaffMenu }: Props) {
   const ref = useRef<HTMLCanvasElement>(null)
   const layout = useMemo(() => layoutFor(desks), [desks])
   const deskList = useMemo(() => generateDesks(desks, layout), [desks, layout])
@@ -216,9 +218,10 @@ export function OfficeView({ staff, desks, jobs, onStaffMenu }: Props) {
     bgx.setTransform(1, 0, 0, 1, 0, 0)
     drawToilet(bgx, layout.roomCols - 3, 1)
     drawDecor(bgx, layout)
+    drawAmenities(bgx, layout, amenities)
     for (const d of deskList) drawDesk(bgx, d.dx, d.dy)
     return bg
-  }, [deskList, layout])
+  }, [deskList, layout, amenities])
   // drawn fill and next spawn time, per job id, so a bar keeps its place
   const vis = useRef<Record<string, number>>({})
 
