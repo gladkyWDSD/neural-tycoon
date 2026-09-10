@@ -3,7 +3,7 @@ import type { Staff } from '../game/types'
 import { playWorkSfx } from '../game/audio'
 import { SPRITE_H, SPRITE_W, drawCharacter, hash } from './sprites'
 import type { WorkKind } from './officeArt'
-import { SCALE, TILE, drawBurst, drawDesk, drawDeskProp, drawToilet, drawWorkToken } from './officeArt'
+import { SCALE, TILE, drawBurst, drawDesk, drawDeskProp, drawToilet, drawWorkIcon, drawWorkToken } from './officeArt'
 
 const FLOOR_A = '#232634'
 const FLOOR_B = '#262a38'
@@ -12,6 +12,13 @@ const WALL = '#0b0c11'
 const BAR_H = 6
 const BAR_MAX_W = 240
 const BAR_MARGIN = 40
+// Every job that is running gets its own bar, stacked from the top of the room.
+// Four is as many as fit above the first row of desks.
+export const MAX_BARS = 4
+const BAR_TOP = 1
+const BAR_PITCH = 8
+// the token that says which kind of work feeds this bar sits just left of it
+const BAR_ICON_GAP = 11
 
 // A desk is 2 tiles wide and its occupant sits on the tile below it, so a desk
 // slot needs this much room including the walkway around it.
@@ -33,11 +40,23 @@ const MAX_DESK_COLS = 6
 // short box, so a squarer room would leave black bars down both sides.
 const TARGET_ASPECT = 2
 
-const KIND_CONFIG: Record<WorkKind, { y: number; color: string }> = {
-  research: { y: 5, color: '#3ddc84' },
-  training: { y: 14, color: '#4aa3ff' },
-  marketing: { y: 23, color: '#ffd166' },
+const KIND_COLOR: Record<WorkKind, string> = {
+  research: '#3ddc84',
+  training: '#4aa3ff',
+  marketing: '#ffd166',
 }
+
+/** One thing the company is working on: a research item, a model, a campaign. */
+export interface Job {
+  /** stable across frames, so a bar keeps its fill while it runs */
+  id: string
+  kind: WorkKind
+  progress: number
+  /** what is being worked on, written along the bar */
+  label: string
+}
+
+const barY = (index: number) => BAR_TOP + index * BAR_PITCH
 
 function roleKind(role: Staff['role']): WorkKind | null {
   if (role === 'researcher') return 'research'
@@ -112,6 +131,8 @@ interface Particle {
   y: number
   t: number
   kind: WorkKind
+  /** the bar this piece of work is flying to */
+  job: string
   /** keeps two tokens of the same kind from animating in step */
   seed: number
 }
@@ -135,22 +156,13 @@ const HIT_PAD = 2
 interface Props {
   staff: Staff[]
   desks: number
-  /** 0..1, or null when nothing of that kind is running. */
-  researchProgress: number | null
-  trainingProgress: number | null
-  marketingProgress: number | null
+  /** everything running right now, one bar each, already capped at MAX_BARS */
+  jobs: Job[]
   /** right-clicking a person opens their menu at the pointer */
   onStaffMenu?: (staffId: string, clientX: number, clientY: number) => void
 }
 
-export function OfficeView({
-  staff,
-  desks,
-  researchProgress,
-  trainingProgress,
-  marketingProgress,
-  onStaffMenu,
-}: Props) {
+export function OfficeView({ staff, desks, jobs, onStaffMenu }: Props) {
   const ref = useRef<HTMLCanvasElement>(null)
   const layout = useMemo(() => layoutFor(desks), [desks])
   const deskList = useMemo(() => generateDesks(desks, layout), [desks, layout])
@@ -161,7 +173,7 @@ export function OfficeView({
   const particles = useRef<Particle[]>([])
   const flashes = useRef<Flash[]>([])
   const hits = useRef<HitBox[]>([])
-  const nextSpawn = useRef<Record<WorkKind, number>>({ research: 0, training: 0, marketing: 0 })
+  const nextSpawn = useRef<Record<string, number>>({})
   // Floor, walls and empty desks never change between frames, so they are
   // rasterised once and blitted underneath the animated layers.
   const background = useMemo(() => {
@@ -190,7 +202,8 @@ export function OfficeView({
     for (const d of deskList) drawDesk(bgx, d.dx, d.dy)
     return bg
   }, [deskList, layout])
-  const vis = useRef<Record<WorkKind, number>>({ research: 0, training: 0, marketing: 0 })
+  // drawn fill and next spawn time, per job id, so a bar keeps its place
+  const vis = useRef<Record<string, number>>({})
 
   useEffect(() => {
     const canvas = ref.current
@@ -199,11 +212,19 @@ export function OfficeView({
     if (!ctx) return
     ctx.imageSmoothingEnabled = false
 
-    const bars: { kind: WorkKind; progress: number | null }[] = [
-      { kind: 'research', progress: researchProgress },
-      { kind: 'training', progress: trainingProgress },
-      { kind: 'marketing', progress: marketingProgress },
-    ]
+    const bars = jobs.slice(0, MAX_BARS)
+    const barOf = (id: string) => bars.findIndex((b) => b.id === id)
+    // work that finished is no longer on screen, so drop what it was tracking
+    for (const key of Object.keys(vis.current)) {
+      if (barOf(key) < 0) {
+        delete vis.current[key]
+        delete nextSpawn.current[key]
+      }
+    }
+    for (const b of bars) {
+      if (vis.current[b.id] === undefined) vis.current[b.id] = 0
+      if (nextSpawn.current[b.id] === undefined) nextSpawn.current[b.id] = 0
+    }
 
     const drawBar = (x: number, y: number, w: number, h: number, fillPx: number, color: string) => {
       ctx.fillStyle = '#0b0c11'
@@ -228,14 +249,28 @@ export function OfficeView({
       ctx.drawImage(background, 0, 0)
 
       world()
-      for (const b of bars) {
-        if (b.progress !== null) {
-          const cfg = KIND_CONFIG[b.kind]
-          drawBar(barX, cfg.y, barW, BAR_H, vis.current[b.kind], cfg.color)
-        }
-      }
+      bars.forEach((b, i) => {
+        drawBar(barX, barY(i), barW, BAR_H, vis.current[b.id], KIND_COLOR[b.kind])
+      })
 
-      const activeKinds = new Set(bars.filter((b) => b.progress !== null).map((b) => b.kind))
+      // Each bar carries the token that feeds it and the name of the job, so
+      // two researches running side by side can be told apart.
+      art()
+      ctx.font = '8px "Press Start 2P", monospace'
+      ctx.textAlign = 'left'
+      ctx.textBaseline = 'middle'
+      bars.forEach((b, i) => {
+        const midY = (barY(i) + BAR_H / 2) * SCALE
+        drawWorkIcon(ctx, (barX - BAR_ICON_GAP) * SCALE, midY, b.kind)
+        const text = b.label.length > 18 ? `${b.label.slice(0, 17)}…` : b.label
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.8)'
+        ctx.fillText(text, (barX + 2) * SCALE + 1, midY + 1)
+        ctx.fillStyle = '#ffffff'
+        ctx.fillText(text, (barX + 2) * SCALE, midY)
+      })
+
+      world()
+      const activeKinds = new Set(bars.map((b) => b.kind))
       // rebuilt every frame so a right-click hits people where they actually are,
       // including the ones pacing the corridor
       hits.current.length = 0
@@ -269,13 +304,13 @@ export function OfficeView({
       // is a brain rather than a five-pixel blob.
       art()
       for (const f of flashes.current) {
-        drawBurst(ctx, f.x * SCALE, f.y * SCALE, f.t / FLASH_LIFE, KIND_CONFIG[f.kind].color)
+        drawBurst(ctx, f.x * SCALE, f.y * SCALE, f.t / FLASH_LIFE, KIND_COLOR[f.kind])
       }
 
       for (const p of particles.current) {
-        const cfg = KIND_CONFIG[p.kind]
-        const tx = barX + vis.current[p.kind]
-        const ty = cfg.y + BAR_H / 2
+        const index = barOf(p.job)
+        const tx = barX + (vis.current[p.job] ?? barW)
+        const ty = barY(index < 0 ? bars.length : index) + BAR_H / 2
         const at = (tt: number) => {
           const c = Math.max(0, Math.min(1, tt))
           return {
@@ -313,38 +348,39 @@ export function OfficeView({
       // bar visibly moves because someone did something, and it still lands on
       // the end exactly when the job finishes.
       for (const b of bars) {
-        if (b.progress === null) {
-          vis.current[b.kind] = 0
-          nextSpawn.current[b.kind] = 0
-          continue
-        }
         const target = targetOf(b.progress)
         if (staff.some((s) => roleKind(s.role) === b.kind)) {
           // someone is on it, so only their work moves the bar; just never overshoot
-          if (vis.current[b.kind] > target) vis.current[b.kind] = target
+          if (vis.current[b.id] > target) vis.current[b.id] = target
         } else {
           // nobody works this kind, so it fills on its own rather than freezing
-          const v = vis.current[b.kind]
-          vis.current[b.kind] = v + (target - v) * Math.min(1, dt * 3)
+          const v = vis.current[b.id]
+          vis.current[b.id] = v + (target - v) * Math.min(1, dt * 3)
         }
       }
 
-      // one worker sends their output up every two to three seconds
+      // one worker sends their output up every two to three seconds, per job
       for (const b of bars) {
-        if (b.progress === null) continue
-        if (nextSpawn.current[b.kind] === 0) {
-          nextSpawn.current[b.kind] = now + Math.random() * SPAWN_JITTER_MS
+        if (nextSpawn.current[b.id] === 0) {
+          nextSpawn.current[b.id] = now + Math.random() * SPAWN_JITTER_MS
           continue
         }
-        if (now < nextSpawn.current[b.kind]) continue
-        nextSpawn.current[b.kind] = now + SPAWN_MIN_MS + Math.random() * SPAWN_JITTER_MS
+        if (now < nextSpawn.current[b.id]) continue
+        nextSpawn.current[b.id] = now + SPAWN_MIN_MS + Math.random() * SPAWN_JITTER_MS
         const workers: number[] = []
         staff.forEach((s, i) => {
           if (roleKind(s.role) === b.kind) workers.push(i)
         })
         if (workers.length === 0) continue
         const p = staffPosition(workers[Math.floor(Math.random() * workers.length)], deskList, layout)
-        particles.current.push({ x: p.x + 6, y: p.y, t: 0, kind: b.kind, seed: Math.random() * 10 })
+        particles.current.push({
+          x: p.x + 6,
+          y: p.y,
+          t: 0,
+          kind: b.kind,
+          job: b.id,
+          seed: Math.random() * 10,
+        })
       }
 
       const landed: Particle[] = []
@@ -354,22 +390,21 @@ export function OfficeView({
       }
       particles.current = particles.current.filter((p) => p.t < 1)
       for (const p of landed) {
-        const cfg = KIND_CONFIG[p.kind]
-        const bar = bars.find((b) => b.kind === p.kind)
-        if (bar?.progress != null) {
-          const target = targetOf(bar.progress)
-          const v = vis.current[p.kind]
-          const step = Math.max(barW * LAND_MIN_STEP, (target - v) * LAND_CATCHUP)
-          vis.current[p.kind] = Math.min(target, v + step)
-        }
+        const index = barOf(p.job)
+        if (index < 0) continue // its job finished while this was in the air
+        const bar = bars[index]
+        const target = targetOf(bar.progress)
+        const v = vis.current[p.job]
+        const step = Math.max(barW * LAND_MIN_STEP, (target - v) * LAND_CATCHUP)
+        vis.current[p.job] = Math.min(target, v + step)
         flashes.current.push({
-          x: barX + vis.current[p.kind],
-          y: cfg.y + BAR_H / 2,
+          x: barX + vis.current[p.job],
+          y: barY(index) + BAR_H / 2,
           t: 0,
           kind: p.kind,
         })
         // the note rises with the bar and pans to wherever the hit landed
-        const fill = vis.current[p.kind] / barW
+        const fill = vis.current[p.job] / barW
         playWorkSfx(p.kind, fill, fill * 1.4 - 0.7)
       }
 
@@ -382,7 +417,7 @@ export function OfficeView({
 
     raf = requestAnimationFrame(loop)
     return () => cancelAnimationFrame(raf)
-  }, [background, staff, deskList, layout, barX, barW, researchProgress, trainingProgress, marketingProgress])
+  }, [background, staff, deskList, layout, barX, barW, jobs])
 
   /** Which person, if any, is under a client-space point. */
   function staffAt(clientX: number, clientY: number): string | null {

@@ -58,11 +58,13 @@ function tilesFor(state: GameState): Tile[] {
       id: 'build',
       label: 'Models',
       value: training.length > 0 ? `${Math.ceil(training[0].weeksRemaining)}w left` : `${live} live`,
-      note: training.length > 0
-        ? `training ${training[0].name}`
-        : ready > 0
-          ? `${ready} ready to ship`
-          : undefined,
+      note: training.length > 1
+        ? `${training.length} training`
+        : training.length === 1
+          ? `training ${training[0].name}`
+          : ready > 0
+            ? `${ready} ready to ship`
+            : undefined,
       busy: training.length > 0,
       title: 'Train and publish AI models',
     },
@@ -70,7 +72,11 @@ function tilesFor(state: GameState): Tile[] {
       id: 'research',
       label: 'Research',
       value: research ? `${Math.ceil(research.weeksRemaining)}w left` : `${state.researched.length} done`,
-      note: research ? RESEARCH_MAP[research.id]?.name : undefined,
+      note: state.researching.length > 1
+        ? `${state.researching.length} running`
+        : research
+          ? RESEARCH_MAP[research.id]?.name
+          : undefined,
       busy: Boolean(research),
       title: 'Unlock new techniques',
     },

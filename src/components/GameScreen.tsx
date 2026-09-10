@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import type { AIModel, GameState, PostType, PricingModel, PromoKind, Staff } from '../game/types'
 import { TopBar } from './TopBar'
-import { OfficeView } from './OfficeView'
+import { MAX_BARS, OfficeView } from './OfficeView'
+import type { Job } from './OfficeView'
 import { StaffMenu } from './StaffMenu'
 import { VictoryModal } from './VictoryModal'
 import { Standings } from './Standings'
@@ -21,6 +22,7 @@ import { NewsFeed } from './NewsFeed'
 import { SideNav } from './SideNav'
 import type { PanelId } from './SideNav'
 import { CAMPAIGN_DURATION } from '../game/constants'
+import { RESEARCH_MAP } from '../game/research'
 import { maxStaff } from '../game/state'
 import './Game.css'
 
@@ -116,17 +118,34 @@ export function GameScreen({
   // one desk per person the office can hold, all the way up to the top upgrade
   const deskCount = maxStaff(state)
 
-  const researchProgress = state.researching.length > 0
-    ? 1 - Math.min(...state.researching.map((r) => r.weeksRemaining / (r.totalWeeks || 1)))
-    : null
-
-  const trainingModels = state.models.filter((m) => m.status === 'training')
-  const trainingProgress = trainingModels.length > 0
-    ? 1 - Math.min(...trainingModels.map((m) => m.weeksRemaining / (m.totalWeeks || 1)))
-    : null
-
-  const campaignActive = state.campaignWeeksLeft > 0
-  const campaignProgress = campaignActive ? 1 - state.campaignWeeksLeft / CAMPAIGN_DURATION : null
+  // Everything running right now gets its own bar over the office, oldest
+  // first so a bar keeps its place while it fills. Only the first few fit.
+  const jobs: Job[] = [
+    ...state.researching.map((r) => ({
+      id: `research:${r.id}`,
+      kind: 'research' as const,
+      progress: 1 - r.weeksRemaining / (r.totalWeeks || 1),
+      label: RESEARCH_MAP[r.id]?.name ?? 'Research',
+    })),
+    ...state.models
+      .filter((m) => m.status === 'training')
+      .map((m) => ({
+        id: `model:${m.id}`,
+        kind: 'training' as const,
+        progress: 1 - m.weeksRemaining / (m.totalWeeks || 1),
+        label: m.name,
+      })),
+    ...(state.campaignWeeksLeft > 0
+      ? [
+          {
+            id: 'campaign',
+            kind: 'marketing' as const,
+            progress: 1 - state.campaignWeeksLeft / CAMPAIGN_DURATION,
+            label: 'Campaign',
+          },
+        ]
+      : []),
+  ].slice(0, MAX_BARS)
 
   return (
     <div className="game-screen screen">
@@ -147,9 +166,7 @@ export function GameScreen({
           <OfficeView
             staff={state.staff}
             desks={deskCount}
-            researchProgress={researchProgress}
-            trainingProgress={trainingProgress}
-            marketingProgress={campaignProgress}
+            jobs={jobs}
             onStaffMenu={(id, x, y) => setStaffMenu({ id, x, y })}
           />
           {race && <Standings players={race.players} selfId={race.selfId} isHost={race.isHost} />}

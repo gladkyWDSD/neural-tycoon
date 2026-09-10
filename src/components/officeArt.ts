@@ -620,6 +620,17 @@ function sprite(kind: WorkKind): Sprite {
   return made
 }
 
+/** The same art, held still: used to label the progress bar it feeds. */
+export function drawWorkIcon(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  kind: WorkKind,
+) {
+  const s = sprite(kind)
+  ctx.drawImage(s.canvas, Math.round(cx - s.w / 2), Math.round(cy - s.h / 2))
+}
+
 /**
  * Draw one token centred on an art-pixel position. `seed` keeps two tokens of
  * the same kind from animating in lockstep.
