@@ -436,6 +436,25 @@ Publishing a model of a type you already have live migrates **35%** of the older
 the new one on day one. The Build panel says so before you start training, so shipping v2 of a
 product is an explicit move rather than something you discover.
 
+### The President calls
+
+If most of your staff are American, the White House takes an interest. From week 14, at most once
+every 16 weeks, the President rings up in one of three moods, decided entirely by how you have been
+running the place.
+
+| Mood | When | What it does |
+| --- | --- | --- |
+| Pleased | Best model in the world, worth $1B, or running an enterprise contract | +6% followers |
+| Not pleased | Safety debt over 35, living under a rule, caught distilling, or an incident this week | Nothing yet |
+| Furious | Safety debt over 70, two rules in force, or an incident on top of real debt | −5% followers, and a 35% chance a new rule lands with the call |
+
+He is a caricature drawn in the game's own pixels, three moods on one canvas, and the lines are
+bluster rather than anything anyone said. The dev console can ring him on demand with
+`/call happy | annoyed | furious`.
+
+There is no flag on the company itself, so being American is read off the people: you are an
+American company when the Americans outnumber every other nationality on the payroll.
+
 ### Office life
 
 People do not sit still for eight hours. Every fifty to ninety seconds someone gets up, walks to the

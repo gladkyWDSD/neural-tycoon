@@ -18,6 +18,13 @@ import {
   COMPETITOR_POACH_GRACE_WEEKS,
   FIRE_SEVERANCE_WEEKS,
   ACQUISITION_FOLLOWERS_KEPT,
+  PRESIDENT_CALL_CHANCE,
+  PRESIDENT_COOLDOWN,
+  PRESIDENT_LINES,
+  PRESIDENT_PRAISE_FOLLOWERS,
+  PRESIDENT_RAGE_FOLLOWERS,
+  PRESIDENT_RAGE_REGULATION_CHANCE,
+  PRESIDENT_START_WEEK,
   ACQUISITION_PREMIUM,
   ACQUISITION_USER_KEPT,
   AUDIT_COOLDOWN,
@@ -234,6 +241,8 @@ export function initialState(): GameState {
     lastAuditWeek: -AUDIT_COOLDOWN,
     contracts: [],
     contractOffers: [],
+    presidentCall: null,
+    lastPresidentWeek: -PRESIDENT_COOLDOWN,
     stats: freshStats(),
     competitors: COMPETITOR_SEED.map((c) => ({ ...c, models: c.models.map((m) => ({ ...m })) })),
     events: [],
@@ -302,6 +311,8 @@ export type Action =
   | { type: 'BUY_AMENITY'; id: string }
   | { type: 'RUN_SAFETY_AUDIT' }
   | { type: 'ACQUIRE_COMPETITOR'; id: string }
+  | { type: 'HANG_UP' }
+  | { type: 'FORCE_PRESIDENT_CALL'; mood: 'happy' | 'annoyed' | 'furious' }
   | { type: 'SIGN_CONTRACT'; id: string }
   | { type: 'DECLINE_CONTRACT'; id: string }
   | { type: 'BUY_HYPE_BOTS' }
@@ -366,6 +377,7 @@ function freshStats(): RunStats {
     contractsSigned: 0,
     contractsBroken: 0,
     acquisitions: 0,
+    presidentCalls: 0,
     pactsSigned: 0,
     pactsBroken: 0,
   }
@@ -443,6 +455,9 @@ export function migrateState(raw: Partial<GameState>): GameState {
     lastAuditWeek: raw.lastAuditWeek ?? -AUDIT_COOLDOWN,
     contracts: raw.contracts ?? [],
     contractOffers: raw.contractOffers ?? [],
+    // a call is answered in the moment, so a save never reloads holding one
+    presidentCall: null,
+    lastPresidentWeek: raw.lastPresidentWeek ?? -PRESIDENT_COOLDOWN,
     stats: { ...freshStats(), ...(raw.stats ?? {}) },
     activeRegulations: raw.activeRegulations ?? [],
     lobbyWeeksLeft: raw.lobbyWeeksLeft ?? 0,
@@ -481,6 +496,19 @@ function computeQuality(state: GameState, gpus: number, dataTier?: string, disti
 /** What an audit costs right now: more debt, more work to clear it. */
 export function auditCost(state: GameState): number {
   return Math.max(AUDIT_MIN_COST, Math.round(state.risk * AUDIT_COST_PER_POINT))
+}
+
+/**
+ * Whether the White House thinks of you as one of theirs. There is no flag on
+ * the company itself, so it is read off the people: an American company is one
+ * where the Americans outnumber every other nationality.
+ */
+export function isAmericanCompany(state: GameState): boolean {
+  if (state.staff.length === 0) return false
+  const counts: Record<string, number> = {}
+  for (const s of state.staff) counts[s.nationality] = (counts[s.nationality] ?? 0) + 1
+  const usa = counts.usa ?? 0
+  return usa > 0 && Object.entries(counts).every(([nat, n]) => nat === 'usa' || n < usa)
 }
 
 /** What the mood is called, for the readout in the Company panel. */
@@ -1368,6 +1396,57 @@ function advanceOneWeek(state: GameState): GameState {
     activeRegulations,
   }
 
+  // The White House calls, if you are an American company and there is a reason
+  // to. Which of the three moods depends entirely on how you have been running
+  // the place: shipping the best model in the world, or a pile of safety debt.
+  if (
+    week >= PRESIDENT_START_WEEK &&
+    week - next.lastPresidentWeek >= PRESIDENT_COOLDOWN &&
+    isAmericanCompany(next) &&
+    next.models.some((m) => m.status === 'published') &&
+    Math.random() < PRESIDENT_CALL_CHANCE
+  ) {
+    const sotaNow = stateOfTheArt(next.competitors, week)
+    const bestQuality = next.models.reduce(
+      (best, m) => (m.status === 'published' ? Math.max(best, m.quality) : best),
+      0,
+    )
+    const caught = next.models.some((m) => m.status === 'published' && m.distillCaught)
+    let mood: 'happy' | 'annoyed' | 'furious' | null = null
+    if (next.risk >= 70 || next.activeRegulations.length >= 2 || (incident && next.risk >= 45)) {
+      mood = 'furious'
+    } else if (next.risk >= 35 || next.activeRegulations.length >= 1 || caught || incident) {
+      mood = 'annoyed'
+    } else if (bestQuality >= sotaNow || companyValuation(next) >= 1e9 || next.contracts.length > 0) {
+      mood = 'happy'
+    }
+    if (mood) {
+      const lines = PRESIDENT_LINES[mood]
+      next.presidentCall = { mood, line: lines[Math.floor(Math.random() * lines.length)], week }
+      next.lastPresidentWeek = week
+      next.stats = { ...next.stats, presidentCalls: next.stats.presidentCalls + 1 }
+      if (mood === 'happy') {
+        next.followers += Math.round(next.followers * PRESIDENT_PRAISE_FOLLOWERS) + 250
+      } else if (mood === 'furious') {
+        next.followers = Math.max(0, next.followers - Math.round(next.followers * PRESIDENT_RAGE_FOLLOWERS))
+        if (Math.random() < PRESIDENT_RAGE_REGULATION_CHANCE) {
+          const rule = pickNewRegulation(next.activeRegulations)
+          if (rule) {
+            next.activeRegulations = [...next.activeRegulations, rule.id]
+            next.events = [
+              {
+                id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+                text: `${rule.icon} Washington moved on you the same week: ${rule.name} is now in force.`,
+                week,
+              },
+              ...next.events,
+            ].slice(0, 20)
+          }
+        }
+      }
+    }
+  }
+
   // the high-water marks and the week's swing, for the report at the end
   const weekCustomers = next.models.reduce((sum, m) => sum + m.customers + m.freeCustomers, 0)
   const weekSwing = Math.round(next.money - state.money)
@@ -2051,6 +2130,20 @@ export function reducer(state: GameState, action: Action): GameState {
           },
           ...state.events,
         ].slice(0, 20),
+      }
+    }
+    case 'HANG_UP':
+      return state.presidentCall ? { ...state, presidentCall: null } : state
+    case 'FORCE_PRESIDENT_CALL': {
+      // a cheat, so the call can be looked at without waiting for the week it lands
+      const lines = PRESIDENT_LINES[action.mood]
+      return {
+        ...state,
+        presidentCall: {
+          mood: action.mood,
+          line: lines[Math.floor(Math.random() * lines.length)],
+          week: globalWeek(state),
+        },
       }
     }
     case 'HIRE_STAFF': {

@@ -1340,3 +1340,61 @@
 .danger-text {
   color: var(--danger);
 }
+
+/* --------------------------------------------------------- the phone call */
+
+.call-modal {
+  max-width: 560px;
+  width: 90vw;
+}
+
+.call-head {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  text-align: left;
+}
+
+.call-portrait {
+  flex: 0 0 auto;
+  width: 168px;
+  height: 192px;
+  image-rendering: pixelated;
+  border: 3px solid var(--border);
+  box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.4);
+}
+
+.call-portrait.furious {
+  border-color: var(--danger);
+}
+
+.call-portrait.happy {
+  border-color: var(--accent);
+}
+
+.call-who {
+  flex: 1;
+  min-width: 0;
+}
+
+.call-who .event-title {
+  text-align: left;
+  margin-bottom: 8px;
+}
+
+.call-sub {
+  font-family: var(--pixel-font);
+  font-size: 8px;
+  line-height: 1.6;
+  color: var(--text-dim);
+  margin: 0;
+}
+
+.call-line {
+  font-family: var(--mono);
+  font-size: 26px;
+  line-height: 1.25;
+  color: var(--text);
+  margin: 18px 0 4px;
+  text-align: left;
+}

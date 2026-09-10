@@ -20,6 +20,7 @@ import { AdsPanel } from './AdsPanel'
 import { GovernmentPanel } from './GovernmentPanel'
 import { TradingPanel } from './TradingPanel'
 import { TradeModal } from './TradeModal'
+import { PresidentCall } from './PresidentCall'
 import { NewsFeed } from './NewsFeed'
 import { SideNav } from './SideNav'
 import type { PanelId } from './SideNav'
@@ -63,6 +64,7 @@ interface Props {
   onResolveBid: (matched: boolean) => void
   onBuyAmenity: (id: string) => void
   onRunAudit: () => void
+  onHangUp: () => void
   onAcquireCompetitor: (id: string, name: string) => void
   onSignContract: (id: string) => void
   onDeclineContract: (id: string) => void
@@ -117,6 +119,7 @@ export function GameScreen({
   onResolveBid,
   onBuyAmenity,
   onRunAudit,
+  onHangUp,
   onAcquireCompetitor,
   onSignContract,
   onDeclineContract,
@@ -293,6 +296,7 @@ export function GameScreen({
 
       {state.pendingBid && <BidModal state={state} onResolve={onResolveBid} />}
       {state.pendingTrade && <TradeModal state={state} onResolve={onResolveTrade} />}
+      {state.presidentCall && <PresidentCall state={state} onHangUp={onHangUp} />}
 
       {race?.winner ? (
         <RunReport

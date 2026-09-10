@@ -37,6 +37,7 @@ export function parseCommand(input: string, state: GameState): CommandResult {
           '  /datacenter N - set built datacenters',
           '  /finish       - complete all research & training now',
           '  /researchall  - unlock all research',
+          '  /call [mood]  - ring the White House (happy, annoyed, furious)',
           '  /week         - show current week',
           '  /money        - show current money',
         ].join('\n'),
@@ -73,6 +74,13 @@ export function parseCommand(input: string, state: GameState): CommandResult {
     case 'datacenter': {
       if (arg === null) return { response: 'Usage: /datacenter N' }
       return { action: { type: 'SET_DATACENTERS', count: arg }, response: `Datacenters set to ${arg}.` }
+    }
+    case 'call': {
+      const mood = (rest[0] ?? 'happy').toLowerCase()
+      if (mood !== 'happy' && mood !== 'annoyed' && mood !== 'furious') {
+        return { response: 'Usage: /call happy | annoyed | furious' }
+      }
+      return { action: { type: 'FORCE_PRESIDENT_CALL', mood }, response: `Putting him through (${mood})...` }
     }
     case 'week':
       return { response: `Current week: ${globalWeek(state)} (${state.date.year}, Wk ${state.date.week})` }

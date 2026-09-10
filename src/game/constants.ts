@@ -256,6 +256,40 @@ export const LOBBY_COST = 80000
 export const LOBBY_COOLDOWN = 6 // weeks
 export const LOBBY_DURATION = 8 // weeks of reduced regulatory risk
 
+// ------------------------------------------------------- the president calls
+// If most of your staff are American, the White House takes an interest in what
+// you are building. It is a caricature and a phone call: praise when you are
+// winning, a warning when you are sloppy, and a shouting when you are a mess.
+export const PRESIDENT_COOLDOWN = 16
+export const PRESIDENT_CALL_CHANCE = 0.55
+export const PRESIDENT_START_WEEK = 14
+// what a call does to your standing with the public
+export const PRESIDENT_PRAISE_FOLLOWERS = 0.06
+export const PRESIDENT_RAGE_FOLLOWERS = 0.05
+// and the chance an angry one is followed by a new rule
+export const PRESIDENT_RAGE_REGULATION_CHANCE = 0.35
+
+export const PRESIDENT_LINES = {
+  happy: [
+    'Tremendous. Really tremendous. American AI, built here, by an American company. Everybody is talking about it.',
+    'You are beating labs nobody can even pronounce and I love it. Good job. Keep going.',
+    'They told me it could not be done and you did it anyway. That is the American way. Good job.',
+    'I have seen the numbers. Beautiful numbers. Some of the best numbers I have ever seen.',
+  ],
+  annoyed: [
+    'I am hearing things about you. Not good things. Watch your mouth and clean it up.',
+    'People are complaining. A lot of complaining. Sort it out before I have to.',
+    'You are one bad headline from a very long week. Do not make it my problem.',
+    'Nobody wants a mess here. Fix what you are doing and we never had this call.',
+  ],
+  furious: [
+    'You are getting cooked. My people are looking at you right now, today.',
+    'This is a disaster. An absolute disaster. Fix it or Washington fixes it for you.',
+    'One more story like that and you will wish you had never started this company.',
+    'I defended you. I will not do it twice. Sort this out.',
+  ],
+} as const
+
 // ----------------------------------------------------------- acquisitions
 // Buying a rival outright, once you are public. You pay over the odds for what
 // they have, most of their users come with it, and they stop competing.

@@ -79,6 +79,7 @@ export interface RunStats {
   contractsSigned: number
   contractsBroken: number
   acquisitions: number
+  presidentCalls: number
   pactsSigned: number
   pactsBroken: number
 }
@@ -312,6 +313,9 @@ export interface GameState {
   /** unaddressed safety debt, 0 to 100, and when you last paid it down */
   risk: number
   lastAuditWeek: number
+  /** the White House on the line, and when it last was */
+  presidentCall: { mood: 'happy' | 'annoyed' | 'furious'; line: string; week: number } | null
+  lastPresidentWeek: number
   /** enterprise deals you are running, and the ones on the table */
   contracts: Contract[]
   contractOffers: (Contract & { expiresIn: number })[]

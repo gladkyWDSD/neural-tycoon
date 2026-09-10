@@ -68,6 +68,7 @@ export function RunReport({ state, outcome, onClose, closeLabel, closeHint }: Pr
     ['Market mood at the end', `${marketMood(state.hype)} (${state.hype.toFixed(2)}x)`],
     ['Enterprise contracts', `${s.contractsSigned} signed, ${s.contractsBroken} lost`],
     ['Rivals bought outright', `${s.acquisitions}`],
+    ['Calls from the White House', `${s.presidentCalls}`],
   ]
 
   if (state.inRace || s.pactsSigned > 0 || s.pactsBroken > 0) {

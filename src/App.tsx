@@ -324,6 +324,7 @@ export default function App() {
           onResolveBid={(matched) => dispatch({ type: 'RESOLVE_BID', matched })}
           onBuyAmenity={(id) => dispatch({ type: 'BUY_AMENITY', id })}
           onRunAudit={() => dispatch({ type: 'RUN_SAFETY_AUDIT' })}
+          onHangUp={() => dispatch({ type: 'HANG_UP' })}
           onAcquireCompetitor={(id) => dispatch({ type: 'ACQUIRE_COMPETITOR', id })}
           onSignContract={(id) => dispatch({ type: 'SIGN_CONTRACT', id })}
           onDeclineContract={(id) => dispatch({ type: 'DECLINE_CONTRACT', id })}

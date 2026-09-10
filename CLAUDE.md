@@ -86,6 +86,11 @@ coupled — signing a big deal can push you over the line. Balance for all of th
 `constants.ts`; the scripted run in the balance simulation is the instrument for checking a change
 has not made the game unwinnable.
 
+**Caricature art.** `presidentArt.ts` draws the President as chunky pixels in three moods on one
+56x64 canvas, scaled up with `image-rendering: pixelated` in `PresidentCall.tsx`. It is drawn from
+scratch in the game's own style, not traced from a photograph, and the lines in `PRESIDENT_LINES`
+are invented bluster. Keep it that way if you extend it.
+
 **The run report.** `state.stats` (`RunStats` in `types.ts`) holds what the end-of-run report
 cannot work out from the end state: high-water marks, the best and worst weeks, and counts of
 hires, departures, poaches and pacts. Peaks and weekly swings are recorded once per week at the
