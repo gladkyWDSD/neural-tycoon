@@ -9,7 +9,7 @@ export function NewsFeed({ state }: { state: GameState }) {
   if (hidden) {
     return (
       <button className="news-toggle" onClick={() => setHidden(false)} title="Show messages">
-        📰
+        News
       </button>
     )
   }

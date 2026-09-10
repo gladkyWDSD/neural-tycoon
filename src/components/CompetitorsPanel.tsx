@@ -103,7 +103,7 @@ export function CompetitorsPanel({ state, onPoach, onClose, race, onAttackPlayer
                         }
                         onClick={() => onAttackPlayer(p.id, p.nickname, 'bots')}
                       >
-                        🤖 Swarm
+                        Swarm
                       </button>
                       <button
                         className="hire-btn"
@@ -117,7 +117,7 @@ export function CompetitorsPanel({ state, onPoach, onClose, race, onAttackPlayer
                         }
                         onClick={() => setPoachOpen(poachOpen === p.id ? null : p.id)}
                       >
-                        🎯 Poach
+                        Poach
                       </button>
                       <button
                         className="hire-btn"
@@ -129,7 +129,7 @@ export function CompetitorsPanel({ state, onPoach, onClose, race, onAttackPlayer
                         }
                         onClick={() => onAttackPlayer(p.id, p.nickname, 'hackers')}
                       >
-                        💻 Hack
+                        Hack
                       </button>
                       {race.isHost && onKickPlayer && (
                         <button
@@ -137,7 +137,7 @@ export function CompetitorsPanel({ state, onPoach, onClose, race, onAttackPlayer
                           title={`Remove ${p.nickname} from the race`}
                           onClick={() => onKickPlayer(p.id, p.nickname)}
                         >
-                          ✖ Kick
+                          Kick
                         </button>
                       )}
                     </span>

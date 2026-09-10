@@ -18,21 +18,12 @@ import { CompanyPanel } from './CompanyPanel'
 import { AdsPanel } from './AdsPanel'
 import { GovernmentPanel } from './GovernmentPanel'
 import { NewsFeed } from './NewsFeed'
+import { SideNav } from './SideNav'
+import type { PanelId } from './SideNav'
 import { CAMPAIGN_DURATION } from '../game/constants'
 import { maxStaff } from '../game/state'
 import './Game.css'
 
-type PanelId =
-  | 'hire'
-  | 'build'
-  | 'research'
-  | 'datacenters'
-  | 'twitter'
-  | 'ads'
-  | 'competitors'
-  | 'company'
-  | 'government'
-  | null
 
 interface Props {
   state: GameState
@@ -137,18 +128,6 @@ export function GameScreen({
   const campaignActive = state.campaignWeeksLeft > 0
   const campaignProgress = campaignActive ? 1 - state.campaignWeeksLeft / CAMPAIGN_DURATION : null
 
-  const menuItems: { id: PanelId; label: string }[] = [
-    { id: 'hire', label: 'Hire Staff' },
-    { id: 'build', label: 'Build AI' },
-    { id: 'research', label: 'Research' },
-    { id: 'twitter', label: 'Tweeter' },
-    { id: 'ads', label: 'Ads' },
-    { id: 'datacenters', label: 'Datacenters' },
-    { id: 'competitors', label: 'Competitors' },
-    { id: 'company', label: 'Company' },
-    { id: 'government', label: 'Government' },
-  ]
-
   return (
     <div className="game-screen screen">
       <TopBar
@@ -157,9 +136,13 @@ export function GameScreen({
         onToggleMusic={onToggleMusic}
         onTogglePause={onTogglePause}
         pauseLockedBy={pauseLockedBy}
+        onOpenPanel={setPanel}
+        panel={panel}
       />
 
       <div className="game-body">
+        <SideNav state={state} panel={panel} onOpen={setPanel} />
+
         <div className="office-wrap">
           <OfficeView
             staff={state.staff}
@@ -243,18 +226,6 @@ export function GameScreen({
         {panel === 'government' && (
           <GovernmentPanel state={state} onHireLobbyists={onHireLobbyists} onClose={() => setPanel(null)} />
         )}
-      </div>
-
-      <div className="menubar">
-        {menuItems.map((item) => (
-          <button
-            key={item.id}
-            className={`menu-btn ${panel === item.id ? 'active' : ''}`}
-            onClick={() => setPanel(panel === item.id ? null : item.id)}
-          >
-            {item.label}
-          </button>
-        ))}
       </div>
 
       {state.pendingBid && <BidModal state={state} onResolve={onResolveBid} />}

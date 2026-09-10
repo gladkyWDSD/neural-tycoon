@@ -104,7 +104,7 @@ export function CompanyPanel({ state, onUpgradeOffice, onIpo, onRaiseInvestment,
                 Worth {formatMoney(valuation)}. Float the company and raise {formatMoney(ipoRaise)}.
               </p>
               <button className="big-button" onClick={onIpo}>
-                📈 Go Public (IPO)
+                Go Public (IPO)
               </button>
             </>
           ) : (
@@ -123,7 +123,7 @@ export function CompanyPanel({ state, onUpgradeOffice, onIpo, onRaiseInvestment,
               : `Investors need time — ready in ${INVESTMENT_COOLDOWN_WEEKS - weeksSinceInvestment}wk.`}
           </p>
           <button className="big-button" disabled={!investmentReady} onClick={onRaiseInvestment}>
-            💰 Raise Investment
+            Raise Investment
           </button>
         </div>
       </div>

@@ -85,8 +85,12 @@ is added to `GameState`/`AIModel`/`ResearchProgress`, add a corresponding fallba
 `naming` → `main`, with `title` → `lobby` → `main` for multiplayer), driven by `state.screen` and
 rendered by `App.tsx`. Once in `main`,
 `GameScreen` manages a separate local `panel` selection (hire/build/research/twitter/datacenters/
-competitors/company) via its own `useState` — panel switching is UI-only navigation, not part of
-`GameState`/the reducer.
+competitors/company/ads/government) via its own `useState` — panel switching is UI-only navigation,
+not part of `GameState`/the reducer. There is no button bar: every panel is opened from a readout of the thing
+it contains. The left rail (`SideNav.tsx`) shows live figures — staff count, weeks of research
+left, GPUs, followers — and each tile opens its panel; the top bar's valuation, cash and company
+name open Company, and the user/revenue readout opens Competitors. `PanelId` is exported from
+`SideNav.tsx`, so a new panel needs an entry there and a readout to hang it on.
 
 **Command parser.** `src/game/commands.ts` parses `/command args` strings from the dev console
 into `Action`s (or a plain text response) — it's a thin adapter over the same reducer actions the
