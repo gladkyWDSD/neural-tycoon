@@ -43,12 +43,19 @@
 .big-button {
   font-size: 16px;
   padding: 16px 32px;
+  min-width: 300px;
   border-color: var(--accent);
   color: var(--accent);
   background: #10131a;
+  box-shadow: 0 4px 0 var(--key-base-accent);
 }
 
-.big-button:hover {
+.big-button:active:not(:disabled) {
+  transform: translateY(4px);
+  box-shadow: none;
+}
+
+.big-button:hover:not(:disabled) {
   background: var(--accent);
   color: #0b0c11;
 }

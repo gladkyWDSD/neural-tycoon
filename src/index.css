@@ -14,6 +14,8 @@
   --gold: #ffd166;
   --pixel-font: 'Press Start 2P', monospace;
   --mono: 'VT323', monospace;
+  --key-base: #090a0f;
+  --key-base-accent: #1c6b45;
 }
 
 * {
@@ -37,6 +39,8 @@ body {
   overflow: hidden;
 }
 
+/* Buttons are physical keys: they sit on a hard base and press into it. No blur
+   anywhere, since a soft shadow would fight the pixel art. */
 button {
   font-family: var(--pixel-font);
   cursor: pointer;
@@ -46,16 +50,29 @@ button {
   padding: 10px 16px;
   font-size: 12px;
   image-rendering: pixelated;
+  box-shadow: 0 2px 0 var(--key-base);
+  position: relative;
 }
 
-button:hover {
+button:hover:not(:disabled) {
   border-color: var(--accent);
   color: var(--accent);
+}
+
+button:active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow: none;
+}
+
+button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 button:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+  box-shadow: 0 2px 0 var(--key-base);
 }
 
 input {

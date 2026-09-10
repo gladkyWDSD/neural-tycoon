@@ -156,7 +156,7 @@ export function HirePanel({ state, onHire, onStartTraining, onClose }: Props) {
           <p className="placeholder">You have hired everyone on this shortlist.</p>
         )}
         <button className="hire-btn reroll-btn" onClick={() => setReroll((n) => n + 1)}>
-          🔄 New candidates
+          New candidates
         </button>
         {candidates.map((c) => (
           <div className="candidate" key={c.id}>
