@@ -4,10 +4,15 @@ import { playWorkSfx } from '../game/audio'
 import { SPRITE_H, SPRITE_W, drawCharacter, hash } from './sprites'
 import type { WorkKind } from './officeArt'
 import { SCALE, TILE, drawBurst, drawDesk, drawDeskProp, drawToilet, drawWorkIcon, drawWorkToken } from './officeArt'
+import { drawDecor, drawRackLights, drawWallClock, rackTile } from './officeDecor'
 
 const FLOOR_A = '#232634'
 const FLOOR_B = '#262a38'
-const WALL = '#0b0c11'
+// The walls used to be the same near-black as the page behind the canvas, which
+// left the office looking like a floor floating in space.
+const WALL = '#171b26'
+const WALL_TOP = '#202634'
+const SKIRTING = '#0f1218'
 
 const BAR_H = 6
 const BAR_MAX_W = 240
@@ -82,6 +87,8 @@ interface Layout {
   roomRows: number
   startCol: number
   startRow: number
+  /** width of the desk grid in tiles, so the decor knows what space is left */
+  gridW: number
 }
 
 function layoutFor(deskCount: number): Layout {
@@ -102,6 +109,7 @@ function layoutFor(deskCount: number): Layout {
     roomRows,
     startCol: Math.floor((roomCols - gridW) / 2),
     startRow: 2, // leave the top strip clear for the progress bars
+    gridW,
   }
 }
 
@@ -197,8 +205,17 @@ export function OfficeView({ staff, desks, jobs, onStaffMenu }: Props) {
     bgx.fillRect(0, h - TILE, w, TILE)
     bgx.fillRect(0, 0, TILE, h)
     bgx.fillRect(w - TILE, 0, TILE, h)
+    // a lit top edge and a skirting board, so the walls have a direction
+    bgx.fillStyle = WALL_TOP
+    bgx.fillRect(0, 0, w, 2)
+    bgx.fillStyle = SKIRTING
+    bgx.fillRect(0, TILE - 2, w, 2)
+    bgx.fillRect(0, h - TILE, w, 2)
+    bgx.fillRect(TILE - 2, TILE, 2, h - TILE * 2)
+    bgx.fillRect(w - TILE, TILE, 2, h - TILE * 2)
     bgx.setTransform(1, 0, 0, 1, 0, 0)
     drawToilet(bgx, layout.roomCols - 3, 1)
+    drawDecor(bgx, layout)
     for (const d of deskList) drawDesk(bgx, d.dx, d.dy)
     return bg
   }, [deskList, layout])
@@ -212,6 +229,7 @@ export function OfficeView({ staff, desks, jobs, onStaffMenu }: Props) {
     if (!ctx) return
     ctx.imageSmoothingEnabled = false
 
+    const rack = rackTile(layout)
     const bars = jobs.slice(0, MAX_BARS)
     const barOf = (id: string) => bars.findIndex((b) => b.id === id)
     // work that finished is no longer on screen, so drop what it was tracking
@@ -299,6 +317,9 @@ export function OfficeView({ staff, desks, jobs, onStaffMenu }: Props) {
         const s = staff[i]
         if (s) drawDeskProp(ctx, deskList[i].dx, deskList[i].dy, s.role, now)
       }
+      // the parts of the furniture that move
+      if (rack) drawRackLights(ctx, rack.tx, rack.ty, now)
+      drawWallClock(ctx, 1, 0, now)
 
       // The tokens and the impact they make are drawn in art pixels, so a brain
       // is a brain rather than a five-pixel blob.

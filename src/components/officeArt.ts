@@ -20,7 +20,7 @@ const SCREEN_W = 32
 const LEFT_X = 2
 const RIGHT_X = 50
 
-function px(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, c: string) {
+export function px(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, c: string) {
   ctx.fillStyle = c
   ctx.fillRect(x, y, w, h)
 }
