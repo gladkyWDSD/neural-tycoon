@@ -88,8 +88,13 @@ export default function App() {
   }, [lobby.phase, session])
 
   const tickMs = settingsOf(state).tickMs
+  // The clock only runs while you are actually playing. It used to run on every
+  // screen, so weeks passed and events fired over the title, naming and lobby
+  // screens, and a brand new company could start life already in week 2.
+  const playing = state.screen === 'main'
 
   useEffect(() => {
+    if (!playing) return
     let last = performance.now()
     let sinceWeek = 0
     const id = setInterval(() => {
@@ -105,7 +110,7 @@ export default function App() {
       }
     }, JOB_TICK_MS)
     return () => clearInterval(id)
-  }, [tickMs])
+  }, [tickMs, playing])
 
   // reaching the main screen always follows a click, which satisfies the browser's autoplay gesture rule
   useEffect(() => {
@@ -232,7 +237,7 @@ export default function App() {
         />
       )}
       <DevConsole onCommand={runCommand} />
-      {state.pendingEvent && (
+      {playing && state.pendingEvent && (
         <EventModal
           event={state.pendingEvent}
           onResolve={(choiceIndex) =>
