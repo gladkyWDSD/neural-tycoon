@@ -2,7 +2,8 @@ import { useEffect, useMemo, useRef } from 'react'
 import type { Staff } from '../game/types'
 import { playWorkSfx } from '../game/audio'
 import { SPRITE_H, SPRITE_W, drawCharacter, hash } from './sprites'
-import { SCALE, TILE, drawDesk, drawDeskProp, drawToilet } from './officeArt'
+import type { WorkKind } from './officeArt'
+import { SCALE, TILE, drawBurst, drawDesk, drawDeskProp, drawToilet, drawWorkToken } from './officeArt'
 
 const FLOOR_A = '#232634'
 const FLOOR_B = '#262a38'
@@ -31,8 +32,6 @@ const MAX_DESK_COLS = 6
 // The room is padded out to roughly this shape. The office panel is a wide,
 // short box, so a squarer room would leave black bars down both sides.
 const TARGET_ASPECT = 2
-
-type WorkKind = 'research' | 'training' | 'marketing'
 
 const KIND_CONFIG: Record<WorkKind, { y: number; color: string }> = {
   research: { y: 5, color: '#3ddc84' },
@@ -108,45 +107,20 @@ function staffPosition(index: number, deskList: Desk[], layout: Layout): { x: nu
   return { x, y: (layout.roomRows - 2) * TILE }
 }
 
-function drawParticle(ctx: CanvasRenderingContext2D, x: number, y: number, kind: WorkKind) {
-  const px = Math.round(x)
-  const py = Math.round(y)
-  if (kind === 'research') {
-    // brain
-    ctx.fillStyle = '#f28cb8'
-    ctx.fillRect(px - 3, py - 2, 2, 5)
-    ctx.fillRect(px + 1, py - 2, 2, 5)
-    ctx.fillRect(px - 2, py - 3, 4, 1)
-    ctx.fillRect(px - 2, py + 2, 4, 1)
-    ctx.fillStyle = '#c74a7f'
-    ctx.fillRect(px - 1, py, 1, 2)
-    ctx.fillRect(px + 1, py, 1, 1)
-  } else if (kind === 'training') {
-    ctx.font = 'bold 8px monospace'
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'middle'
-    ctx.fillStyle = '#4aa3ff'
-    ctx.fillText('</>', px, py)
-  } else {
-    ctx.font = 'bold 9px monospace'
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'middle'
-    ctx.fillStyle = '#ffd166'
-    ctx.fillText('$', px, py)
-  }
-}
-
 interface Particle {
   x: number
   y: number
   t: number
   kind: WorkKind
+  /** keeps two tokens of the same kind from animating in step */
+  seed: number
 }
 
 interface Flash {
   x: number
   y: number
   t: number
+  kind: WorkKind
 }
 
 /** Where a person was last drawn, in world pixels, so right-clicks can find them. */
@@ -291,26 +265,35 @@ export function OfficeView({
         if (s) drawDeskProp(ctx, deskList[i].dx, deskList[i].dy, s.role, now)
       }
 
-      world()
-      // each landing pops and shrinks, so a single hit reads as an impact
+      // The tokens and the impact they make are drawn in art pixels, so a brain
+      // is a brain rather than a five-pixel blob.
+      art()
       for (const f of flashes.current) {
-        const size = 2 + Math.round((1 - f.t / FLASH_LIFE) * 4)
-        const half = Math.floor(size / 2)
-        ctx.fillStyle = '#ffffff'
-        ctx.fillRect(Math.round(f.x) - half, Math.round(f.y) - half, size, size)
+        drawBurst(ctx, f.x * SCALE, f.y * SCALE, f.t / FLASH_LIFE, KIND_CONFIG[f.kind].color)
       }
 
       for (const p of particles.current) {
         const cfg = KIND_CONFIG[p.kind]
-        const prog = vis.current[p.kind]
-        const tx = barX + prog
+        const tx = barX + vis.current[p.kind]
         const ty = cfg.y + BAR_H / 2
-        const tt = Math.min(1, p.t)
-        const x = p.x + (tx - p.x) * tt
-        const y = p.y + (ty - p.y) * tt - Math.sin(tt * Math.PI) * 18
-        drawParticle(ctx, x, y, p.kind)
+        const at = (tt: number) => {
+          const c = Math.max(0, Math.min(1, tt))
+          return {
+            x: (p.x + (tx - p.x) * c) * SCALE,
+            y: (p.y + (ty - p.y) * c - Math.sin(c * Math.PI) * 18) * SCALE,
+          }
+        }
+        // a short ghost trail so the flight path reads at speed
+        for (const back of [0.12, 0.06]) {
+          if (p.t - back <= 0) continue
+          const g = at(p.t - back)
+          ctx.globalAlpha = back === 0.12 ? 0.16 : 0.34
+          drawWorkToken(ctx, g.x, g.y, p.kind, now, p.seed)
+        }
+        ctx.globalAlpha = 1
+        const here = at(p.t)
+        drawWorkToken(ctx, here.x, here.y, p.kind, now, p.seed)
       }
-      art()
     }
 
     drawScene(performance.now())
@@ -361,7 +344,7 @@ export function OfficeView({
         })
         if (workers.length === 0) continue
         const p = staffPosition(workers[Math.floor(Math.random() * workers.length)], deskList, layout)
-        particles.current.push({ x: p.x + 6, y: p.y, t: 0, kind: b.kind })
+        particles.current.push({ x: p.x + 6, y: p.y, t: 0, kind: b.kind, seed: Math.random() * 10 })
       }
 
       const landed: Particle[] = []
@@ -383,6 +366,7 @@ export function OfficeView({
           x: barX + vis.current[p.kind],
           y: cfg.y + BAR_H / 2,
           t: 0,
+          kind: p.kind,
         })
         // the note rises with the bar and pans to wherever the hit landed
         const fill = vis.current[p.kind] / barW

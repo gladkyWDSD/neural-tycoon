@@ -458,3 +458,244 @@ export function drawDeskProp(
   drawKeyboard(ctx, sx + 1, oy + 22)
   drawLamp(ctx, rx, oy + 2)
 }
+
+// ------------------------------------------------------- flying work tokens
+
+/**
+ * The things that fly from a worker's desk to the progress bar. They are drawn
+ * in art pixels like the desk hardware, so a brain can have folds and a chip
+ * can have pins instead of being a five-pixel blob.
+ */
+export type WorkKind = 'research' | 'training' | 'marketing'
+
+function blit(
+  ctx: CanvasRenderingContext2D,
+  ox: number,
+  oy: number,
+  rows: string[],
+  palette: Record<string, string>,
+) {
+  for (let r = 0; r < rows.length; r++) {
+    const row = rows[r]
+    let c = 0
+    while (c < row.length) {
+      const ch = row[c]
+      const color = palette[ch]
+      if (!color) {
+        c++
+        continue
+      }
+      // runs of one colour go out as a single rect
+      let end = c + 1
+      while (end < row.length && row[end] === ch) end++
+      px(ctx, ox + c, oy + r, end - c, 1, color)
+      c = end
+    }
+  }
+}
+
+// A brain: a lobed outline with a dividing fissure and sulci that wander, drawn
+// pixel by pixel because straight rows of dashes read as a ball of wool.
+const BRAIN_W = 17
+const BRAIN_H = 14
+
+function inBrain(x: number, y: number): boolean {
+  const dx = (x - 8) / 8.2
+  const dy = (y - 6.5) / 6.6
+  return dx * dx + dy * dy <= 1
+}
+
+function paintBrain(ctx: CanvasRenderingContext2D) {
+  for (let y = 0; y < BRAIN_H; y++) {
+    for (let x = 0; x < BRAIN_W; x++) {
+      if (!inBrain(x, y)) continue
+      const edge =
+        !inBrain(x - 1, y) || !inBrain(x + 1, y) || !inBrain(x, y - 1) || !inBrain(x, y + 1)
+      if (edge) {
+        px(ctx, x, y, 1, 1, '#5c1f3e')
+        continue
+      }
+      let color = '#f28cb8'
+      if (x + y < 8) color = '#ffc9e2' // light falls on the top left
+      if (x + y > 20) color = '#dd7aa6' // and the underside falls away
+      // sulci: thin lines that wander rather than run straight across
+      const groove = Math.sin(y * 1.5 + Math.sin((x - 8) * 0.5) * 2.1)
+      if (Math.abs(groove) < 0.26) color = '#b8447a'
+      // the fissure between the hemispheres
+      if (x === 8 && y > 1 && y < BRAIN_H - 2) color = '#8f2f5c'
+      px(ctx, x, y, 1, 1, color)
+    }
+  }
+  // a couple of bumps so the top is a brain rather than an egg
+  px(ctx, 4, 1, 3, 1, '#5c1f3e')
+  px(ctx, 10, 1, 3, 1, '#5c1f3e')
+  px(ctx, 5, 2, 2, 1, '#ffc9e2')
+  px(ctx, 11, 2, 2, 1, '#f9a8c9')
+}
+
+// A chip: gold pins down both sides, a board, traces, and a core that glows.
+const CHIP = [
+  '..oooooooooooo..',
+  '..oCCCCCCCCCCo..',
+  '..oCttttttttCo..',
+  '..oCtCCCCCCtCo..',
+  'ppoCtCggggCtCopp',
+  '..oCtCgTTgCtCo..',
+  'ppoCtCgTTgCtCopp',
+  '..oCtCggggCtCo..',
+  'ppoCtCCCCCCtCopp',
+  '..oCttttttttCo..',
+  'ppoCCCCCCCCCCopp',
+  '..oCCCCCCCCCCo..',
+  '..oooooooooooo..',
+]
+
+const CHIP_PALETTE: Record<string, string> = {
+  o: '#0d1420',
+  C: '#1f4260',
+  t: '#2f6f9e',
+  g: '#4aa3ff',
+  T: '#bfe6ff',
+  p: '#d8a13a',
+}
+
+// The dollar sign stamped on the coin, as [x, y, w, h] runs.
+const COIN_MARK: [number, number, number, number][] = [
+  [7, 3, 1, 1],
+  [6, 4, 3, 1],
+  [6, 5, 1, 1],
+  [6, 6, 3, 1],
+  [8, 7, 1, 1],
+  [6, 8, 3, 1],
+  [7, 9, 1, 1],
+]
+
+function paintCoin(ctx: CanvasRenderingContext2D) {
+  const cx = 6.5
+  const cy = 6.5
+  for (let y = 0; y < 14; y++) {
+    for (let x = 0; x < 14; x++) {
+      const d = Math.hypot(x - cx, y - cy)
+      if (d > 6.8) continue
+      // rim, then the struck face, lit from the top left
+      let color = '#6b4a12'
+      if (d < 5.9) color = '#b8862b'
+      if (d < 4.9) color = x + y < 11 ? '#ffe6a3' : x + y > 16 ? '#d9a63c' : '#ffd166'
+      px(ctx, x, y, 1, 1, color)
+    }
+  }
+  for (const [x, y, w, h] of COIN_MARK) px(ctx, x, y, w, h, '#7a5510')
+  px(ctx, 3, 2, 2, 1, '#fff6d6') // specular glint
+  px(ctx, 2, 3, 1, 1, '#fff6d6')
+}
+
+interface Sprite {
+  canvas: HTMLCanvasElement
+  w: number
+  h: number
+}
+
+const spriteCache = new Map<WorkKind, Sprite>()
+
+function sprite(kind: WorkKind): Sprite {
+  const cached = spriteCache.get(kind)
+  if (cached) return cached
+  const w = kind === 'research' ? BRAIN_W : kind === 'marketing' ? 14 : 16
+  const h = kind === 'research' ? BRAIN_H : kind === 'training' ? 13 : 14
+  const canvas = document.createElement('canvas')
+  canvas.width = w
+  canvas.height = h
+  const c = canvas.getContext('2d')
+  if (c) {
+    c.imageSmoothingEnabled = false
+    if (kind === 'research') paintBrain(c)
+    else if (kind === 'training') {
+      blit(c, 0, 0, CHIP, CHIP_PALETTE)
+      px(c, 4, 2, 1, 1, '#d8a13a') // the orientation dot every chip carries
+    }
+    else paintCoin(c)
+  }
+  const made = { canvas, w, h }
+  spriteCache.set(kind, made)
+  return made
+}
+
+/**
+ * Draw one token centred on an art-pixel position. `seed` keeps two tokens of
+ * the same kind from animating in lockstep.
+ */
+export function drawWorkToken(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  kind: WorkKind,
+  now: number,
+  seed: number,
+) {
+  const s = sprite(kind)
+  const phase = now / 1000 + seed
+  const x = Math.round(cx - s.w / 2)
+  const y = Math.round(cy - s.h / 2 + Math.sin(phase * 5) * 1.5)
+
+  if (kind === 'marketing') {
+    // a coin tumbling edge over edge: the face narrows, then comes back
+    const turn = Math.cos(phase * 7)
+    const w = Math.max(2, Math.round(s.w * Math.abs(turn)))
+    const dx = Math.round(cx - w / 2)
+    if (w <= 3) {
+      px(ctx, dx, y + 1, w, s.h - 2, '#b8862b') // seen edge on
+      px(ctx, dx, y + 1, w, 1, '#ffe6a3')
+    } else {
+      ctx.drawImage(s.canvas, dx, y, w, s.h)
+    }
+    return
+  }
+
+  ctx.drawImage(s.canvas, x, y)
+
+  if (kind === 'research') {
+    // a thought fires across the folds every so often
+    const spark = (Math.sin(phase * 9) + 1) / 2
+    if (spark > 0.72) {
+      ctx.globalAlpha *= (spark - 0.72) / 0.28
+      px(ctx, x + 5, y + 4, 2, 1, '#ffffff')
+      px(ctx, x + 9, y + 8, 2, 1, '#ffffff')
+      px(ctx, x + 6, y + 10, 1, 1, '#ffe4f2')
+      ctx.globalAlpha /= Math.max(0.001, (spark - 0.72) / 0.28)
+    }
+    return
+  }
+
+  // the chip's core pulses and a read line sweeps down its traces
+  const pulse = (Math.sin(phase * 8) + 1) / 2
+  if (pulse > 0.45) px(ctx, x + 7, y + 5, 2, 2, '#eaf7ff')
+  // a read sweeps down the traces on either side of the die
+  const line = 2 + Math.floor(((phase * 5) % 1) * 8)
+  px(ctx, x + 4, y + line, 1, 1, '#dff2ff')
+  px(ctx, x + 11, y + line, 1, 1, '#dff2ff')
+}
+
+/** The pop where a token lands on the bar: a ring with four rays. */
+export function drawBurst(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  life: number,
+  color: string,
+) {
+  const k = Math.max(0, Math.min(1, life))
+  const r = Math.round(2 + k * 7)
+  const x = Math.round(cx)
+  const y = Math.round(cy)
+  ctx.globalAlpha = 1 - k
+  px(ctx, x - r, y, r * 2 + 1, 1, color) // rays
+  px(ctx, x, y - r, 1, r * 2 + 1, color)
+  const d = Math.round(r * 0.7)
+  px(ctx, x - d, y - d, 1, 1, color)
+  px(ctx, x + d, y - d, 1, 1, color)
+  px(ctx, x - d, y + d, 1, 1, color)
+  px(ctx, x + d, y + d, 1, 1, color)
+  const core = k < 0.4 ? 2 : 1
+  px(ctx, x - core, y - core, core * 2, core * 2, '#ffffff')
+  ctx.globalAlpha = 1
+}
