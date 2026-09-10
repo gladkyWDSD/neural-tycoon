@@ -255,6 +255,12 @@ export const REGULATION_BASE_DATACENTER_SHUTDOWN_CHANCE = 0.01 // ambient compli
 export const LOBBY_COST = 80000
 export const LOBBY_COOLDOWN = 6 // weeks
 export const LOBBY_DURATION = 8 // weeks of reduced regulatory risk
+
+// ------------------------------------------------------------------ trading
+export const PACT_WEEKS = 20 // how long a non-aggression pact holds before it lapses
+// Breaking your word is public. You keep the freedom to attack and lose this
+// share of your following for it.
+export const PACT_BREAK_FOLLOWER_LOSS = 0.15
 export const LOBBY_RISK_REDUCTION = 0.4 // multiplier applied to regulation/shutdown/fine chance while lobbying is active
 export const LOBBY_REPEAL_CHANCE = 0.35 // chance a lobbying push repeals a random active regulation instead
 

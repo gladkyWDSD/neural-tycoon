@@ -1,4 +1,4 @@
-import type { AIModel, AttackKind, Difficulty, GameEvent, GameState, PendingEvent, PostType, PricingModel, PromoKind, Staff, StaffBid, StaffCard } from './types'
+import type { AIModel, AttackKind, Difficulty, GameEvent, GameState, Pact, PendingEvent, PostType, PricingModel, PromoKind, Staff, StaffBid, StaffCard, TradeKind, TradeOffer } from './types'
 import {
   DESKS_PER_LEVEL,
   CAMPAIGN_COOLDOWN,
@@ -17,6 +17,8 @@ import {
   COMPETITOR_POACH_BASE_CHANCE,
   COMPETITOR_POACH_GRACE_WEEKS,
   FIRE_SEVERANCE_WEEKS,
+  PACT_BREAK_FOLLOWER_LOSS,
+  PACT_WEEKS,
   POACH_BID_FEE_SHARE,
   POACH_MIN_BID_WEEKS,
   POACH_COUNTER_BONUS_WEEKS,
@@ -184,6 +186,7 @@ export function initialState(): GameState {
     pendingEvent: null,
     activeRegulations: [],
     lobbyWeeksLeft: 0,
+    pacts: [],
     lastLobbyWeek: -LOBBY_COOLDOWN,
   }
 }
@@ -203,6 +206,22 @@ export type Action =
   | { type: 'BID_FOR_STAFF'; targetId: string; targetName: string; fromId: string; fromName: string; staff: StaffCard; amount: number }
   | { type: 'INCOMING_BID'; bid: StaffBid }
   | { type: 'RESOLVE_BID'; matched: boolean }
+  | {
+      type: 'OFFER_TRADE'
+      targetId: string
+      targetName: string
+      fromId: string
+      fromName: string
+      kind: TradeKind
+      price: number
+      gpus?: number
+      researchId?: string
+    }
+  | { type: 'INCOMING_TRADE'; offer: TradeOffer }
+  | { type: 'RESOLVE_TRADE'; accepted: boolean }
+  | { type: 'TRADE_RESULT'; tradeId: string; accepted: boolean }
+  | { type: 'BREAK_PACT'; playerId: string; selfId: string }
+  | { type: 'PACT_BROKEN'; from: string }
   | { type: 'BID_RESULT'; bidId: string; matched: boolean; staff?: Staff }
   | { type: 'TICK' }
   | { type: 'TOGGLE_PAUSE' }
@@ -326,6 +345,11 @@ export function migrateState(raw: Partial<GameState>): GameState {
     outbox: undefined,
     pendingBid: undefined,
     sentBid: undefined,
+    // deals belong to a race too, and a pact with someone who is no longer
+    // connected would quietly block your own attacks forever
+    pendingTrade: undefined,
+    sentTrade: undefined,
+    pacts: [],
     isPublic: raw.isPublic ?? false,
     won: raw.won ?? false,
     campaignWeeksLeft: raw.campaignWeeksLeft ?? 0,
@@ -424,6 +448,18 @@ function ecoProtest(state: GameState, chance: number, message: string): GameStat
  * path calls this with a delta of 1 for every week it replays, so both stay in
  * sync. Any new timer the player watches count down belongs here.
  */
+/** Peace runs out on the same clock as everything else the player waits on. */
+function pactsAfter(state: GameState, delta: number, announce: (text: string) => void): Pact[] {
+  if (state.pacts.length === 0) return state.pacts
+  const kept: Pact[] = []
+  for (const p of state.pacts) {
+    const weeksLeft = p.weeksLeft - delta
+    if (weeksLeft > 0) kept.push({ ...p, weeksLeft })
+    else announce(`Your non-aggression pact with ${p.name} has run out.`)
+  }
+  return kept
+}
+
 function advanceJobs(state: GameState, delta: number): GameState {
   if (delta <= 0) return state
   const busy =
@@ -432,6 +468,7 @@ function advanceJobs(state: GameState, delta: number): GameState {
     state.datacenterBuilds.length > 0 ||
     state.campaignWeeksLeft > 0 ||
     state.lobbyWeeksLeft > 0 ||
+    state.pacts.length > 0 ||
     state.models.some((m) => m.status === 'training')
   // nothing is running, so hand back the same object and skip the re-render
   if (!busy) return state
@@ -515,6 +552,7 @@ function advanceJobs(state: GameState, delta: number): GameState {
     datacenterBuilds,
     campaignWeeksLeft: Math.max(0, state.campaignWeeksLeft - delta),
     lobbyWeeksLeft: Math.max(0, state.lobbyWeeksLeft - delta),
+    pacts: pactsAfter(state, delta, announce),
     events: newEvents.length > 0 ? [...newEvents, ...state.events].slice(0, 20) : state.events,
   }
 }
@@ -995,6 +1033,9 @@ export function reducer(state: GameState, action: Action): GameState {
       // risk of being traced are the same as the single-player versions; what is
       // different is that the damage has to travel to their machine, so a paid-for
       // attack is parked in the outbox for App to send.
+      // A pact is a promise the rules keep for you: break it in the Trading tab
+      // first if you want to aim something at them.
+      if (state.pacts.some((p) => p.playerId === action.targetId)) return state
       const week = globalWeek(state)
       const news: GameEvent[] = []
       const add = (text: string) => news.push({ id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, text, week })
@@ -1182,6 +1223,215 @@ export function reducer(state: GameState, action: Action): GameState {
         staff: [...staff, hire],
         sentBid: undefined,
         events: [...news, ...state.events].slice(0, 20),
+      }
+    }
+    case 'OFFER_TRADE': {
+      // One deal in flight at a time, the same rule the poaching offers follow.
+      if (state.sentTrade) return state
+      if (action.targetId === action.fromId) return state
+      const week = globalWeek(state)
+      const price = Math.max(0, Math.round(action.price))
+      const tradeId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+      const offer: TradeOffer = { tradeId, fromId: action.fromId, fromName: action.fromName, kind: action.kind, price }
+      const sent = { offer, targetId: action.targetId, targetName: action.targetName }
+      const note = (text: string): GameEvent[] =>
+        [{ id: `${tradeId}-n`, text, week }, ...state.events].slice(0, 20)
+
+      if (action.kind === 'compute') {
+        const gpus = Math.floor(action.gpus ?? 0)
+        if (gpus < 1 || gpus > state.gpuCards) return state
+        offer.gpus = gpus
+        // the cards go into escrow now, so the same ones cannot be sold twice
+        return {
+          ...state,
+          gpuCards: state.gpuCards - gpus,
+          sentTrade: sent,
+          outbox: { t: 'trade', id: tradeId, targetId: action.targetId, offer },
+          events: note(
+            `You offered ${action.targetName} ${gpus} GPU${gpus > 1 ? 's' : ''} for $${price.toLocaleString()}. The cards are held until they answer.`,
+          ),
+        }
+      }
+
+      if (action.kind === 'research') {
+        const id = action.researchId ?? ''
+        if (!state.researched.includes(id)) return state
+        offer.researchId = id
+        return {
+          ...state,
+          sentTrade: sent,
+          outbox: { t: 'trade', id: tradeId, targetId: action.targetId, offer },
+          events: note(
+            `You offered ${action.targetName} your ${RESEARCH_MAP[id]?.name ?? 'research'} findings for $${price.toLocaleString()}.`,
+          ),
+        }
+      }
+
+      // a pact: no money changes hands, only a promise
+      if (state.pacts.some((p) => p.playerId === action.targetId)) return state
+      offer.price = 0
+      offer.weeks = PACT_WEEKS
+      return {
+        ...state,
+        sentTrade: sent,
+        outbox: { t: 'trade', id: tradeId, targetId: action.targetId, offer },
+        events: note(`You proposed a ${PACT_WEEKS}-week non-aggression pact to ${action.targetName}.`),
+      }
+    }
+    case 'INCOMING_TRADE': {
+      // busy with another offer, so this one is turned down rather than queued
+      if (state.pendingTrade) {
+        return {
+          ...state,
+          outbox: {
+            t: 'tradeResult',
+            id: action.offer.tradeId,
+            targetId: action.offer.fromId,
+            tradeId: action.offer.tradeId,
+            accepted: false,
+          },
+        }
+      }
+      return { ...state, pendingTrade: action.offer }
+    }
+    case 'RESOLVE_TRADE': {
+      const offer = state.pendingTrade
+      if (!offer) return state
+      const week = globalWeek(state)
+      const decline = (text: string): GameState => ({
+        ...state,
+        pendingTrade: undefined,
+        outbox: { t: 'tradeResult', id: offer.tradeId, targetId: offer.fromId, tradeId: offer.tradeId, accepted: false },
+        events: [{ id: `${offer.tradeId}-d`, text, week }, ...state.events].slice(0, 20),
+      })
+      if (!action.accepted) return decline(`You turned down ${offer.fromName}'s offer.`)
+      if (state.money < offer.price) return decline(`You could not afford ${offer.fromName}'s offer.`)
+
+      const accepted = {
+        ...state,
+        money: state.money - offer.price,
+        pendingTrade: undefined,
+        outbox: {
+          t: 'tradeResult' as const,
+          id: offer.tradeId,
+          targetId: offer.fromId,
+          tradeId: offer.tradeId,
+          accepted: true,
+        },
+      }
+      const note = (text: string): GameEvent[] =>
+        [{ id: `${offer.tradeId}-a`, text, week }, ...state.events].slice(0, 20)
+
+      if (offer.kind === 'compute') {
+        const gpus = offer.gpus ?? 0
+        return {
+          ...accepted,
+          gpuCards: state.gpuCards + gpus,
+          events: note(
+            `You bought ${gpus} GPU${gpus > 1 ? 's' : ''} from ${offer.fromName} for $${offer.price.toLocaleString()}.`,
+          ),
+        }
+      }
+      if (offer.kind === 'research') {
+        const id = offer.researchId ?? ''
+        const name = RESEARCH_MAP[id]?.name ?? 'their findings'
+        if (state.researched.includes(id)) {
+          return decline(`You already know ${name}, so ${offer.fromName}'s offer was no use to you.`)
+        }
+        return {
+          ...accepted,
+          researched: [...state.researched, id],
+          researching: state.researching.filter((r) => r.id !== id),
+          events: note(`You licensed ${name} from ${offer.fromName} for $${offer.price.toLocaleString()}.`),
+        }
+      }
+      return {
+        ...accepted,
+        pacts: [
+          ...state.pacts.filter((p) => p.playerId !== offer.fromId),
+          { playerId: offer.fromId, name: offer.fromName, weeksLeft: offer.weeks ?? PACT_WEEKS },
+        ],
+        events: note(`You signed a non-aggression pact with ${offer.fromName}.`),
+      }
+    }
+    case 'TRADE_RESULT': {
+      const sent = state.sentTrade
+      if (!sent || sent.offer.tradeId !== action.tradeId) return state
+      const offer = sent.offer
+      const week = globalWeek(state)
+      const note = (text: string): GameEvent[] =>
+        [{ id: `${offer.tradeId}-r`, text, week }, ...state.events].slice(0, 20)
+
+      if (!action.accepted) {
+        return {
+          ...state,
+          // whatever was held for the deal comes back
+          gpuCards: offer.kind === 'compute' ? state.gpuCards + (offer.gpus ?? 0) : state.gpuCards,
+          sentTrade: undefined,
+          events: note(`${sent.targetName} turned your offer down.`),
+        }
+      }
+      if (offer.kind === 'pact') {
+        return {
+          ...state,
+          sentTrade: undefined,
+          pacts: [
+            ...state.pacts.filter((p) => p.playerId !== sent.targetId),
+            { playerId: sent.targetId, name: sent.targetName, weeksLeft: offer.weeks ?? PACT_WEEKS },
+          ],
+          events: note(`${sent.targetName} signed your non-aggression pact.`),
+        }
+      }
+      const what =
+        offer.kind === 'compute'
+          ? `${offer.gpus} GPU${(offer.gpus ?? 0) > 1 ? 's' : ''}`
+          : (RESEARCH_MAP[offer.researchId ?? '']?.name ?? 'your research')
+      return {
+        ...state,
+        money: state.money + offer.price,
+        sentTrade: undefined,
+        events: note(`${sent.targetName} bought ${what} for $${offer.price.toLocaleString()}.`),
+      }
+    }
+    case 'BREAK_PACT': {
+      const pact = state.pacts.find((p) => p.playerId === action.playerId)
+      if (!pact) return state
+      const lost = Math.round(state.followers * PACT_BREAK_FOLLOWER_LOSS)
+      return {
+        ...state,
+        followers: Math.max(0, state.followers - lost),
+        pacts: state.pacts.filter((p) => p.playerId !== action.playerId),
+        outbox: {
+          t: 'pactBroken',
+          id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          targetId: action.playerId,
+          // how they address you, so their copy of the pact can be found
+          from: action.selfId,
+        },
+        events: [
+          {
+            id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            text: `You tore up your pact with ${pact.name}. Word got round and you lost ${lost.toLocaleString()} followers.`,
+            week: globalWeek(state),
+          },
+          ...state.events,
+        ].slice(0, 20),
+      }
+    }
+    case 'PACT_BROKEN': {
+      const pact = state.pacts.find((p) => p.playerId === action.from || p.name === action.from)
+      if (!pact) return state
+      return {
+        ...state,
+        pacts: state.pacts.filter((p) => p.playerId !== pact.playerId),
+        events: [
+          {
+            id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            text: `${pact.name} tore up your non-aggression pact. Watch your back.`,
+            week: globalWeek(state),
+          },
+          ...state.events,
+        ].slice(0, 20),
       }
     }
     case 'SET_IN_RACE':

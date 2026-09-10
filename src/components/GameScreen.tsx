@@ -7,7 +7,7 @@ import { StaffMenu } from './StaffMenu'
 import { VictoryModal } from './VictoryModal'
 import { Standings } from './Standings'
 import type { LobbyPlayer } from '../game/multiplayer'
-import type { AttackKind, StaffCard } from '../game/types'
+import type { AttackKind, StaffCard, TradeKind } from '../game/types'
 import { BidModal } from './BidModal'
 import { HirePanel } from './HirePanel'
 import { ResearchPanel } from './ResearchPanel'
@@ -18,6 +18,8 @@ import { CompetitorsPanel } from './CompetitorsPanel'
 import { CompanyPanel } from './CompanyPanel'
 import { AdsPanel } from './AdsPanel'
 import { GovernmentPanel } from './GovernmentPanel'
+import { TradingPanel } from './TradingPanel'
+import { TradeModal } from './TradeModal'
 import { NewsFeed } from './NewsFeed'
 import { SideNav } from './SideNav'
 import type { PanelId } from './SideNav'
@@ -59,6 +61,15 @@ interface Props {
   onAttackPlayer: (targetId: string, targetName: string, kind: AttackKind) => void
   onBidForStaff: (targetId: string, targetName: string, staff: StaffCard, amount: number) => void
   onResolveBid: (matched: boolean) => void
+  onOfferTrade: (
+    targetId: string,
+    targetName: string,
+    kind: TradeKind,
+    price: number,
+    extra: { gpus?: number; researchId?: string },
+  ) => void
+  onResolveTrade: (accepted: boolean) => void
+  onBreakPact: (playerId: string) => void
   onKickPlayer: (playerId: string, nickname: string) => void
   onRaiseInvestment: () => void
   onStartPromo: (id: string, kind: PromoKind) => void
@@ -99,6 +110,9 @@ export function GameScreen({
   onAttackPlayer,
   onBidForStaff,
   onResolveBid,
+  onOfferTrade,
+  onResolveTrade,
+  onBreakPact,
   onKickPlayer,
   onRaiseInvestment,
   onStartPromo,
@@ -160,7 +174,7 @@ export function GameScreen({
       />
 
       <div className="game-body">
-        <SideNav state={state} panel={panel} onOpen={setPanel} />
+        <SideNav state={state} panel={panel} racing={Boolean(race)} onOpen={setPanel} />
 
         <div className="office-wrap">
           <OfficeView
@@ -240,12 +254,22 @@ export function GameScreen({
             onClose={() => setPanel(null)}
           />
         )}
+        {panel === 'trading' && (
+          <TradingPanel
+            state={state}
+            race={race}
+            onOfferTrade={onOfferTrade}
+            onBreakPact={onBreakPact}
+            onClose={() => setPanel(null)}
+          />
+        )}
         {panel === 'government' && (
           <GovernmentPanel state={state} onHireLobbyists={onHireLobbyists} onClose={() => setPanel(null)} />
         )}
       </div>
 
       {state.pendingBid && <BidModal state={state} onResolve={onResolveBid} />}
+      {state.pendingTrade && <TradeModal state={state} onResolve={onResolveTrade} />}
 
       {race?.winner ? (
         <div className="event-overlay">

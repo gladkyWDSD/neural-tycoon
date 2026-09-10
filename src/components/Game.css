@@ -1096,3 +1096,125 @@
   color: var(--text-dim);
   font-size: 16px;
 }
+
+/* ------------------------------------------------------------ trading tab */
+
+.trade-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.trade-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.trade-players {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.trade-player {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  text-align: left;
+  font-size: 10px;
+  padding: 8px 12px;
+}
+
+.trade-player.active {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.trade-player-name {
+  font-size: 10px;
+}
+
+.trade-kinds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.hire-btn.active {
+  border-color: var(--accent-2);
+  color: var(--accent-2);
+}
+
+.hire-btn.danger:not(:disabled):hover {
+  background: var(--danger);
+  color: #0b0c11;
+}
+
+.trade-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-end;
+}
+
+.trade-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.trade-field.wide {
+  flex: 1 1 220px;
+}
+
+.trade-field input,
+.trade-field select {
+  font-family: var(--mono);
+  font-size: 20px;
+  background: #0b0c11;
+  color: var(--text);
+  border: 2px solid var(--border);
+  padding: 6px 8px;
+  width: 160px;
+}
+
+.trade-field.wide select {
+  width: 100%;
+}
+
+.trade-label {
+  font-family: var(--pixel-font);
+  font-size: 8px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.trade-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 10px;
+  background: var(--panel-2);
+  border: 2px solid var(--border-dark);
+}
+
+.trade-who {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 16px;
+}
+
+.trade-send {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}

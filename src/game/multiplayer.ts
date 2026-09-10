@@ -1,4 +1,4 @@
-import type { AttackKind, Difficulty, Staff, StaffBid, StaffCard } from './types'
+import type { AttackKind, Difficulty, Staff, StaffBid, StaffCard, TradeOffer } from './types'
 import { DEFAULT_DIFFICULTY } from './constants'
 
 // Peer-to-peer lobbies. The site is a static page with no server of its own, so
@@ -79,8 +79,18 @@ type Message =
   | { t: 'attack'; to: string; from: string; kind: AttackKind }
   | { t: 'bid'; to: string; bid: StaffBid }
   | { t: 'bidResult'; to: string; bidId: string; matched: boolean; staff?: Staff }
+  | { t: 'trade'; to: string; offer: TradeOffer }
+  | { t: 'tradeResult'; to: string; tradeId: string; accepted: boolean }
+  | { t: 'pactBroken'; to: string; from: string }
   | { t: 'kicked' }
   | { t: 'pause'; paused: boolean }
+
+/** Messages meant for one player rather than the room. The host relays these. */
+const ADDRESSED = ['attack', 'bid', 'bidResult', 'trade', 'tradeResult', 'pactBroken'] as const
+type Addressed = Extract<Message, { to: string }>
+function isAddressed(msg: Message): msg is Addressed {
+  return (ADDRESSED as readonly string[]).includes(msg.t)
+}
 
 interface PeerConn {
   peer: string
@@ -137,6 +147,9 @@ export class LobbySession {
   private attackListeners = new Set<(kind: AttackKind, from: string) => void>()
   private bidListeners = new Set<(bid: StaffBid) => void>()
   private bidResultListeners = new Set<(bidId: string, matched: boolean, staff?: Staff) => void>()
+  private tradeListeners = new Set<(offer: TradeOffer) => void>()
+  private tradeResultListeners = new Set<(tradeId: string, accepted: boolean) => void>()
+  private pactBrokenListeners = new Set<(from: string) => void>()
   private kickListeners = new Set<() => void>()
   private pauseListeners = new Set<(paused: boolean) => void>()
   private wasKicked = false
@@ -153,6 +166,9 @@ export class LobbySession {
     if (msg.t === 'attack') this.receiveAttack(msg.kind, msg.from)
     else if (msg.t === 'bid') for (const fn of this.bidListeners) fn(msg.bid)
     else if (msg.t === 'bidResult') for (const fn of this.bidResultListeners) fn(msg.bidId, msg.matched, msg.staff)
+    else if (msg.t === 'trade') for (const fn of this.tradeListeners) fn(msg.offer)
+    else if (msg.t === 'tradeResult') for (const fn of this.tradeResultListeners) fn(msg.tradeId, msg.accepted)
+    else if (msg.t === 'pactBroken') for (const fn of this.pactBrokenListeners) fn(msg.from)
   }
 
   private receiveAttack(kind: AttackKind, from: string) {
@@ -163,6 +179,24 @@ export class LobbySession {
   onBid(fn: (bid: StaffBid) => void): () => void {
     this.bidListeners.add(fn)
     return () => this.bidListeners.delete(fn)
+  }
+
+  /** Called when another player offers this game a deal. */
+  onTrade(fn: (offer: TradeOffer) => void): () => void {
+    this.tradeListeners.add(fn)
+    return () => this.tradeListeners.delete(fn)
+  }
+
+  /** Called when a deal you proposed is answered. */
+  onTradeResult(fn: (tradeId: string, accepted: boolean) => void): () => void {
+    this.tradeResultListeners.add(fn)
+    return () => this.tradeResultListeners.delete(fn)
+  }
+
+  /** Called when someone tears up their pact with you. */
+  onPactBroken(fn: (from: string) => void): () => void {
+    this.pactBrokenListeners.add(fn)
+    return () => this.pactBrokenListeners.delete(fn)
   }
 
   /** Called when the owner of an employee answers your offer. */
@@ -237,6 +271,20 @@ export class LobbySession {
     this.route({ t: 'bidResult', to: targetId, bidId, matched, staff })
   }
 
+  /** Put a deal in front of another player. */
+  sendTrade(targetId: string, offer: TradeOffer) {
+    this.route({ t: 'trade', to: targetId, offer })
+  }
+
+  sendTradeResult(targetId: string, tradeId: string, accepted: boolean) {
+    this.route({ t: 'tradeResult', to: targetId, tradeId, accepted })
+  }
+
+  /** Tell someone their pact with you is over. */
+  sendPactBroken(targetId: string, from: string) {
+    this.route({ t: 'pactBroken', to: targetId, from })
+  }
+
   /** The id other players use to address this game. */
   get addressId(): string {
     return this.state.isHost ? 'host' : this.state.selfId
@@ -309,7 +357,7 @@ export class LobbySession {
   }
 
   private onHostMessage(conn: PeerConn, msg: Message) {
-    if (msg.t === 'attack' || msg.t === 'bid' || msg.t === 'bidResult') {
+    if (isAddressed(msg)) {
       // the host is the post office: either it lands here or it goes on to its target
       if (msg.to === 'host') this.deliver(msg)
       else {
@@ -415,7 +463,7 @@ export class LobbySession {
           this.wasKicked = true
           for (const fn of this.kickListeners) fn()
           this.emit({ phase: 'idle', players: [], code: null, error: 'The host removed you from the game.' })
-        } else if (msg.t === 'attack' || msg.t === 'bid' || msg.t === 'bidResult') {
+        } else if (isAddressed(msg)) {
           this.deliver(msg)
         }
       })

@@ -58,6 +58,8 @@ export function CompetitorsPanel({ state, onPoach, onClose, race, onAttackPlayer
 
   const totalCustomers = entries.reduce((sum, e) => sum + e.customers, 0)
   const share = totalCustomers > 0 ? Math.round((playerCustomers / totalCustomers) * 100) : 0
+  // a pact is a promise the rules keep: no swarming or hacking whoever you signed with
+  const pactWith = (id: string) => state.pacts.find((pact) => pact.playerId === id)
 
   return (
     <div className="panel">
@@ -95,11 +97,13 @@ export function CompetitorsPanel({ state, onPoach, onClose, race, onAttackPlayer
                     <span className="comp-attacks">
                       <button
                         className="hire-btn"
-                        disabled={!botsReady}
+                        disabled={!botsReady || Boolean(pactWith(p.id))}
                         title={
-                          botsIn > 0
-                            ? `Your bot farm is lying low for ${botsIn}wk`
-                            : `Swarm them with bots. $${BOT_ATTACK_COST.toLocaleString()}, and they may trace it back to you.`
+                          pactWith(p.id)
+                            ? `Your pact with ${p.nickname} holds for ${Math.ceil(pactWith(p.id)?.weeksLeft ?? 0)} more weeks. Break it in Trading first.`
+                            : botsIn > 0
+                              ? `Your bot farm is lying low for ${botsIn}wk`
+                              : `Swarm them with bots. $${BOT_ATTACK_COST.toLocaleString()}, and they may trace it back to you.`
                         }
                         onClick={() => onAttackPlayer(p.id, p.nickname, 'bots')}
                       >
@@ -121,11 +125,13 @@ export function CompetitorsPanel({ state, onPoach, onClose, race, onAttackPlayer
                       </button>
                       <button
                         className="hire-btn"
-                        disabled={!hackReady}
+                        disabled={!hackReady || Boolean(pactWith(p.id))}
                         title={
-                          hackIn > 0
-                            ? `Your hackers are cooling off for ${hackIn}wk`
-                            : `Break into their labs and damage their models. $${HACKER_COST.toLocaleString()}, with a real chance of a fine.`
+                          pactWith(p.id)
+                            ? `Your pact with ${p.nickname} holds for ${Math.ceil(pactWith(p.id)?.weeksLeft ?? 0)} more weeks. Break it in Trading first.`
+                            : hackIn > 0
+                              ? `Your hackers are cooling off for ${hackIn}wk`
+                              : `Break into their labs and damage their models. $${HACKER_COST.toLocaleString()}, with a real chance of a fine.`
                         }
                         onClick={() => onAttackPlayer(p.id, p.nickname, 'hackers')}
                       >

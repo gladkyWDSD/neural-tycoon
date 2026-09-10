@@ -48,11 +48,40 @@ export interface StaffBid {
   amount: number
 }
 
+/** What one player is offering another in the Trading tab. */
+export type TradeKind = 'compute' | 'research' | 'pact'
+
+export interface TradeOffer {
+  tradeId: string
+  /** the player making the offer, as everyone else addresses them */
+  fromId: string
+  fromName: string
+  kind: TradeKind
+  /** what they are asking for it, in cash */
+  price: number
+  /** compute deals: how many GPU cards change hands */
+  gpus?: number
+  /** research deals: the item whose findings are being licensed */
+  researchId?: string
+  /** pacts: how many weeks of peace are being promised */
+  weeks?: number
+}
+
+/** An agreement not to attack, live until it runs out or someone breaks it. */
+export interface Pact {
+  playerId: string
+  name: string
+  weeksLeft: number
+}
+
 /** Something the local game has decided and now needs to send over the wire. */
 export type Outbound =
   | { t: 'attack'; id: string; targetId: string; targetName: string; kind: AttackKind }
   | { t: 'bid'; id: string; targetId: string; bid: StaffBid }
   | { t: 'bidResult'; id: string; targetId: string; bidId: string; matched: boolean; staff?: Staff }
+  | { t: 'trade'; id: string; targetId: string; offer: TradeOffer }
+  | { t: 'tradeResult'; id: string; targetId: string; tradeId: string; accepted: boolean }
+  | { t: 'pactBroken'; id: string; targetId: string; from: string }
 
 export interface ResearchItem {
   id: string
@@ -225,6 +254,12 @@ export interface GameState {
   pendingBid?: StaffBid
   /** an offer you have made and are waiting on */
   sentBid?: { bidId: string; amount: number; staffName: string; targetName: string }
+  /** another player wants to trade and you must answer */
+  pendingTrade?: TradeOffer
+  /** a trade you have proposed and are waiting on */
+  sentTrade?: { offer: TradeOffer; targetId: string; targetName: string }
+  /** non-aggression agreements with other players */
+  pacts: Pact[]
   isPublic: boolean
   /** set once the company is worth WIN_VALUATION: the run is won */
   won: boolean

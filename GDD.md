@@ -386,6 +386,26 @@ Rivals get the same weapons the player does. Besides buying hype bots and poachi
 
 The current risk is shown in the Ads panel, which is also where you launch your own swarms.
 
+### Trading (multiplayer only)
+
+The Trading tab is where players deal with each other instead of fighting. It appears in the left
+rail once a race is running, and every deal is an offer one player makes and another answers.
+
+- **Sell GPUs.** Name a number of cards and a price. The cards are held aside the moment the offer
+  goes out, so the same ones cannot be sold twice, and they come back if the offer is refused. New
+  cards cost $5,000 each, which is the only price anchor either side has.
+- **License research.** Offer any item you have finished. If they accept, it lands on them
+  completed: no researcher time, no waiting. You keep your own copy and the money. Research they
+  already know is refused rather than paid for.
+- **Non-aggression pact.** No money, only a promise. For **20 weeks** neither side can swarm or
+  hack the other, and the buttons in Competitors say so. Poaching still works, both ways.
+  Either side can tear a pact up early, which frees them to attack again and costs them **15%**
+  of their followers in public standing. The other player is told at once.
+
+Only one offer can be on the table at a time, in either direction. A pact runs down on the same
+clock as research and training, and a save reloaded mid-race keeps neither pacts nor offers,
+because both belong to a connection rather than to a company.
+
 ---
 
 ## 10. Tech & Art

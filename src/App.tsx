@@ -46,6 +46,13 @@ export default function App() {
   // dirty tricks aimed at this company by another player
   useEffect(() => session.onAttack((kind, from) => dispatch({ type: 'INCOMING_ATTACK', kind, from })), [session])
   useEffect(() => session.onBid((bid) => dispatch({ type: 'INCOMING_BID', bid })), [session])
+  // deals struck in the Trading tab, coming the other way
+  useEffect(() => session.onTrade((offer) => dispatch({ type: 'INCOMING_TRADE', offer })), [session])
+  useEffect(
+    () => session.onTradeResult((tradeId, accepted) => dispatch({ type: 'TRADE_RESULT', tradeId, accepted })),
+    [session],
+  )
+  useEffect(() => session.onPactBroken((from) => dispatch({ type: 'PACT_BROKEN', from })), [session])
   // the host halting the race halts everyone's clock, not just their own
   useEffect(() => session.onPause((paused) => dispatch({ type: 'SET_PAUSED', paused })), [session])
   useEffect(
@@ -63,7 +70,10 @@ export default function App() {
     if (!out) return
     if (out.t === 'attack') session.sendAttack(out.targetId, out.kind)
     else if (out.t === 'bid') session.sendBid(out.targetId, out.bid)
-    else session.sendBidResult(out.targetId, out.bidId, out.matched, out.staff)
+    else if (out.t === 'bidResult') session.sendBidResult(out.targetId, out.bidId, out.matched, out.staff)
+    else if (out.t === 'trade') session.sendTrade(out.targetId, out.offer)
+    else if (out.t === 'tradeResult') session.sendTradeResult(out.targetId, out.tradeId, out.accepted)
+    else session.sendPactBroken(out.targetId, out.from)
     dispatch({ type: 'CLEAR_OUTBOX' })
   }, [state.outbox, session])
 
@@ -312,6 +322,22 @@ export default function App() {
             })
           }
           onResolveBid={(matched) => dispatch({ type: 'RESOLVE_BID', matched })}
+          onOfferTrade={(targetId, targetName, kind, price, extra) =>
+            dispatch({
+              type: 'OFFER_TRADE',
+              targetId,
+              targetName,
+              fromId: session.addressId,
+              fromName:
+                lobby.players.find((p) => (lobby.isHost ? p.isHost : p.id === lobby.selfId))?.nickname ?? 'A rival',
+              kind,
+              price,
+              gpus: extra.gpus,
+              researchId: extra.researchId,
+            })
+          }
+          onResolveTrade={(accepted) => dispatch({ type: 'RESOLVE_TRADE', accepted })}
+          onBreakPact={(playerId) => dispatch({ type: 'BREAK_PACT', playerId, selfId: session.addressId })}
           onKickPlayer={(playerId, nickname) => {
             session.kick(playerId)
             dispatch({ type: 'NOTE', text: `🚪 You removed ${nickname} from the race.` })

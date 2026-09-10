@@ -15,6 +15,7 @@ export type PanelId =
   | 'competitors'
   | 'company'
   | 'government'
+  | 'trading'
   | null
 
 interface Tile {
@@ -36,7 +37,7 @@ function compact(n: number): string {
 }
 
 /** Every readout is also the way into the panel behind it. */
-function tilesFor(state: GameState): Tile[] {
+function tilesFor(state: GameState, racing: boolean): Tile[] {
   const training = state.models.filter((m) => m.status === 'training')
   const ready = state.models.filter((m) => m.status === 'ready').length
   const live = state.models.filter((m) => m.status === 'published').length
@@ -107,6 +108,18 @@ function tilesFor(state: GameState): Tile[] {
       note: 'bots · hackers · press',
       title: 'Bot swarms, hackers and paid journalists',
     },
+    ...(racing
+      ? [
+          {
+            id: 'trading' as const,
+            label: 'Trading',
+            value: state.pacts.length > 0 ? `${state.pacts.length} pact${state.pacts.length > 1 ? 's' : ''}` : 'Deals',
+            note: state.sentTrade ? `offer with ${state.sentTrade.targetName}` : 'compute · research · pacts',
+            busy: Boolean(state.sentTrade),
+            title: 'Sell compute, license research and sign pacts with the other players',
+          },
+        ]
+      : []),
     {
       id: 'government',
       label: 'Regulation',
@@ -118,14 +131,16 @@ function tilesFor(state: GameState): Tile[] {
   ]
 }
 
-export function SideNav({ state, panel, onOpen }: {
+export function SideNav({ state, panel, racing, onOpen }: {
   state: GameState
   panel: PanelId
+  /** the Trading tab only exists while a race is running */
+  racing: boolean
   onOpen: (id: PanelId) => void
 }) {
   return (
     <nav className="sidenav">
-      {tilesFor(state).map((t) => (
+      {tilesFor(state, racing).map((t) => (
         <button
           key={t.id}
           className={`nav-tile ${panel === t.id ? 'active' : ''} ${t.busy ? 'busy' : ''}`}

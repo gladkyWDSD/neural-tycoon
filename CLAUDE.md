@@ -63,6 +63,15 @@ each player simulates their own economy, and the only reducer involvement is `ST
 resets to a fresh company on the agreed difficulty. `App.tsx` owns the one session instance and
 reports the local valuation every 3s while a race is running.
 
+Anything aimed at one player rather than the room (attacks, poaching bids, trades, pacts) is
+listed in `ADDRESSED` in `multiplayer.ts` and relayed by the host; add a new message to that array
+or it will be dropped in one of the three places messages are handled. The reducer never sends:
+it parks the decision in `state.outbox` and `App.tsx` puts it on the wire and clears the slot.
+Incoming messages come back as actions (`INCOMING_TRADE`, `TRADE_RESULT`, `PACT_BROKEN`, and the
+bid equivalents). Goods are escrowed when an offer is sent and refunded if it is refused, so a
+deal in flight cannot be spent twice. Session-only fields (`outbox`, `pendingBid`, `sentBid`,
+`pendingTrade`, `sentTrade`, `pacts`) are cleared by `migrateState` on load.
+
 **Difficulty presets.** `DIFFICULTIES` in `constants.ts` sets the week length (`tickMs`, read by
 the `App.tsx` clock) plus the player and rival growth multipliers (read by `advanceOneWeek` via
 `settingsOf(state)`). Never reintroduce a global growth constant; the run's preset is the source
@@ -85,7 +94,7 @@ is added to `GameState`/`AIModel`/`ResearchProgress`, add a corresponding fallba
 `naming` → `main`, with `title` → `lobby` → `main` for multiplayer), driven by `state.screen` and
 rendered by `App.tsx`. Once in `main`,
 `GameScreen` manages a separate local `panel` selection (hire/build/research/twitter/datacenters/
-competitors/company/ads/government) via its own `useState` — panel switching is UI-only navigation,
+competitors/company/ads/government/trading) via its own `useState` — panel switching is UI-only navigation,
 not part of `GameState`/the reducer. There is no button bar: every panel is opened from a readout of the thing
 it contains. The left rail (`SideNav.tsx`) shows live figures — staff count, weeks of research
 left, GPUs, followers — and each tile opens its panel; the top bar's valuation, cash and company
