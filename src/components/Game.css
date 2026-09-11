@@ -1398,3 +1398,13 @@
   margin: 18px 0 4px;
   text-align: left;
 }
+
+/* the company behind a rival's logo */
+.comp-company {
+  font-family: var(--mono);
+  font-size: 15px;
+  line-height: 1.35;
+  color: var(--text-dim);
+  margin: 2px 0 8px;
+  padding: 0 2px;
+}

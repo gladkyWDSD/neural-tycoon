@@ -371,6 +371,35 @@ Rivals are deliberately hard to overtake:
 In practice this leaves rivals roughly **2x larger** than they used to be at the same point in a
 run, and pushes the $1B IPO out by about a third.
 
+### Rival companies
+
+Rivals are companies, not growth curves. Each of the six labs runs its own week inside
+`runRivalWeek`, on the same scale the player does:
+
+- **Income** from everyone using its models, at $0.50 a user a week.
+- **Costs**: every head on the payroll, and the power for every card.
+- **Hiring**, one person at a time, when the books can carry them. A lab staffs up to what its
+  revenue supports or what its bank will carry for 45 weeks, whichever is higher, so a funded lab
+  with no product still grows. The roles it picks are whatever it is short of: engineers when the
+  researchers outnumber them, marketers and lawyers once it is big enough to need them.
+- **Hardware**: nine cards per engineer, bought in batches when the money is there.
+- **Research**, earned by researchers and spent on levels that cost more each time.
+- **Building**: with an engineer and a few cards it starts its next model. Training takes nine to
+  twenty-eight weeks depending on its engineers and cards, and what comes out is decided by
+  `rivalQuality`: research levels, researchers, engineers and cards, softened the same way the
+  player's quality is.
+- **Succession**: a new model takes 60% of the users of whatever it replaces, and the old one
+  becomes a legacy product that barely grows. A lab runs at most four products at once.
+
+Two consequences worth knowing. A lab that stops earning stops hiring, stops researching and stops
+shipping, and falls behind for good. And a model's quality only creeps up to what its lab could
+build today, so the state of the art now moves because somebody invested in it rather than because
+a number ticks every week.
+
+Each lab has a personality: ClosedAI is ambitious and aggressive, Gargle Brain is the biggest
+spender and rarely attacks, Anpolus is research-heavy and quiet, xLab is small and picks fights.
+Poaching one of their people really does take them off that lab's payroll.
+
 ### Rival Dirty Tricks
 
 Rivals get the same weapons the player does. Besides buying hype bots and poaching staff, from

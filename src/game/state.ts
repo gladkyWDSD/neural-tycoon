@@ -90,9 +90,7 @@ import {
   MAX_OFFICE_LEVEL,
   DEFAULT_DIFFICULTY,
   DIFFICULTY_MAP,
-  COMPETITOR_MAX_MODELS,
   COMPETITOR_QUALITY_CREEP,
-  COMPETITOR_RELEASE_CHANCE,
   IPO_RAISE_SHARE,
   IPO_VALUATION,
   VALUATION_PER_CUSTOMER,
@@ -153,7 +151,7 @@ import {
   usesTrendingHashtag,
 } from './social'
 import { DATACENTER_BUILD_WEEKS, DATACENTER_COST, ELECTRICITY_PER_CARD_WEEK, GPU_CARD_COST, RAM_COST, RENT_DISPUTE_CHANCE, RENT_WEEKLY_FEE, SSD_COST, activeCards, gpuQualityFactor, ssdQualityBonus } from './gpu'
-import { COMPETITOR_SEED, generateCompetitorModel, marketSaturation, stateOfTheArt } from './competitors'
+import { COMPETITOR_SEED, marketSaturation, rivalQuality, runRivalWeek, stateOfTheArt } from './competitors'
 import { pickRandomEvent } from './events'
 import {
   canTrain,
@@ -415,7 +413,25 @@ export function migrateState(raw: Partial<GameState>): GameState {
       // courses that were in flight under the old points system finish as one level
       toLevel: t.toLevel ?? ((raw.staff ?? []).find((s) => s.id === t.staffId)?.level ?? 1) + 1,
     })),
-    competitors: (raw.competitors ?? base.competitors).map((c) => ({ ...c, followers: c.followers ?? 100000 })),
+    // A save from before rivals ran their own books has models but no company
+    // behind them. Rather than guess, the seed's company is put back and sized
+    // to whatever that rival has grown into since.
+    competitors: (raw.competitors ?? base.competitors).map((c) => {
+      const seed = COMPETITOR_SEED.find((s) => s.id === c.id)
+      const users = (c.models ?? []).reduce((sum, m) => sum + (m.customers ?? 0), 0)
+      return {
+        ...c,
+        followers: c.followers ?? 100000,
+        money: c.money ?? seed?.money ?? 2_000_000,
+        staff: c.staff ?? seed?.staff ?? { researcher: 4, engineer: 4, marketer: 2, lawyer: 1 },
+        gpus: c.gpus ?? seed?.gpus ?? 20,
+        researchPoints: c.researchPoints ?? 0,
+        researchLevel: c.researchLevel ?? seed?.researchLevel ?? Math.min(12, Math.round(users / 40_000) + 2),
+        training: c.training ?? null,
+        ambition: c.ambition ?? seed?.ambition ?? 1,
+        aggression: c.aggression ?? seed?.aggression ?? 0.4,
+      }
+    }),
     events: raw.events ?? base.events,
     trendingHashtag: raw.trendingHashtag ?? base.trendingHashtag,
     trendingSetWeek: raw.trendingSetWeek ?? 0,
@@ -812,39 +828,37 @@ function advanceOneWeek(state: GameState): GameState {
     )
   }
 
-  // competitors grow their own models + improve quality + gain followers
-  let competitors = state.competitors.map((c) => ({
-    ...c,
-    followers: c.followers + Math.round(c.followers * 0.0015),
-    models: c.models.map((cm) => {
-      if (cm.releaseWeek > week) return cm
-      const sat = marketSaturation(cm.typeId, week, playerCustomersIn(cm.typeId), state.competitors)
-      const followerFactor = 1 + c.followers / 2000000
-      const growth = Math.round(cm.growthBase * (cm.quality / 100) * sat * followerFactor * tuning.competitorGrowth)
-      return {
-        ...cm,
-        customers: cm.customers + growth,
-        quality: Math.min(99, cm.quality + COMPETITOR_QUALITY_CREEP),
-      }
-    }),
-  }))
-
-  // competitors occasionally release new models
-  let releaseEvent: string | null = null
-  if (Math.random() < COMPETITOR_RELEASE_CHANCE) {
-    const idx = Math.floor(Math.random() * state.competitors.length)
-    const c = competitors[idx]
-    const newModel = generateCompetitorModel(c, week)
-    let kept = c.models
-    if (kept.length >= COMPETITOR_MAX_MODELS) {
-      // the successor replaces their oldest product and inherits its users
-      const oldest = kept.reduce((a, b) => (a.releaseWeek <= b.releaseWeek ? a : b))
-      newModel.customers += oldest.customers
-      kept = kept.filter((m) => m.id !== oldest.id)
+  // Rivals are companies, not curves. Each one takes its own week: earns from
+  // the people using its models, pays its staff and its power bill, hires,
+  // buys cards, researches and builds whatever it ships next.
+  const rivalNews: string[] = []
+  let competitors = state.competitors.map((c) => {
+    const grown = {
+      ...c,
+      followers: c.followers + Math.round(c.followers * 0.0015),
+      models: c.models.map((cm) => {
+        if (cm.releaseWeek > week) return cm
+        const sat = marketSaturation(cm.typeId, week, playerCustomersIn(cm.typeId), state.competitors)
+        const followerFactor = 1 + c.followers / 2000000
+        const growth = Math.round(cm.growthBase * (cm.quality / 100) * sat * followerFactor * tuning.competitorGrowth)
+        // Polish, but only up to what the lab could actually build today. A
+        // shop that has stopped researching stops improving, which is the
+        // whole point of them having books of their own.
+        const ceiling = Math.max(cm.quality, Math.min(99, rivalQuality(c)))
+        return {
+          ...cm,
+          customers: cm.customers + growth,
+          quality: Math.min(ceiling, cm.quality + COMPETITOR_QUALITY_CREEP),
+        }
+      }),
     }
-    competitors = competitors.map((cc, i) => (i === idx ? { ...cc, models: [...kept, newModel] } : cc))
-    releaseEvent = `${c.icon} ${c.name} released a new model: ${newModel.name} (quality ${newModel.quality})!`
-  }
+    const out = runRivalWeek(grown, week, tuning.competitorGrowth)
+    if (out.news) rivalNews.push(out.news)
+    return out.competitor
+  })
+
+  // at most one rival headline a week, or the feed is nothing but them
+  const releaseEvent = rivalNews.length > 0 ? rivalNews[Math.floor(Math.random() * rivalNews.length)] : null
 
   // competitors occasionally buy their own wave of hype bots
   let competitorBotEvent: string | null = null
@@ -2218,8 +2232,12 @@ export function reducer(state: GameState, action: Action): GameState {
       const hire = generateCandidate(nat, role, 190, 200)
       const competitors = state.competitors.map((c) => {
         if (c.id !== action.competitorId) return c
+        // they are down a person, and it shows in what they can build next
+        const staff = { ...c.staff }
+        if (staff[role] > 0) staff[role] -= 1
         return {
           ...c,
+          staff,
           models: c.models.map((m) => ({ ...m, quality: Math.max(50, m.quality - 5) })),
         }
       })

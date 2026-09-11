@@ -77,6 +77,14 @@ the `App.tsx` clock) plus the player and rival growth multipliers (read by `adva
 `settingsOf(state)`). Never reintroduce a global growth constant; the run's preset is the source
 of truth.
 
+**Rivals simulate themselves.** `runRivalWeek` in `competitors.ts` is a whole company's week:
+income, payroll, hiring, hardware, research levels and the model it is building. `advanceOneWeek`
+grows their published models and then hands each rival to it. A rival's model quality comes from
+`rivalQuality(c)` rather than a constant, and the weekly polish on their live models is capped at
+what that lab could build today. Adding a rival behaviour belongs in `runRivalWeek`, not in the
+reducer, and anything added to `Competitor` needs a fallback in `migrateState` because saves carry
+the rival list.
+
 **Weekly pressure systems.** `advanceOneWeek` now runs four things in a fixed order that all read
 from the same week's numbers: enterprise contracts (paid, or lost on quality or reliability),
 serving capacity (users over `activeCards * USERS_PER_CARD` churn), safety debt (decays, then rolls

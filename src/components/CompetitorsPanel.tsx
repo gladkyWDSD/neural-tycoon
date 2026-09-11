@@ -15,6 +15,7 @@ import {
 import { staffPower } from '../game/hiring'
 import { formatMoney } from '../game/format'
 import { acquisitionCost } from '../game/state'
+import { rivalQuality, rivalStaffCount } from '../game/competitors'
 import './Game.css'
 
 interface Props {
@@ -251,6 +252,14 @@ export function CompetitorsPanel({
                 </button>
               )}
             </div>
+            <p className="comp-company">
+              {rivalStaffCount(c)} staff ({c.staff.researcher}R {c.staff.engineer}E {c.staff.marketer}M{' '}
+              {c.staff.lawyer}L) · {c.gpus} GPUs · research level {c.researchLevel} · can build quality{' '}
+              {rivalQuality(c)}
+              {c.training
+                ? ` · training ${c.training.name}, ${Math.ceil(c.training.weeksLeft)}wk left`
+                : ' · nothing in training'}
+            </p>
             {c.models.map((m) => {
               const t = MODEL_TYPE_MAP[m.typeId]
               const active = m.releaseWeek <= week

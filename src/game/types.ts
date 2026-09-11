@@ -210,12 +210,31 @@ export interface CompetitorModel {
   releaseWeek: number
 }
 
+/** The people a rival lab employs. They are counts, not individuals. */
+export interface RivalStaff {
+  researcher: number
+  engineer: number
+  marketer: number
+  lawyer: number
+}
+
 export interface Competitor {
   id: string
   name: string
   icon: string
   followers: number
   models: CompetitorModel[]
+  /** A rival is a company, not a growth curve: it earns, spends, hires and
+   *  builds, and what it ships comes out of what it has invested. */
+  money: number
+  staff: RivalStaff
+  gpus: number
+  researchPoints: number
+  researchLevel: number
+  training: { id: string; name: string; typeId: string; weeksLeft: number; totalWeeks: number } | null
+  /** how freely they spend, and how often they come at you */
+  ambition: number
+  aggression: number
 }
 
 export interface GameEvent {

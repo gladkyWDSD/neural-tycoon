@@ -122,7 +122,7 @@ export const DIFFICULTIES: DifficultySetting[] = [
     blurb: 'About an hour. Fast weeks, gentle rivals.',
     tickMs: 11000,
     playerGrowth: 0.5,
-    competitorGrowth: 1.2,
+    competitorGrowth: 1.05,
   },
   {
     id: 'medium',
@@ -130,7 +130,7 @@ export const DIFFICULTIES: DifficultySetting[] = [
     blurb: 'About two hours. A fair fight.',
     tickMs: 18000,
     playerGrowth: 0.3,
-    competitorGrowth: 1.8,
+    competitorGrowth: 1.4,
   },
   {
     id: 'long',
@@ -138,7 +138,7 @@ export const DIFFICULTIES: DifficultySetting[] = [
     blurb: 'Three to five hours. The full game.',
     tickMs: 30000,
     playerGrowth: 0.18,
-    competitorGrowth: 2.5,
+    competitorGrowth: 1.9,
   },
 ]
 
@@ -177,8 +177,33 @@ export const COMPETITOR_RELEASE_CHANCE = 0.28
 // A rival only supports so many products at once. Past this, a new release
 // replaces their oldest model and inherits its users, the way a real successor
 // does, instead of stacking another growth engine on the pile forever.
-export const COMPETITOR_MAX_MODELS = 5
+export const COMPETITOR_MAX_MODELS = 4
 export const COMPETITOR_QUALITY_CREEP = 0.3
+
+// ----------------------------------------------------------- rival companies
+// Rivals run their own books. These are the numbers their week is made of, kept
+// on the same scale as the player's so the ladder compares like with like.
+export const RIVAL_REV_PER_USER = 0.5
+export const RIVAL_SALARY = 4_200
+// what share of their weekly income a lab is willing to put into payroll
+export const RIVAL_PAYROLL_SHARE = 0.35
+// a funded lab staffs up to what its bank will carry for this long
+export const RIVAL_RUNWAY_WEEKS = 45
+// and the chance each week that an idle lab starts its next model
+export const RIVAL_START_CHANCE = 0.3
+// how much of an older model's crowd moves to a rival's successor
+export const RIVAL_SUCCESSION = 0.6
+export const RIVAL_HIRE_RUNWAY = 26 // weeks of a salary they want in the bank before hiring
+export const RIVAL_MAX_STAFF = 34
+export const RIVAL_GPU_COST = 5_000
+export const RIVAL_GPUS_PER_ENGINEER = 9
+export const RIVAL_ELECTRICITY = 400
+export const RIVAL_RESEARCH_PER_RESEARCHER = 1.1
+export const RIVAL_RESEARCH_COST = 34 // points for the next level
+export const RIVAL_TRAIN_MIN_WEEKS = 9
+export const RIVAL_TRAIN_MAX_WEEKS = 28
+export const RIVAL_FOLLOWERS_PER_MARKETER = 420
+export const RIVAL_QUALITY_SOFTNESS = 78
 
 export const CAMPAIGN_DURATION = 4
 export const CAMPAIGN_COOLDOWN = 10
