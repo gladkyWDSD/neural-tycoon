@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef } from 'react'
 import type { GameState, Staff } from '../game/types'
 import { playWorkSfx } from '../game/audio'
 import { SPRITE_H, SPRITE_W, drawCharacter, hash } from './sprites'
-import { Chatter, drawBubble, drawMoodPip } from './bubbles'
+import { Chatter, drawBubble } from './bubbles'
 import type { WorkKind } from './officeArt'
 import { SCALE, TILE, drawBurst, drawDesk, drawDeskProp, drawToilet, drawWorkIcon, drawWorkToken } from './officeArt'
 import {
@@ -190,9 +190,6 @@ const COURIER: Staff = {
   salary: 0,
   assignment: 'ops',
   traits: [],
-  morale: 70,
-  unhappyWeeks: 0,
-  noticeWeeks: null,
   lastAskWeek: 0,
   joinedWeek: 0,
   lastBreakWeek: 0,
@@ -435,10 +432,6 @@ export function OfficeView({ staff, state, desks, jobs, amenities, week, load, o
       // The mood marks and the bubbles go on last of all: the desks are drawn
       // over the people, and neither of these may be covered by a monitor.
       art()
-      for (const h of hits.current) {
-        const who = staff.find((s) => s.id === h.id)
-        if (who) drawMoodPip(ctx, h.x * SCALE, h.y * SCALE, who, now)
-      }
       for (const b of said.current) {
         const at = hits.current.find((h) => h.id === b.id)
         if (!at) continue

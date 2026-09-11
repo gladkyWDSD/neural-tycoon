@@ -1,5 +1,5 @@
 import type { GameState, Staff } from '../game/types'
-import { DELIGHTED, UNHAPPY, chatterFor, hasTrait } from '../game/people'
+import { chatterFor, hasTrait } from '../game/people'
 import { px } from './officeArt'
 
 // What the room sounds like.
@@ -48,15 +48,13 @@ export class Chatter {
     this.next = now + GAP_MIN_MS + Math.random() * GAP_JITTER_MS
     if (this.bubbles.length >= this.most) return this.bubbles
 
-    // whoever has something on their mind is likelier to say it
+    // the loud ones talk more often, which is the only thing that decides it
     const weighted = people.map((s) => {
-      const morale = s.morale ?? 70
       let w = 1
-      if (morale < UNHAPPY) w += 2.5
-      if (morale >= DELIGHTED) w += 1
-      if (s.noticeWeeks != null) w += 3
-      if (hasTrait(s, 'showman')) w += 1
-      return { s, w }
+      if (hasTrait(s, 'showman')) w += 1.5
+      if (hasTrait(s, 'mentor')) w += 0.8
+      if (hasTrait(s, 'steady')) w -= 0.4
+      return { s, w: Math.max(0.2, w) }
     })
     const total = weighted.reduce((sum, x) => sum + x.w, 0)
     let roll = Math.random() * total
@@ -144,38 +142,4 @@ export function drawBubble(
   })
 
   if (pop < 1) ctx.restore()
-}
-
-/**
- * The little mood mark over somebody's head.
- *
- * Only drawn when there is something to say about it: a red bolt when they are
- * unhappy enough to be a problem, a green note when they are having the time
- * of their life, and a door when they are working their notice.
- */
-export function drawMoodPip(ctx: CanvasRenderingContext2D, x: number, y: number, s: Staff, now: number): void {
-  const morale = s.morale ?? 70
-  const bob = Math.round(Math.sin(now / 420 + x) * 2)
-  // beside the head rather than over it: the desk is drawn above the person
-  const mx = Math.round(x + 26)
-  const my = Math.round(y - 2 + bob)
-
-  if (s.noticeWeeks != null) {
-    // a door, ajar
-    px(ctx, mx, my, 10, 13, '#20242f')
-    px(ctx, mx + 1, my + 1, 8, 11, '#8a6038')
-    px(ctx, mx + 7, my + 6, 2, 2, '#ffd166')
-    return
-  }
-  if (morale < UNHAPPY) {
-    const flash = Math.sin(now / 300) > -0.2
-    px(ctx, mx + 2, my, 4, 8, flash ? '#ff5c5c' : '#7a2a2a')
-    px(ctx, mx + 2, my + 10, 4, 3, flash ? '#ff5c5c' : '#7a2a2a')
-    return
-  }
-  if (morale >= DELIGHTED) {
-    px(ctx, mx + 4, my, 3, 9, '#3ddc84')
-    px(ctx, mx + 1, my + 7, 6, 4, '#3ddc84')
-    px(ctx, mx + 4, my, 6, 2, '#3ddc84')
-  }
 }

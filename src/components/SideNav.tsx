@@ -3,7 +3,7 @@ import { assignedCount, maxStaff } from '../game/state'
 import { activeCards } from '../game/gpu'
 import { cardsFree, cardsTraining, serviceLoad } from '../game/state'
 import { RESEARCH_MAP } from '../game/research'
-import { averageMorale, moodLabel, unhappyCount } from '../game/people'
+import { onLeave } from '../game/state'
 import { CAMPAIGN_DURATION } from '../game/constants'
 import './Game.css'
 
@@ -50,8 +50,7 @@ function tilesFor(state: GameState, racing: boolean): Tile[] {
     ? [...state.researching].sort((a, b) => a.weeksRemaining - b.weeksRemaining)[0]
     : null
   const learning = state.staffTraining.length
-  const unhappy = unhappyCount(state)
-  const leaving = state.staff.filter((s) => s.noticeWeeks != null).length
+  const away = state.staff.filter((s) => onLeave(state, s.id)).length
   const rawLoad = serviceLoad(state)
   const load = Number.isFinite(rawLoad) ? rawLoad : 9.99
 
@@ -69,19 +68,11 @@ function tilesFor(state: GameState, racing: boolean): Tile[] {
     },
     {
       id: 'people',
-      label: 'Mood',
-      value: state.staff.length === 0 ? '—' : `${Math.round(averageMorale(state))}%`,
-      note:
-        leaving > 0
-          ? `${leaving} working notice`
-          : unhappy > 0
-            ? `${unhappy} unhappy`
-            : state.staff.length > 0
-              ? moodLabel(averageMorale(state)).toLowerCase()
-              : undefined,
-      alarm: leaving > 0 || unhappy > 0,
-      busy: leaving > 0,
-      title: 'How everybody is, what they are paid and what they want',
+      label: 'People',
+      value: away > 0 ? `${away} away` : 'Roster',
+      note: away > 0 ? 'on a break' : 'pay · jobs · breaks',
+      busy: away > 0,
+      title: 'Who works here, what they are paid, and who is on a break',
     },
     {
       id: 'build',

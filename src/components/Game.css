@@ -1701,9 +1701,9 @@
   box-shadow: var(--raise);
 }
 
-.person-row.is-leaving {
-  border-color: rgba(255, 92, 92, 0.6);
-  background: rgba(255, 92, 92, 0.06);
+.person-row.is-away {
+  border-color: rgba(74, 163, 255, 0.55);
+  background: rgba(74, 163, 255, 0.06);
 }
 
 .person-head {
@@ -1726,35 +1726,12 @@
   color: var(--text-dim);
 }
 
-.person-mood {
-  grid-column: 1 / -1;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
 
-.person-mood-track {
-  flex: 1;
-  height: 10px;
-  background: #14161d;
-  border: 2px solid var(--border);
-  box-shadow: var(--recess);
-}
 
-.person-mood-fill {
-  height: 100%;
-  transition: width 0.4s ease;
-}
 
-.person-mood-label,
 .person-gripe {
   font-family: var(--mono);
   font-size: 13px;
-}
-
-.person-mood-label {
-  min-width: 130px;
-  text-align: right;
 }
 
 .person-traits {
@@ -1830,25 +1807,8 @@
 }
 
 /* the mood strip inside the right-click menu */
-.staff-menu-mood {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 6px;
-  font-family: var(--mono);
-  font-size: 12px;
-}
 
-.staff-menu-mood-track {
-  flex: 1;
-  height: 8px;
-  background: #14161d;
-  border: 1px solid var(--border);
-}
 
-.staff-menu-mood-fill {
-  height: 100%;
-}
 
 .staff-menu-traits {
   display: flex;
@@ -1856,3 +1816,4 @@
   flex-wrap: wrap;
   margin-top: 6px;
 }
+

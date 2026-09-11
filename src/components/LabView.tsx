@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react'
 import type { GameState, Staff } from '../game/types'
 import { SCALE, TILE, drawWorkIcon } from './officeArt'
 import { SPRITE_H, SPRITE_W, drawCharacter } from './sprites'
-import { Chatter, drawBubble, drawMoodPip } from './bubbles'
+import { Chatter, drawBubble } from './bubbles'
 import {
   LAB_COLS,
   LAB_ROWS,
@@ -80,7 +80,6 @@ export function LabView({ state, onLeave, onStaffMenu }: Props) {
         const y = b.y * TILE + 18
         hits.current.push({ id: person.id, x, y })
         drawCharacter(ctx, person, x, y, now, busy, false)
-        drawMoodPip(ctx, x * SCALE, y * SCALE, person, now)
       }
       hardware.slice(0, BENCHES.length).forEach((p, i) => seat(p, BENCHES[i], designing))
 

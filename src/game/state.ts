@@ -18,7 +18,6 @@ import {
   COMPETITOR_POACH_BASE_CHANCE,
   COMPETITOR_POACH_GRACE_WEEKS,
   BREAK_COOLDOWN_WEEKS,
-  BREAK_MORALE,
   FIRE_SEVERANCE_WEEKS,
   ACQUISITION_FOLLOWERS_KEPT,
   PRESIDENT_COOLDOWN,
@@ -201,20 +200,7 @@ import {
   distilledQuality,
   isDistillUnlocked,
 } from './distill'
-import {
-  DELIGHTED,
-  NOTICE_WEEKS,
-  QUIT_AFTER_WEEKS,
-  REQUEST_GAP_WEEKS,
-  STARTING_MORALE,
-  UNHAPPY,
-  effortOf,
-  hasTrait,
-  moraleWeek,
-  pickRequest,
-  resignationEvent,
-  rollTraits,
-} from './people'
+import { BREAK_ASK_EVERY, BREAK_WEEKS, effortOf, pickBreakRequest, rollTraits } from './people'
 import {
   REGULATION_MAP,
   pickNewRegulation,
@@ -303,7 +289,7 @@ export function initialState(): GameState {
     lobbyWeeksLeft: 0,
     pacts: [],
     lastLobbyWeek: -LOBBY_COOLDOWN,
-    lastRequestWeek: -REQUEST_GAP_WEEKS,
+    lastRequestWeek: -BREAK_ASK_EVERY,
     sabbaticals: [],
   }
 }
@@ -484,9 +470,6 @@ export function migrateState(raw: Partial<GameState>): GameState {
       assignment: s.assignment ?? defaultAssignment(s.role),
       // and saves from before people had personalities get one now
       traits: s.traits ?? rollTraits(),
-      morale: s.morale ?? STARTING_MORALE,
-      unhappyWeeks: s.unhappyWeeks ?? 0,
-      noticeWeeks: s.noticeWeeks ?? null,
       lastAskWeek: s.lastAskWeek ?? 0,
       joinedWeek: s.joinedWeek ?? 0,
       lastBreakWeek: s.lastBreakWeek ?? -BREAK_COOLDOWN_WEEKS,
@@ -573,7 +556,7 @@ export function migrateState(raw: Partial<GameState>): GameState {
     activeRegulations: raw.activeRegulations ?? [],
     lobbyWeeksLeft: raw.lobbyWeeksLeft ?? 0,
     lastLobbyWeek: raw.lastLobbyWeek ?? -LOBBY_COOLDOWN,
-    lastRequestWeek: raw.lastRequestWeek ?? -REQUEST_GAP_WEEKS,
+    lastRequestWeek: raw.lastRequestWeek ?? -BREAK_ASK_EVERY,
     sabbaticals: raw.sabbaticals ?? [],
   }
 }
@@ -1780,88 +1763,36 @@ function advanceOneWeek(state: GameState): GameState {
   }
 
   // ---------------------------------------------------------------------
-  // The people, one at a time.
+  // The people.
   //
-  // Everything above decided what kind of week the company had. This decides
-  // what kind of week each person had, which is not the same thing: the same
-  // week is a good one for the night owl with the raise and a bad one for the
-  // idealist watching the safety debt climb.
+  // Nobody has a mood to manage. The one thing the staff ever want from you is
+  // time off, and they come and ask for it together every few weeks.
   // ---------------------------------------------------------------------
   {
-    const heads = Math.max(1, next.staff.length)
-    // how much work there is per pair of hands
-    const load =
-      next.researching.length + next.models.filter((m) => m.status === 'training').length + (next.chipDesign ? 1 : 0)
-    const crunch = load / Math.max(1, heads / 3)
-    const shipped = next.models.some((m) => m.publishedWeek != null && week - m.publishedWeek <= 1)
-    const mentors = next.staff.filter((s) => hasTrait(s, 'mentor')).length
-    const ctx = { crunch, shipped, incident: Boolean(incident), mentors, week }
-
-    // the weekly feed was flushed above, so anything from here goes on directly
-    const say = (text: string) => {
-      next.events = [
-        { id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, text, week },
-        ...next.events,
-      ].slice(0, NEWS_KEPT)
+    // anybody whose break has run out is back at their desk
+    const back = next.sabbaticals.filter((sb) => sb.untilWeek <= week)
+    if (back.length > 0) {
+      next.sabbaticals = next.sabbaticals.filter((sb) => sb.untilWeek > week)
+      const names = next.staff.filter((s) => back.some((sb) => sb.id === s.id)).map((s) => s.name)
+      if (names.length > 0) {
+        next.events = [
+          {
+            id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            text: `${names.join(', ')} ${names.length === 1 ? 'is' : 'are'} back from their break.`,
+            week,
+          },
+          ...next.events,
+        ].slice(0, NEWS_KEPT)
+      }
     }
 
-    const resigned: Staff[] = []
-    const left: Staff[] = []
-    const turned: string[] = []
-    next.staff = next.staff
-      .map((s) => {
-        const change = moraleWeek(next, s, ctx)
-        const was = s.morale ?? STARTING_MORALE
-        const morale = Math.max(0, Math.min(100, was + change.delta))
-        // the week somebody's mood turns is worth a line on the wire
-        if (was >= UNHAPPY && morale < UNHAPPY) turned.push(`${s.name} is unhappy — ${change.reason}.`)
-        else if (was < DELIGHTED && morale >= DELIGHTED) turned.push(`${s.name} is having the time of their life.`)
-        const unhappyWeeks = morale < UNHAPPY ? (s.unhappyWeeks ?? 0) + 1 : 0
-        let noticeWeeks = s.noticeWeeks
-        if (noticeWeeks != null) {
-          noticeWeeks = noticeWeeks - 1
-        } else if (unhappyWeeks >= QUIT_AFTER_WEEKS) {
-          noticeWeeks = NOTICE_WEEKS
-          resigned.push({ ...s, morale, unhappyWeeks })
-        }
-        return { ...s, morale, unhappyWeeks, noticeWeeks }
-      })
-      .filter((s) => {
-        if (s.noticeWeeks != null && s.noticeWeeks <= 0) {
-          left.push(s)
-          return false
-        }
-        return true
-      })
-
-    for (const line of turned.slice(0, 2)) say(line)
-
-    // a week off ends on its own
-    next.sabbaticals = next.sabbaticals.filter((sb) => sb.untilWeek > week)
-
-    for (const s of left) {
-      next.staffTraining = next.staffTraining.filter((t) => t.staffId !== s.id)
-      next.stats = { ...next.stats, departures: next.stats.departures + 1 }
-      say(`${s.name} worked their last week. ${staffPower(s).toLocaleString()} pts walked out of the door.`)
-    }
-
-    // the first person to resign this week gets to say it to your face
-    let toldInPerson = 0
-    if (resigned.length > 0 && !next.pendingEvent) {
-      next.pendingEvent = resignationEvent(next, resigned[0], week)
-      toldInPerson = 1
-    }
-    for (const s of resigned.slice(toldInPerson)) {
-      say(`${s.name} handed in their notice.`)
-    }
-
-    // and somebody may simply want a word
-    if (!next.pendingEvent && !poachOffer && Math.random() < 0.4) {
-      const ask = pickRequest(next, week)
-      if (ask?.person) {
+    if (!next.pendingEvent && !poachOffer) {
+      const ask = pickBreakRequest(next, week)
+      if (ask?.asking) {
         next.pendingEvent = ask
         next.lastRequestWeek = week
-        next.staff = next.staff.map((s) => (s.id === ask.person!.id ? { ...s, lastAskWeek: week } : s))
+        const asked = new Set(ask.asking)
+        next.staff = next.staff.map((s) => (asked.has(s.id) ? { ...s, lastAskWeek: week } : s))
       }
     }
   }
@@ -2649,10 +2580,7 @@ export function reducer(state: GameState, action: Action): GameState {
       if (state.money < action.staff.salary) return state
       return {
         ...state,
-        staff: [
-          ...state.staff.map((s) => ({ ...s, morale: Math.min(100, s.morale + 2) })),
-          { ...action.staff, joinedWeek: globalWeek(state), lastAskWeek: globalWeek(state) },
-        ],
+        staff: [...state.staff, { ...action.staff, joinedWeek: globalWeek(state), lastAskWeek: globalWeek(state) }],
         money: state.money - action.staff.salary,
         stats: { ...state.stats, hires: state.stats.hires + 1 },
       }
@@ -3030,10 +2958,7 @@ export function reducer(state: GameState, action: Action): GameState {
       return {
         ...state,
         money: state.money - severance,
-        // the room notices when somebody is walked out
-        staff: state.staff
-          .filter((x) => x.id !== action.staffId)
-          .map((x) => ({ ...x, morale: Math.max(0, x.morale - 5) })),
+        staff: state.staff.filter((x) => x.id !== action.staffId),
         // any course they were part-way through goes with them
         staffTraining: state.staffTraining.filter((t) => t.staffId !== action.staffId),
         stats: { ...state.stats, departures: state.stats.departures + 1 },
@@ -3053,11 +2978,7 @@ export function reducer(state: GameState, action: Action): GameState {
       }
       return {
         ...state,
-        staff: state.staff.map((x) =>
-          x.id === action.staffId
-            ? { ...x, salary: market, morale: Math.min(100, x.morale + 20), unhappyWeeks: 0 }
-            : x,
-        ),
+        staff: state.staff.map((x) => (x.id === action.staffId ? { ...x, salary: market } : x)),
         events: [news, ...state.events].slice(0, NEWS_KEPT),
       }
     }
@@ -3071,17 +2992,16 @@ export function reducer(state: GameState, action: Action): GameState {
       if (week - (s.lastBreakWeek ?? -BREAK_COOLDOWN_WEEKS) < BREAK_COOLDOWN_WEEKS) return state
       const news = {
         id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        text: `🌴 You sent ${s.name} home for the week. They needed it.`,
+        text: `🌴 You sent ${s.name} home for ${BREAK_WEEKS} weeks. They needed it.`,
         week,
       }
       return {
         ...state,
-        staff: state.staff.map((x) =>
-          x.id === s.id
-            ? { ...x, morale: Math.min(100, x.morale + BREAK_MORALE), unhappyWeeks: 0, lastBreakWeek: week }
-            : x,
-        ),
-        sabbaticals: [...state.sabbaticals.filter((sb) => sb.id !== s.id), { id: s.id, untilWeek: week + 1 }],
+        staff: state.staff.map((x) => (x.id === s.id ? { ...x, lastBreakWeek: week } : x)),
+        sabbaticals: [
+          ...state.sabbaticals.filter((sb) => sb.id !== s.id),
+          { id: s.id, untilWeek: week + BREAK_WEEKS },
+        ],
         events: [news, ...state.events].slice(0, NEWS_KEPT),
       }
     }
@@ -3469,34 +3389,16 @@ export function reducer(state: GameState, action: Action): GameState {
         staff = staff.map((s) => (s.id === e.keepStaffId ? { ...s, salary } : s))
       }
 
-      // answering somebody moves them, and sometimes everybody
+      // saying yes to a break sends those people home for a fortnight
       let sabbaticals = state.sabbaticals
-      if (e.moraleFor) {
-        const { id: who, delta } = e.moraleFor
-        staff = staff.map((s) =>
-          s.id === who
-            ? { ...s, morale: Math.max(0, Math.min(100, s.morale + delta)), unhappyWeeks: delta > 0 ? 0 : s.unhappyWeeks }
-            : s,
-        )
-      }
-      if (e.moraleAll) {
-        const delta = e.moraleAll
-        staff = staff.map((s) => ({ ...s, morale: Math.max(0, Math.min(100, s.morale + delta)) }))
-      }
-      if (e.assignFor) {
-        const { id: who, assignment } = e.assignFor
-        staff = staff.map((s) => (s.id === who ? { ...s, assignment } : s))
-      }
-      if (e.cancelNoticeFor) {
-        const who = e.cancelNoticeFor
-        staff = staff.map((s) => (s.id === who ? { ...s, noticeWeeks: null, unhappyWeeks: 0 } : s))
-      }
-      if (e.sabbaticalFor) {
-        const who = e.sabbaticalFor
+      if (e.breakFor && e.breakFor.length > 0) {
+        const week = globalWeek(state)
+        const going = new Set(e.breakFor)
         sabbaticals = [
-          ...sabbaticals.filter((sb) => sb.id !== who),
-          { id: who, untilWeek: globalWeek(state) + 1 },
+          ...sabbaticals.filter((sb) => !going.has(sb.id)),
+          ...e.breakFor.map((id) => ({ id, untilWeek: week + BREAK_WEEKS })),
         ]
+        staff = staff.map((s) => (going.has(s.id) ? { ...s, lastBreakWeek: week } : s))
       }
 
       if (e.loseBestEngineer) {

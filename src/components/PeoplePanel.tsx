@@ -1,17 +1,9 @@
 import { useState } from 'react'
 import type { GameState, Staff } from '../game/types'
-import { BREAK_COOLDOWN_WEEKS, BREAK_MORALE, MAX_STAFF_LEVEL, NATIONALITIES, ROLES } from '../game/constants'
+import { BREAK_COOLDOWN_WEEKS, MAX_STAFF_LEVEL, NATIONALITIES, ROLES } from '../game/constants'
 import { canAssign, marketSalaryFor, staffPower } from '../game/hiring'
 import { globalWeek, onLeave } from '../game/state'
-import {
-  UNHAPPY,
-  averageMorale,
-  moodColour,
-  moodLabel,
-  payGap,
-  traitsOf,
-  unhappyCount,
-} from '../game/people'
+import { BREAK_WEEKS, payGap, traitsOf } from '../game/people'
 import './Game.css'
 
 interface Props {
@@ -22,7 +14,7 @@ interface Props {
   onClose: () => void
 }
 
-type Sort = 'mood' | 'pay' | 'power'
+type Sort = 'pay' | 'power' | 'name'
 
 const JOBS: { id: Staff['assignment']; label: string }[] = [
   { id: 'research', label: 'Research' },
@@ -48,30 +40,17 @@ function breakReady(state: GameState, s: Staff, week: number): boolean {
   return week - (s.lastBreakWeek ?? -BREAK_COOLDOWN_WEEKS) >= BREAK_COOLDOWN_WEEKS
 }
 
-/** Why somebody is in the mood they are in, in one line. */
-function gripe(state: GameState, s: Staff, week: number): string {
-  if (s.noticeWeeks != null) return `Working their notice — ${s.noticeWeeks} week${s.noticeWeeks === 1 ? '' : 's'} left`
-  if (onLeave(state, s.id)) return 'On a week off'
-  const gap = payGap(s, week)
-  if (gap > 0.12) return `Paid ${Math.round(gap * 100)}% under the market`
-  if ((s.morale ?? 70) < UNHAPPY) return `Unhappy ${s.unhappyWeeks} week${s.unhappyWeeks === 1 ? '' : 's'} running`
-  if (gap > 0.05) return 'Slipping behind the market'
-  if ((s.morale ?? 70) >= 85) return 'Would not work anywhere else'
-  return 'No complaints'
-}
-
-/** The roster: everybody, how they are, and what it would take to fix them. */
+/** The roster: everybody, what they cost, and who is away. */
 export function PeoplePanel({ state, onAssign, onRaise, onBreak, onClose }: Props) {
-  const [sort, setSort] = useState<Sort>('mood')
+  const [sort, setSort] = useState<Sort>('pay')
   const week = globalWeek(state)
-  const avg = averageMorale(state)
-  const unhappy = unhappyCount(state)
-  const leaving = state.staff.filter((s) => s.noticeWeeks != null).length
+  const away = state.staff.filter((s) => onLeave(state, s.id)).length
+  const behindCount = state.staff.filter((s) => payGap(s, week) > 0.05).length
 
   const list = [...state.staff]
-  if (sort === 'mood') list.sort((a, b) => (a.morale ?? 70) - (b.morale ?? 70))
-  else if (sort === 'pay') list.sort((a, b) => payGap(b, week) - payGap(a, week))
-  else list.sort((a, b) => staffPower(b) - staffPower(a))
+  if (sort === 'pay') list.sort((a, b) => payGap(b, week) - payGap(a, week))
+  else if (sort === 'power') list.sort((a, b) => staffPower(b) - staffPower(a))
+  else list.sort((a, b) => a.name.localeCompare(b.name))
 
   const money = (n: number) => `$${Math.round(n).toLocaleString()}`
 
@@ -86,27 +65,25 @@ export function PeoplePanel({ state, onAssign, onRaise, onBreak, onClose }: Prop
 
       <div className="people-summary">
         <div className="people-stat">
-          <span className="people-stat-value" style={{ color: moodColour(avg) }}>
-            {state.staff.length === 0 ? '—' : `${Math.round(avg)}%`}
-          </span>
-          <span className="people-stat-label">Average mood</span>
+          <span className="people-stat-value">{state.staff.length}</span>
+          <span className="people-stat-label">On the payroll</span>
         </div>
         <div className="people-stat">
-          <span className="people-stat-value" style={{ color: unhappy > 0 ? '#ff5c5c' : '#3ddc84' }}>
-            {unhappy}
+          <span className="people-stat-value" style={{ color: behindCount > 0 ? '#ffd166' : '#3ddc84' }}>
+            {behindCount}
           </span>
-          <span className="people-stat-label">Unhappy</span>
+          <span className="people-stat-label">Behind market</span>
         </div>
         <div className="people-stat">
-          <span className="people-stat-value" style={{ color: leaving > 0 ? '#ff5c5c' : 'inherit' }}>
-            {leaving}
+          <span className="people-stat-value" style={{ color: away > 0 ? '#4aa3ff' : 'inherit' }}>
+            {away}
           </span>
-          <span className="people-stat-label">Working notice</span>
+          <span className="people-stat-label">On a break</span>
         </div>
         <div className="people-sorts">
-          {(['mood', 'pay', 'power'] as Sort[]).map((s) => (
+          {(['pay', 'power', 'name'] as Sort[]).map((s) => (
             <button key={s} className={`people-sort ${sort === s ? 'active' : ''}`} onClick={() => setSort(s)}>
-              {s === 'mood' ? 'By mood' : s === 'pay' ? 'By pay gap' : 'By value'}
+              {s === 'pay' ? 'By pay gap' : s === 'power' ? 'By value' : 'By name'}
             </button>
           ))}
         </div>
@@ -116,30 +93,19 @@ export function PeoplePanel({ state, onAssign, onRaise, onBreak, onClose }: Prop
 
       <div className="people-list">
         {list.map((s) => {
-          const morale = s.morale ?? 70
           const market = marketSalaryFor(s.role, staffPower(s), week)
           const behind = market > s.salary
           const role = ROLES.find((r) => r.id === s.role)
+          const off = onLeave(state, s.id)
+          const back = state.sabbaticals.find((sb) => sb.id === s.id)?.untilWeek ?? 0
           return (
-            <div className={`person-row ${s.noticeWeeks != null ? 'is-leaving' : ''}`} key={s.id}>
+            <div className={`person-row ${off ? 'is-away' : ''}`} key={s.id}>
               <div className="person-head">
                 <span className="person-name">
                   {NATIONALITIES[s.nationality].flag} {s.name}
                 </span>
                 <span className="person-role">
                   {role?.label} · Lv {s.level}/{MAX_STAFF_LEVEL} · {staffPower(s).toLocaleString()} pts
-                </span>
-              </div>
-
-              <div className="person-mood">
-                <div className="person-mood-track">
-                  <div
-                    className="person-mood-fill"
-                    style={{ width: `${Math.round(morale)}%`, background: moodColour(morale) }}
-                  />
-                </div>
-                <span className="person-mood-label" style={{ color: moodColour(morale) }}>
-                  {moodLabel(morale)}
                 </span>
               </div>
 
@@ -151,7 +117,13 @@ export function PeoplePanel({ state, onAssign, onRaise, onBreak, onClose }: Prop
                 ))}
               </div>
 
-              <div className="person-gripe">{gripe(state, s, week)}</div>
+              <div className="person-gripe">
+                {off
+                  ? `On a break — back in ${Math.max(1, back - week)} week${back - week === 1 ? '' : 's'}`
+                  : behind
+                    ? `Paid ${Math.round(payGap(s, week) * 100)}% under the market`
+                    : 'Paid at the going rate'}
+              </div>
 
               <div className="person-actions">
                 <span className="person-pay">
@@ -164,10 +136,10 @@ export function PeoplePanel({ state, onAssign, onRaise, onBreak, onClose }: Prop
                 <button
                   className="person-btn"
                   disabled={!breakReady(state, s, week)}
-                  title={`A week at home, then back ${BREAK_MORALE} points happier. Once every ${BREAK_COOLDOWN_WEEKS} weeks.`}
+                  title={`${BREAK_WEEKS} weeks at home. Once every ${BREAK_COOLDOWN_WEEKS} weeks.`}
                   onClick={() => onBreak(s.id)}
                 >
-                  {onLeave(state, s.id) ? 'On a break' : 'Week off'}
+                  {off ? 'On a break' : `${BREAK_WEEKS}wk break`}
                 </button>
                 <select
                   className="person-job"

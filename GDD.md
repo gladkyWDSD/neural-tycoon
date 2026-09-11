@@ -487,45 +487,27 @@ what generation of silicon you are running and how many halls you own.
 Nobody on the payroll is a number with a name on it.
 
 - **Every hire has one or two quirks**, rolled when they are hired and fixed for life, shown on the
-  hire card before you pay for them: **night owl** (gets more done than anybody and burns out for
-  it), **perfectionist** (slower, better), **mercenary** (falls behind market and they are gone),
-  **mentor** (lifts everybody around them), **fragile** (takes every week to heart), **steady**
-  (nothing rattles them), **showman** (people follow the company because of them) and **idealist**
-  (cutting corners on safety eats at them). Two people with the same exam score are not the same
-  hire.
-- **Everybody has a mood**, 0 to 100, that moves every week off what you actually did: how far
-  behind the market their pay has drifted, how much work there is per pair of hands, what the
-  office has in it, whether you shipped, whether there was an incident, and how much safety debt
-  an idealist is watching you carry. A quirk decides how hard it swings. Mood is not decoration —
-  it multiplies everything that person contributes, from 0.78 at rock bottom to 1.10 when they
-  love it here.
-- **They say so out loud.** Speech bubbles over their heads, in their own words and about their own
-  situation: "I looked up what I am worth", "Fourth coffee", "Did anyone red-team this?", "Last few
-  weeks here." A red bolt floats beside anybody unhappy, a green note beside anybody delighted, and
-  an open door beside anybody working their notice.
-- **They ask you for things.** Every so often somebody stops the week to ask: a raise, a move onto
-  the work they came here to do, a week off before they make a mistake, two weeks of safety evals,
-  a conference talk, a better machine, or to bring somebody in from their old lab. Each one is a
-  modal with their face on it and two or three answers, and every answer costs something — money,
-  or their goodwill.
-- **They leave.** Five miserable weeks and they hand in their notice, to your face, with a
-  counter-offer on the table. Refuse it and they work three more weeks and walk out with everything
-  they knew. The **Mood** tile on the rail turns red before any of that happens, and the roster
-  behind it sorts by mood, by pay gap or by value and says in one line what each person's problem
-  is.
-
-A team paid at market in a decent office runs around 60 and stays there. A team you never look at
-drifts down, works worse, and eventually walks.
+  hire card before you pay for them: **night owl** (gets more done than anybody), **perfectionist**
+  (slower, better), **mercenary**, **mentor**, **fragile**, **steady**, **showman** and **idealist**.
+  The quirk is not decoration: it multiplies everything that person contributes, so two people with
+  the same exam score are not the same hire.
+- **They talk.** Speech bubbles over their heads, in their own words and about their own situation:
+  "I looked up what I am worth", "Fourth coffee", "Did anyone red-team this?", "Loss is going down."
+- **Every five weeks, three of them ask for time off, together.** It is the one thing the staff ever
+  want from you, and the whole decision is whether you can spare them: **two weeks** in which they do
+  no work at all and you keep paying them. Whoever has gone longest without a break asks first. You
+  can also send somebody home yourself from the roster or their right-click menu, once every twenty
+  weeks.
+- **The roster**, behind the People tile on the rail, lists everybody with their quirks, what they
+  cost against what the market would pay them today, a one-click raise, a two-week break and the job
+  they are on. Nobody has a mood to manage and nobody quits on you: they work, they get paid, and now
+  and then they need a fortnight.
 
 **What you can do about somebody** depends on what they are. Researchers, engineers, marketers and
 lawyers do the job they were hired for — research, training runs, data curation and reliability —
 and the only things you do to them are **train them up, give them a raise, send them home for a
-week, or lend them to a training run when there is a crunch**. Only **hardware engineers** move
+fortnight, or lend them to a training run when there is a crunch**. Only **hardware engineers** move
 freely around the company, because chip design is the one job that is nobody's trade by default.
-
-A **week off** is yours to hand out rather than something they have to ask for: they do no work at
-all that week and come back 25 points happier, once every 20 weeks. It is the cheapest thing in the
-game and the only one that costs no money at all.
 
 ### Things that make the office feel lived in
 

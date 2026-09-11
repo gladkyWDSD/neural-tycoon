@@ -10,7 +10,7 @@ import {
 } from '../game/constants'
 import { canTrain, generateCandidate, staffPower, trainingCostFor, trainingWeeksFor } from '../game/hiring'
 import { globalWeek, maxStaff } from '../game/state'
-import { moodColour, moodLabel, traitsOf } from '../game/people'
+import { traitsOf } from '../game/people'
 import './Game.css'
 
 type Sort = 'score' | 'salary-asc' | 'salary-desc'
@@ -205,9 +205,6 @@ export function HirePanel({ state, onHire, onStartTraining, onClose }: Props) {
                 <div className="candidate-spec">
                   {ROLES.find((r) => r.id === s.role)?.label} · {staffPower(s).toLocaleString()} pts
                   <span className="candidate-traits">
-                    <span className="candidate-trait" style={{ color: moodColour(s.morale ?? 70) }}>
-                      {moodLabel(s.morale ?? 70)}
-                    </span>
                     {traitsOf(s).map((t) => (
                       <span className="candidate-trait" key={t.id} title={t.blurb}>
                         {t.name}

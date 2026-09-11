@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import type { PendingEvent } from '../game/types'
 import { drawCharacter } from './sprites'
-import { moodColour, moodLabel, traitsOf } from '../game/people'
+import { traitsOf } from '../game/people'
 import './EventModal.css'
 
 /** The person doing the asking, drawn big, because this is about them. */
@@ -25,15 +25,11 @@ function Portrait({ event }: { event: PendingEvent }) {
     return () => cancelAnimationFrame(raf)
   }, [person])
   if (!person) return null
-  const morale = person.morale ?? 70
   return (
     <div className="event-person">
       <canvas ref={ref} className="event-portrait" width={96} height={120} />
       <div className="event-person-lines">
         <span className="event-person-name">{person.name}</span>
-        <span className="event-person-mood" style={{ color: moodColour(morale) }}>
-          {moodLabel(morale)}
-        </span>
         {traitsOf(person).map((t) => (
           <span className="event-person-trait" key={t.id} title={t.blurb}>
             {t.name}

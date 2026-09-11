@@ -134,23 +134,17 @@ research speed, training quality, curation and serving capacity each read only t
 to that job (`assigned`/`assignedCount`). A change to any of the three moves the whole balance, so
 re-run the balance simulation, and teach it the new lever first if a competent player would use one.
 
-**People are people, in `people.ts`.** Traits, mood, what somebody says and what they ask for all
-live there, and nothing in it decides a company-wide number on its own — it always goes through one
-person first. `advanceOneWeek` runs one pass over `state.staff` at the very end: `moraleWeek` moves
-each mood, five miserable weeks sets `noticeWeeks`, a notice that runs out removes them, and
-`pickRequest` may put somebody in `state.pendingEvent` with a `person` attached (which is what makes
-the modal show a face). Mood is not cosmetic: `effortOf` multiplies what a person contributes and is
-read by `avgScoreOf` (quality), `effortSum` (research and chip-design speed) and nothing else — put
-a new lever through `effortOf` rather than counting heads, or moods will stop mattering to it.
-Somebody on a week off is removed from `assigned()`, so every existing reader already ignores them.
-Answering a request goes through `EffectOp` (`moraleFor`, `moraleAll`, `assignFor`, `sabbaticalFor`,
-`cancelNoticeFor`), not a new action.
+**People are people, in `people.ts`.** Quirks, what somebody says out loud and the one thing they
+ever ask for all live there. There is deliberately **no morale system**: a quirk decides what
+somebody is worth (`effortOf`, read by `avgScoreOf` for quality and `effortSum` for research and
+chip-design speed) and nothing changes it, so nobody has a mood to manage and nobody resigns.
 
-**Who can be put on what** is `canAssign(role, job)` in `hiring.ts`, and it is enforced in the
-`ASSIGN_STAFF` case as well as read by the staff menu and the roster — the UI never decides a rule
-on its own. Everybody except a hardware engineer is locked to `defaultAssignment(role)` plus
-`training`, so curation is the marketers' job and reliability is the lawyers'; hiring for a job is
-the lever, not shuffling people into it.
+Every `BREAK_ASK_EVERY` weeks `advanceOneWeek` offers `pickBreakRequest`: three people — whoever has
+gone longest without one — ask for `BREAK_WEEKS` off together, as a `PendingEvent` with a `person`
+for the portrait and `asking` for the list. Saying yes goes through `EffectOp.breakFor`, which puts
+them in `state.sabbaticals`; `assigned()` filters those people out, so every existing reader already
+ignores somebody who is away, and the same weekly pass brings them back. A break you hand out
+yourself is `GIVE_BREAK`, on the same `BREAK_COOLDOWN_WEEKS` timer.
 
 **Weekly pressure systems.** `advanceOneWeek` now runs four things in a fixed order that all read
 from the same week's numbers: enterprise contracts (paid, or lost on quality or reliability),

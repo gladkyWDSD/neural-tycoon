@@ -1,5 +1,5 @@
 import type { Nationality, Role, Staff } from './types'
-import { STARTING_MORALE, rollTraits } from './people'
+import { rollTraits } from './people'
 import {
   MAX_SCORE,
   MAX_STAFF_LEVEL,
@@ -142,10 +142,6 @@ export function generateCandidate(
     level: 1,
     salary: salaryFor(role, score),
     traits: rollTraits(),
-    // people arrive keen, and a little unsure
-    morale: STARTING_MORALE + rand(-6, 6),
-    unhappyWeeks: 0,
-    noticeWeeks: null,
     lastAskWeek: week,
     joinedWeek: week,
     lastBreakWeek: -99,

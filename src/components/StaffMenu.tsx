@@ -2,7 +2,6 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { GameState, Staff } from '../game/types'
 import {
   BREAK_COOLDOWN_WEEKS,
-  BREAK_MORALE,
   FIRE_SEVERANCE_WEEKS,
   MAX_STAFF_LEVEL,
   NATIONALITIES,
@@ -10,7 +9,7 @@ import {
 } from '../game/constants'
 import { canAssign, canTrain, marketSalaryFor, staffPower, trainingCostFor, trainingWeeksFor } from '../game/hiring'
 import { globalWeek, onLeave } from '../game/state'
-import { moodColour, moodLabel, traitsOf } from '../game/people'
+import { BREAK_WEEKS, traitsOf } from '../game/people'
 import './StaffMenu.css'
 
 interface Props {
@@ -98,11 +97,11 @@ export function StaffMenu({ staff, state, x, y, onTrain, onAssign, onRaise, onBr
       run: act(() => onAssign(staff.id, j.id)),
     })),
     {
-      label: onBreakNow ? 'On a break this week' : 'Give them a week off',
+      label: onBreakNow ? 'On a break' : `Send them home for ${BREAK_WEEKS} weeks`,
       hint: onBreakNow
-        ? 'They are at home. They will be back next week.'
+        ? 'They are at home. You are still paying them.'
         : breakReady
-          ? `They do no work for a week and come back ${BREAK_MORALE} points happier.`
+          ? `${BREAK_WEEKS} weeks of no work at all from them, and they are still on the payroll.`
           : `Another break in ${BREAK_COOLDOWN_WEEKS - sinceBreak}wk. A break you hand out every week is not a break.`,
       disabled: !breakReady,
       run: act(() => onBreak(staff.id)),
@@ -163,19 +162,6 @@ export function StaffMenu({ staff, state, x, y, onTrain, onAssign, onRaise, onBr
           </div>
           <div className="staff-menu-sub">
             {staff.examScore} base × {staff.level} · {money(staff.salary)}/wk
-          </div>
-          <div className="staff-menu-mood">
-            <div className="staff-menu-mood-track">
-              <div
-                className="staff-menu-mood-fill"
-                style={{ width: `${Math.round(staff.morale ?? 70)}%`, background: moodColour(staff.morale ?? 70) }}
-              />
-            </div>
-            <span style={{ color: moodColour(staff.morale ?? 70) }}>
-              {staff.noticeWeeks != null
-                ? `Leaving in ${staff.noticeWeeks}wk`
-                : `${moodLabel(staff.morale ?? 70)} (${Math.round(staff.morale ?? 70)}%)`}
-            </span>
           </div>
           <div className="staff-menu-traits">
             {traitsOf(staff).map((t) => (
