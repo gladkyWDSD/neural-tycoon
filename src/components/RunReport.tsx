@@ -11,7 +11,7 @@ import './Game.css'
 interface Props {
   state: GameState
   /** how the run ended, when it has */
-  outcome?: { won: boolean; winner?: string | null; isMe?: boolean }
+  outcome?: { won: boolean; winner?: string | null; isMe?: boolean; lost?: boolean }
   onClose: () => void
   closeLabel?: string
   closeHint?: string
@@ -36,13 +36,15 @@ export function RunReport({ state, outcome, onClose, closeLabel, closeHint }: Pr
   const users = state.models.reduce((sum, m) => sum + m.customers + m.freeCustomers, 0)
   const length = DIFFICULTIES.find((d) => d.id === state.difficulty)?.label ?? state.difficulty
 
-  const title = outcome
-    ? outcome.winner
-      ? outcome.isMe
-        ? 'You won the race'
-        : `${outcome.winner} won the race`
-      : 'You won the AI race'
-    : `${state.companyName} so far`
+  const title = outcome?.lost
+    ? 'You ran out of money'
+    : outcome
+      ? outcome.winner
+        ? outcome.isMe
+          ? 'You won the race'
+          : `${outcome.winner} won the race`
+        : 'You won the AI race'
+      : `${state.companyName} so far`
 
   const rows: [string, string][] = [
     ['Weeks run', `${week} (${formatDate(state.date)})`],
@@ -85,7 +87,9 @@ export function RunReport({ state, outcome, onClose, closeLabel, closeHint }: Pr
       <div className="event-modal report-modal">
         <h3 className="event-title">{title}</h3>
         <p className="event-text">
-          {outcome?.winner && !outcome.isMe
+          {outcome?.lost
+            ? `${state.companyName} could not make payroll in week ${week}. Here is how far it got.`
+            : outcome?.winner && !outcome.isMe
             ? `${outcome.winner} reached $100B first. Here is where ${state.companyName} got to.`
             : outcome
               ? `${state.companyName} made it to ${formatMoney(valuation)}.`

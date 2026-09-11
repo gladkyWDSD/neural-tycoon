@@ -2,7 +2,7 @@ import type { GameState } from '../game/types'
 import { formatDate } from '../game/date'
 import { formatMoney } from '../game/format'
 import { weeklyRevenue } from '../game/research'
-import { companyValuation } from '../game/state'
+import { companyValuation, weeklyCosts, weeklyIncome } from '../game/state'
 import { IPO_VALUATION, WIN_VALUATION } from '../game/constants'
 import type { PanelId } from './SideNav'
 import './Game.css'
@@ -38,6 +38,12 @@ export function TopBar({
   // the readouts are the buttons: press what you want to know more about
   const toggle = (id: Exclude<PanelId, null>) => onOpenPanel(panel === id ? null : id)
 
+  // how long the cash lasts at the current burn, because zero ends the run
+  const costs = weeklyCosts(state)
+  const net = weeklyIncome(state) - costs
+  const weeksLeft = net >= 0 ? Infinity : state.money / -net
+  const cashState = weeksLeft <= 2 ? 'critical' : weeksLeft <= 6 ? 'low' : ''
+
   return (
     <div className="topbar">
       <button
@@ -49,11 +55,16 @@ export function TopBar({
         {state.isPublic && <span className="ticker-tag">PUBLIC</span>}
       </button>
       <button
-        className={`topbar-item topbar-btn money ${panel === 'company' ? 'active' : ''}`}
+        className={`topbar-item topbar-btn money ${cashState} ${panel === 'company' ? 'active' : ''}`}
         onClick={() => toggle('company')}
-        title="Cash on hand. Opens your company."
+        title={
+          net >= 0
+            ? `Cash on hand. You make $${net.toLocaleString()} a week more than you spend.`
+            : `Cash on hand. You are losing $${(-net).toLocaleString()} a week, about ${Math.floor(weeksLeft)} weeks left. At zero the run ends.`
+        }
       >
         ${Math.round(state.money).toLocaleString()}
+        {cashState === 'critical' && <span className="cash-warn">low</span>}
       </button>
       <button
         className={`topbar-item topbar-btn dim ${panel === 'competitors' ? 'active' : ''}`}

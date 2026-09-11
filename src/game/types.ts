@@ -327,6 +327,8 @@ export interface GameState {
   isPublic: boolean
   /** set once the company is worth WIN_VALUATION: the run is won */
   won: boolean
+  /** set when the money runs out: the run is over the other way */
+  lost: boolean
   campaignWeeksLeft: number
   lastCampaignWeek: number
   books: string[]

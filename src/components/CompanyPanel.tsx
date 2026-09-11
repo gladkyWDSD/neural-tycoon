@@ -11,7 +11,15 @@ import {
 import { formatMoney } from '../game/format'
 import { AMENITIES } from '../game/amenities'
 import { bestPublishedQuality } from '../game/state'
-import { companyValuation, globalWeek, investmentRaiseAmount, marketMood, maxStaff } from '../game/state'
+import {
+  companyValuation,
+  globalWeek,
+  investmentRaiseAmount,
+  marketMood,
+  maxStaff,
+  weeklyCosts,
+  weeklyIncome,
+} from '../game/state'
 import './Game.css'
 
 interface Props {
@@ -74,6 +82,12 @@ export function CompanyPanel({
         <div className="company-stat">
           <span className="company-label">Valuation</span>
           <span className="company-value">{formatMoney(valuation)}</span>
+        </div>
+        <div className="company-stat">
+          <span className="company-label">Every week</span>
+          <span className="company-value" title="What comes in against what goes out. At zero cash the run ends.">
+            +${weeklyIncome(state).toLocaleString()} / −${weeklyCosts(state).toLocaleString()}
+          </span>
         </div>
         <div className="company-stat">
           <span className="company-label">Market mood</span>

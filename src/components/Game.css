@@ -1452,3 +1452,18 @@
   color: var(--gold);
   margin: 8px 0 0;
 }
+
+/* cash running out: zero ends the run, so it says so before it gets there */
+.topbar-btn.money.low {
+  color: var(--gold);
+}
+
+.topbar-btn.money.critical {
+  color: var(--danger);
+}
+
+.cash-warn {
+  margin-left: 8px;
+  font-size: 8px;
+  color: var(--danger);
+}

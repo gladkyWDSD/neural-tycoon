@@ -85,6 +85,12 @@ what that lab could build today. Adding a rival behaviour belongs in `runRivalWe
 reducer, and anything added to `Competitor` needs a fallback in `migrateState` because saves carry
 the rival list.
 
+**Winning and losing.** `state.won` is set when the valuation passes `WIN_VALUATION`; `state.lost`
+is set in `advanceOneWeek` the first week cash goes below zero, and both `TICK` and `ADVANCE_JOBS`
+return early once it is set, so a finished run is genuinely stopped. `weeklyCosts` and
+`weeklyIncome` are the shared readouts behind the warnings in the top bar, the Company panel and the
+news feed; any new recurring cost belongs in `weeklyCosts` or the warnings will lie.
+
 **The production chain.** Three scarce things drive the strategy and they all read from the same
 state. Compute: `cardsTraining` is the sum of `gpus` on models in training, `cardsFree` is what is
 left, and `servingCapacity` only counts free cards. Data: `data.ts` owns the sources, the stock

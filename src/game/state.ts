@@ -235,6 +235,7 @@ export function initialState(): GameState {
     inRace: false,
     isPublic: false,
     won: false,
+    lost: false,
     campaignWeeksLeft: 0,
     lastCampaignWeek: -CAMPAIGN_COOLDOWN,
     books: [],
@@ -482,6 +483,7 @@ export function migrateState(raw: Partial<GameState>): GameState {
     pacts: [],
     isPublic: raw.isPublic ?? false,
     won: raw.won ?? false,
+    lost: raw.lost ?? false,
     campaignWeeksLeft: raw.campaignWeeksLeft ?? 0,
     lastCampaignWeek: raw.lastCampaignWeek ?? -CAMPAIGN_COOLDOWN,
     books: raw.books ?? [],
@@ -590,6 +592,30 @@ export function marketMood(hype: number): string {
   if (hype >= 0.9) return 'Steady'
   if (hype >= 0.72) return 'Cooling'
   return 'AI winter'
+}
+
+/**
+ * What next week will cost before a penny comes in: the payroll, the power for
+ * the cards, the rent on borrowed halls and the data sources. Cash below this
+ * is cash that does not survive the week.
+ */
+export function weeklyCosts(state: GameState): number {
+  const salaries = state.staff.reduce((sum, s) => sum + s.salary, 0)
+  const power = Math.round(
+    activeCards(state) *
+      ELECTRICITY_PER_CARD_WEEK *
+      (1 - companyEfficiency(state)) *
+      amenityElectricityMultiplier(state.amenities) *
+      regulationElectricityMultiplier(state.activeRegulations),
+  )
+  return salaries + power + state.rentedDatacenters * RENT_WEEKLY_FEE + dataUpkeep(state)
+}
+
+/** What it brings in, if nothing goes wrong. */
+export function weeklyIncome(state: GameState): number {
+  const fromModels = state.models.reduce((sum, m) => sum + (m.status === 'published' ? weeklyRevenue(m) : 0), 0)
+  const fromContracts = state.contracts.reduce((sum, c) => sum + c.weeklyFee, 0)
+  return Math.round(fromModels + fromContracts)
 }
 
 /** People on a given job, and the weight they pull, which is what levels buy. */
@@ -1524,6 +1550,36 @@ function advanceOneWeek(state: GameState): GameState {
     peakFollowers: Math.max(next.stats.peakFollowers, next.followers),
     bestWeek: Math.max(next.stats.bestWeek, weekSwing),
     worstWeek: Math.min(next.stats.worstWeek, weekSwing),
+  }
+
+  // Running out of money is the other end of the run. There is a week's warning
+  // in the feed before it happens, because a company that cannot make payroll
+  // knows it a week out.
+  if (!next.lost && next.money < 0) {
+    next.lost = true
+    next.paused = true
+    next.events = [
+      {
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        text: `${next.companyName} could not make payroll. The money is gone and the doors are shut.`,
+        week,
+      },
+      ...next.events,
+    ].slice(0, 20)
+    return next
+  }
+  if (!next.lost && next.money < weeklyCosts(next) && next.money >= 0) {
+    const shortfall = Math.round(weeklyCosts(next) - weeklyIncome(next))
+    if (shortfall > 0) {
+      next.events = [
+        {
+          id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          text: `You have $${Math.round(next.money).toLocaleString()} and next week costs $${weeklyCosts(next).toLocaleString()}. Cut something or raise money now.`,
+          week,
+        },
+        ...next.events,
+      ].slice(0, 20)
+    }
   }
 
   // a hundred billion dollars is the end of the run
@@ -3099,10 +3155,12 @@ export function reducer(state: GameState, action: Action): GameState {
       // one clock, so a decision you take slowly costs you weeks rather than
       // quietly putting your whole game behind everyone else's.
       if (state.paused) return state
+      if (state.lost) return state // the run is over; nothing else happens
       if (state.pendingEvent && !state.inRace) return state
       return advanceOneWeek(state)
     }
     case 'ADVANCE_JOBS': {
+      if (state.lost) return state
       if (state.paused) return state
       if (state.pendingEvent && !state.inRace) return state
       return advanceJobs(state, action.delta)

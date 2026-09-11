@@ -67,6 +67,7 @@ interface Props {
   onAssignStaff: (staffId: string, assignment: Staff['assignment']) => void
   onRunAudit: () => void
   onHangUp: () => void
+  onNewGame: () => void
   onAcquireCompetitor: (id: string, name: string) => void
   onSignContract: (id: string) => void
   onDeclineContract: (id: string) => void
@@ -124,6 +125,7 @@ export function GameScreen({
   onAssignStaff,
   onRunAudit,
   onHangUp,
+  onNewGame,
   onAcquireCompetitor,
   onSignContract,
   onDeclineContract,
@@ -299,11 +301,19 @@ export function GameScreen({
         )}
       </div>
 
-      {state.pendingBid && <BidModal state={state} onResolve={onResolveBid} />}
-      {state.pendingTrade && <TradeModal state={state} onResolve={onResolveTrade} />}
-      {state.presidentCall && <PresidentCall state={state} onHangUp={onHangUp} />}
+      {!state.lost && state.pendingBid && <BidModal state={state} onResolve={onResolveBid} />}
+      {!state.lost && state.pendingTrade && <TradeModal state={state} onResolve={onResolveTrade} />}
+      {!state.lost && state.presidentCall && <PresidentCall state={state} onHangUp={onHangUp} />}
 
-      {race?.winner ? (
+      {state.lost ? (
+        <RunReport
+          state={state}
+          outcome={{ won: false, lost: true }}
+          onClose={onNewGame}
+          closeLabel="Start again"
+          closeHint="A new company, from the beginning."
+        />
+      ) : race?.winner ? (
         <RunReport
           state={state}
           outcome={{ won: race.winner === myRaceName, winner: race.winner, isMe: race.winner === myRaceName }}

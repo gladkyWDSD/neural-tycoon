@@ -415,6 +415,20 @@ Rivals get the same weapons the player does. Besides buying hype bots and poachi
 
 The current risk is shown in the Ads panel, which is also where you launch your own swarms.
 
+### Money, and running out of it
+
+You start with **$10,000,000** and the run ends the moment your cash goes below zero. There is no
+debt and no rescue: a company that cannot make payroll is finished, and the end-of-run report shows
+how far it got.
+
+Nothing about that is meant to be a surprise. The top bar turns the cash readout gold when you have
+under six weeks of runway and red under two, with the weeks left in its tooltip. The Company panel
+shows what comes in against what goes out every week. And the week before it happens, the news feed
+says plainly that you have less cash than next week costs.
+
+The lifelines are all still there: raise a funding round, fire someone, sell GPUs or a datacenter to
+another player, cancel a data source, or take an enterprise contract. The loss is for ignoring them.
+
 ### The chain
 
 The company is a production chain, and the point of the game is keeping it balanced. Money buys

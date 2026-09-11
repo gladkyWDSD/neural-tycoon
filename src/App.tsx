@@ -327,6 +327,7 @@ export default function App() {
           onAssignStaff={(staffId, assignment) => dispatch({ type: 'ASSIGN_STAFF', staffId, assignment })}
           onRunAudit={() => dispatch({ type: 'RUN_SAFETY_AUDIT' })}
           onHangUp={() => dispatch({ type: 'HANG_UP' })}
+          onNewGame={() => dispatch({ type: 'NEW_GAME' })}
           onAcquireCompetitor={(id) => dispatch({ type: 'ACQUIRE_COMPETITOR', id })}
           onSignContract={(id) => dispatch({ type: 'SIGN_CONTRACT', id })}
           onDeclineContract={(id) => dispatch({ type: 'DECLINE_CONTRACT', id })}
@@ -363,7 +364,8 @@ export default function App() {
       )}
       {/* the terminal is the host's: in a race nobody else gets cheats, or the button */}
       {(!inRace || lobby.isHost) && <DevConsole onCommand={runCommand} />}
-      {playing && state.pendingEvent && (
+      {/* once the run is over nothing else gets to interrupt */}
+      {playing && !state.lost && state.pendingEvent && (
         <EventModal
           event={state.pendingEvent}
           onResolve={(choiceIndex) =>
