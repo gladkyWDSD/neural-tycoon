@@ -11,6 +11,7 @@
 .event-modal {
   background: var(--panel);
   border: 3px solid var(--gold);
+  box-shadow: var(--raise), 10px 10px 0 rgba(0, 0, 0, 0.55);
   padding: 28px;
   width: 520px;
   max-width: 92%;
