@@ -114,4 +114,5 @@ const TECH = {
   noticeWeeks: null,
   lastAskWeek: 0,
   joinedWeek: 0,
+  lastBreakWeek: 0,
 }

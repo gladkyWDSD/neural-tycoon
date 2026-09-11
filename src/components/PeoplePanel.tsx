@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { GameState, Staff } from '../game/types'
-import { MAX_STAFF_LEVEL, NATIONALITIES, ROLES } from '../game/constants'
-import { marketSalaryFor, staffPower } from '../game/hiring'
+import { BREAK_COOLDOWN_WEEKS, BREAK_MORALE, MAX_STAFF_LEVEL, NATIONALITIES, ROLES } from '../game/constants'
+import { canAssign, marketSalaryFor, staffPower } from '../game/hiring'
 import { globalWeek, onLeave } from '../game/state'
 import {
   UNHAPPY,
@@ -18,6 +18,7 @@ interface Props {
   state: GameState
   onAssign: (staffId: string, assignment: Staff['assignment']) => void
   onRaise: (staffId: string) => void
+  onBreak: (staffId: string) => void
   onClose: () => void
 }
 
@@ -30,6 +31,22 @@ const JOBS: { id: Staff['assignment']; label: string }[] = [
   { id: 'ops', label: 'Reliability' },
   { id: 'chips', label: 'Chips' },
 ]
+
+/**
+ * Where somebody can be put.
+ *
+ * Only hardware engineers move around the company. Everybody else does the job
+ * they were hired for, and can be lent to a training run.
+ */
+function jobsFor(s: Staff): typeof JOBS {
+  return JOBS.filter((j) => canAssign(s.role, j.id))
+}
+
+/** Can you send them home this week? */
+function breakReady(state: GameState, s: Staff, week: number): boolean {
+  if (onLeave(state, s.id)) return false
+  return week - (s.lastBreakWeek ?? -BREAK_COOLDOWN_WEEKS) >= BREAK_COOLDOWN_WEEKS
+}
 
 /** Why somebody is in the mood they are in, in one line. */
 function gripe(state: GameState, s: Staff, week: number): string {
@@ -44,7 +61,7 @@ function gripe(state: GameState, s: Staff, week: number): string {
 }
 
 /** The roster: everybody, how they are, and what it would take to fix them. */
-export function PeoplePanel({ state, onAssign, onRaise, onClose }: Props) {
+export function PeoplePanel({ state, onAssign, onRaise, onBreak, onClose }: Props) {
   const [sort, setSort] = useState<Sort>('mood')
   const week = globalWeek(state)
   const avg = averageMorale(state)
@@ -144,12 +161,20 @@ export function PeoplePanel({ state, onAssign, onRaise, onClose }: Props) {
                 <button className="person-btn" disabled={!behind} onClick={() => onRaise(s.id)}>
                   {behind ? `Raise to ${money(market)}` : 'Paid at market'}
                 </button>
+                <button
+                  className="person-btn"
+                  disabled={!breakReady(state, s, week)}
+                  title={`A week at home, then back ${BREAK_MORALE} points happier. Once every ${BREAK_COOLDOWN_WEEKS} weeks.`}
+                  onClick={() => onBreak(s.id)}
+                >
+                  {onLeave(state, s.id) ? 'On a break' : 'Week off'}
+                </button>
                 <select
                   className="person-job"
                   value={s.assignment}
                   onChange={(e) => onAssign(s.id, e.target.value as Staff['assignment'])}
                 >
-                  {JOBS.map((j) => (
+                  {jobsFor(s).map((j) => (
                     <option key={j.id} value={j.id}>
                       {j.label}
                     </option>

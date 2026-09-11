@@ -1,13 +1,15 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { GameState, Staff } from '../game/types'
 import {
+  BREAK_COOLDOWN_WEEKS,
+  BREAK_MORALE,
   FIRE_SEVERANCE_WEEKS,
   MAX_STAFF_LEVEL,
   NATIONALITIES,
   ROLES,
 } from '../game/constants'
-import { canTrain, marketSalaryFor, staffPower, trainingCostFor, trainingWeeksFor } from '../game/hiring'
-import { globalWeek } from '../game/state'
+import { canAssign, canTrain, marketSalaryFor, staffPower, trainingCostFor, trainingWeeksFor } from '../game/hiring'
+import { globalWeek, onLeave } from '../game/state'
 import { moodColour, moodLabel, traitsOf } from '../game/people'
 import './StaffMenu.css'
 
@@ -20,6 +22,7 @@ interface Props {
   onTrain: (staffId: string) => void
   onAssign: (staffId: string, assignment: Staff['assignment']) => void
   onRaise: (staffId: string) => void
+  onBreak: (staffId: string) => void
   onFire: (staffId: string) => void
   onClose: () => void
 }
@@ -32,7 +35,7 @@ interface Item {
   run?: () => void
 }
 
-export function StaffMenu({ staff, state, x, y, onTrain, onAssign, onRaise, onFire, onClose }: Props) {
+export function StaffMenu({ staff, state, x, y, onTrain, onAssign, onRaise, onBreak, onFire, onClose }: Props) {
   const ref = useRef<HTMLDivElement>(null)
   const [pos, setPos] = useState({ x, y })
 
@@ -56,12 +59,13 @@ export function StaffMenu({ staff, state, x, y, onTrain, onAssign, onRaise, onFi
   }, [onClose])
 
   const role = ROLES.find((r) => r.id === staff.role)
+  const week = globalWeek(state)
   const training = state.staffTraining.find((t) => t.staffId === staff.id)
   const trainCost = trainingCostFor(staff.level)
   const trainWeeks = trainingWeeksFor(staff.level)
   const maxed = !canTrain(staff)
   const power = staffPower(staff)
-  const market = marketSalaryFor(staff.role, power, globalWeek(state))
+  const market = marketSalaryFor(staff.role, power, week)
   const behind = market > staff.salary
   const severance = staff.salary * FIRE_SEVERANCE_WEEKS
 
@@ -71,13 +75,20 @@ export function StaffMenu({ staff, state, x, y, onTrain, onAssign, onRaise, onFi
     onClose()
   }
 
-  const jobs: { id: Staff['assignment']; label: string; hint: string }[] = [
+  const allJobs: { id: Staff['assignment']; label: string; hint: string }[] = [
     { id: 'research', label: 'Research', hint: 'Researchers here unlock techniques and raise the ceiling on quality.' },
     { id: 'training', label: 'Training runs', hint: 'Engineers here build models faster and better.' },
     { id: 'data', label: 'Data curation', hint: 'Anyone here fills the data pipeline faster.' },
     { id: 'ops', label: 'Reliability', hint: 'Anyone here stretches what a card can serve and softens incidents.' },
     { id: 'chips', label: 'Chip design', hint: 'Hardware engineers here design silicon of your own.' },
   ]
+  // Only the hardware engineers get moved around the company; everybody else
+  // does the job they were hired for, and can be lent to a training run.
+  const jobs = allJobs.filter((j) => canAssign(staff.role, j.id))
+
+  const onBreakNow = onLeave(state, staff.id)
+  const sinceBreak = week - (staff.lastBreakWeek ?? -BREAK_COOLDOWN_WEEKS)
+  const breakReady = !onBreakNow && sinceBreak >= BREAK_COOLDOWN_WEEKS
 
   const items: Item[] = [
     ...jobs.map((j) => ({
@@ -86,6 +97,16 @@ export function StaffMenu({ staff, state, x, y, onTrain, onAssign, onRaise, onFi
       disabled: staff.assignment === j.id,
       run: act(() => onAssign(staff.id, j.id)),
     })),
+    {
+      label: onBreakNow ? 'On a break this week' : 'Give them a week off',
+      hint: onBreakNow
+        ? 'They are at home. They will be back next week.'
+        : breakReady
+          ? `They do no work for a week and come back ${BREAK_MORALE} points happier.`
+          : `Another break in ${BREAK_COOLDOWN_WEEKS - sinceBreak}wk. A break you hand out every week is not a break.`,
+      disabled: !breakReady,
+      run: act(() => onBreak(staff.id)),
+    },
     training
       ? {
           label: `Training to level ${training.toLevel}`,

@@ -44,6 +44,8 @@ export interface Staff {
   lastAskWeek: number
   /** the week they walked in, for the roster */
   joinedWeek: number
+  /** the week you last sent them home for a week, so a break stays a break */
+  lastBreakWeek: number
 }
 
 export interface GameDate {

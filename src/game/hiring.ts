@@ -109,6 +109,18 @@ export function defaultAssignment(role: Role): Staff['assignment'] {
   return 'ops'
 }
 
+/**
+ * Where somebody can be put to work.
+ *
+ * Only the hardware engineers move around the company — they are the ones with
+ * a second job to do. Everybody else does what they were hired for, and can be
+ * lent to a training run when there is a crunch.
+ */
+export function canAssign(role: Role, job: Staff['assignment']): boolean {
+  if (role === 'hardware') return true
+  return job === defaultAssignment(role) || job === 'training'
+}
+
 export function generateCandidate(
   nationality: Nationality,
   role: Role,
@@ -136,5 +148,6 @@ export function generateCandidate(
     noticeWeeks: null,
     lastAskWeek: week,
     joinedWeek: week,
+    lastBreakWeek: -99,
   }
 }

@@ -9,25 +9,37 @@ const FT = 32
 export const LAB_COLS = 30
 export const LAB_ROWS = 14
 
-/** The room is split down the middle: research on the left, hardware on the right. */
-export const HARDWARE_FROM = 18
+/** The bay the test rig stands in, painted off with a hazard line. */
+export const RIG_BAY = { x: 12, y: 3, cols: 6, rows: 8 }
 
 export function drawLabRoom(ctx: CanvasRenderingContext2D, now: number): void {
-  // a pale floor, because a lab is not an office. The hardware bay is warmer,
-  // so you can see at a glance which half of the building you are looking at.
+  // a warm workshop floor, not an office carpet
   for (let row = 1; row < LAB_ROWS - 1; row++) {
     for (let col = 1; col < LAB_COLS - 1; col++) {
-      const bay = col >= HARDWARE_FROM
       const even = (row + col) % 2 === 0
-      px(ctx, col * FT, row * FT, FT, FT, bay ? (even ? '#33313f' : '#383544') : even ? '#2b3140' : '#2f3646')
-      px(ctx, col * FT, row * FT, FT, 1, bay ? '#413d4e' : '#353d4f')
+      px(ctx, col * FT, row * FT, FT, FT, even ? '#33313f' : '#383544')
+      px(ctx, col * FT, row * FT, FT, 1, '#413d4e')
     }
   }
-  // the hazard line painted on the floor between the two bays
-  for (let row = 1; row < LAB_ROWS - 1; row++) {
-    px(ctx, HARDWARE_FROM * FT - 6, row * FT, 5, FT, '#3a3524')
-    for (let i = 0; i < 4; i++) px(ctx, HARDWARE_FROM * FT - 6, row * FT + i * 8, 5, 4, '#c9a43a')
+  // the rig stands inside a hazard line painted on the floor, which is the only
+  // part of the room you are not meant to walk through
+  const hazard = (x: number, y: number, w: number, h: number) => {
+    px(ctx, x, y, w, h, '#3a3524')
+    const along = w > h
+    const steps = Math.floor((along ? w : h) / 8)
+    for (let i = 0; i < steps; i += 2) {
+      if (along) px(ctx, x + i * 8, y, 6, h, '#c9a43a')
+      else px(ctx, x, y + i * 8, w, 6, '#c9a43a')
+    }
   }
+  const bx = RIG_BAY.x * FT
+  const by = RIG_BAY.y * FT
+  const bw = RIG_BAY.cols * FT
+  const bh = RIG_BAY.rows * FT
+  hazard(bx, by, bw, 5)
+  hazard(bx, by + bh - 5, bw, 5)
+  hazard(bx, by, 5, bh)
+  hazard(bx + bw - 5, by, 5, bh)
   // walls, lit along the top
   px(ctx, 0, 0, LAB_COLS * FT, FT, '#1b2029')
   px(ctx, 0, 0, LAB_COLS * FT, 3, '#2b3342')

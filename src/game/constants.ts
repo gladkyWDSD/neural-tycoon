@@ -551,3 +551,7 @@ export const DISTILL_MIN_CAUGHT_CHANCE = 0.05 // you are never fully safe
 export const DISTILL_FINE_PER_QUALITY = 4000 // fine when caught, scaled by teacher quality
 export const DISTILL_FOLLOWER_LOSS = 0.12 // followers lost to the scandal
 export const DISTILL_ACCUSER_FOLLOWER_GAIN = 0.05 // sympathy followers the accuser gains
+
+// A week off you hand out yourself, rather than one somebody asks for.
+export const BREAK_COOLDOWN_WEEKS = 20
+export const BREAK_MORALE = 25

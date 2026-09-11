@@ -17,6 +17,8 @@ import {
   COMPETITOR_BOT_TRACE_CHANCE,
   COMPETITOR_POACH_BASE_CHANCE,
   COMPETITOR_POACH_GRACE_WEEKS,
+  BREAK_COOLDOWN_WEEKS,
+  BREAK_MORALE,
   FIRE_SEVERANCE_WEEKS,
   ACQUISITION_FOLLOWERS_KEPT,
   PRESIDENT_COOLDOWN,
@@ -184,6 +186,7 @@ import {
   canTrain,
   generateCandidate,
   marketSalaryFor,
+  canAssign,
   staffPower,
   trainingCostFor,
   trainingWeeksFor,
@@ -379,6 +382,7 @@ export type Action =
   | { type: 'START_STAFF_TRAINING'; staffId: string }
   | { type: 'FIRE_STAFF'; staffId: string }
   | { type: 'GIVE_RAISE'; staffId: string }
+  | { type: 'GIVE_BREAK'; staffId: string }
   | { type: 'RAISE_INVESTMENT' }
   | { type: 'START_PROMO'; modelId: string; kind: PromoKind }
   | { type: 'EDIT_MODEL'; id: string; name?: string; pricing?: PricingModel }
@@ -485,6 +489,7 @@ export function migrateState(raw: Partial<GameState>): GameState {
       noticeWeeks: s.noticeWeeks ?? null,
       lastAskWeek: s.lastAskWeek ?? 0,
       joinedWeek: s.joinedWeek ?? 0,
+      lastBreakWeek: s.lastBreakWeek ?? -BREAK_COOLDOWN_WEEKS,
     })),
     models,
     researching,
@@ -2591,6 +2596,8 @@ export function reducer(state: GameState, action: Action): GameState {
     case 'ASSIGN_STAFF': {
       const person = state.staff.find((s) => s.id === action.staffId)
       if (!person || person.assignment === action.assignment) return state
+      // the rule about who can be moved where lives in one place
+      if (!canAssign(person.role, action.assignment)) return state
       return {
         ...state,
         staff: state.staff.map((s) => (s.id === action.staffId ? { ...s, assignment: action.assignment } : s)),
@@ -3051,6 +3058,30 @@ export function reducer(state: GameState, action: Action): GameState {
             ? { ...x, salary: market, morale: Math.min(100, x.morale + 20), unhappyWeeks: 0 }
             : x,
         ),
+        events: [news, ...state.events].slice(0, NEWS_KEPT),
+      }
+    }
+    case 'GIVE_BREAK': {
+      // A week off is free in cash and expensive in output: they do nothing at
+      // all next week, and come back a different person.
+      const week = globalWeek(state)
+      const s = state.staff.find((x) => x.id === action.staffId)
+      if (!s) return state
+      if (onLeave(state, s.id)) return state
+      if (week - (s.lastBreakWeek ?? -BREAK_COOLDOWN_WEEKS) < BREAK_COOLDOWN_WEEKS) return state
+      const news = {
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        text: `🌴 You sent ${s.name} home for the week. They needed it.`,
+        week,
+      }
+      return {
+        ...state,
+        staff: state.staff.map((x) =>
+          x.id === s.id
+            ? { ...x, morale: Math.min(100, x.morale + BREAK_MORALE), unhappyWeeks: 0, lastBreakWeek: week }
+            : x,
+        ),
+        sabbaticals: [...state.sabbaticals.filter((sb) => sb.id !== s.id), { id: s.id, untilWeek: week + 1 }],
         events: [news, ...state.events].slice(0, NEWS_KEPT),
       }
     }

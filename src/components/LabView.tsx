@@ -7,14 +7,12 @@ import {
   LAB_COLS,
   LAB_ROWS,
   drawHardwareBench,
-  drawLabBench,
   drawLabFridge,
   drawLabRoom,
   drawScreenWall,
   drawTestRig,
   drawWhiteboardWall,
 } from './labArt'
-import { RESEARCH_MAP } from '../game/research'
 import { chipDesignWeeks, globalWeek } from '../game/state'
 
 interface Props {
@@ -23,31 +21,28 @@ interface Props {
   onStaffMenu?: (id: string, x: number, y: number) => void
 }
 
-// research on the left of the hazard line, hardware on the right
-const RESEARCH_BENCHES = [
+// The whole floor is hardware: benches down both sides of the test rig, which
+// stands in the middle behind its hazard line.
+const BENCHES = [
   { x: 2, y: 4 },
   { x: 6, y: 4 },
-  { x: 10, y: 4 },
-  { x: 2, y: 8 },
-  { x: 6, y: 8 },
-  { x: 10, y: 8 },
-  { x: 2, y: 11 },
-  { x: 6, y: 11 },
-  { x: 10, y: 11 },
-]
-const HARDWARE_BENCHES = [
   { x: 18, y: 4 },
   { x: 22, y: 4 },
   { x: 26, y: 4 },
+  { x: 2, y: 8 },
+  { x: 6, y: 8 },
   { x: 18, y: 8 },
   { x: 22, y: 8 },
   { x: 26, y: 8 },
+  { x: 2, y: 11 },
+  { x: 6, y: 11 },
+  { x: 10, y: 11 },
   { x: 18, y: 11 },
   { x: 22, y: 11 },
   { x: 26, y: 11 },
 ]
 
-/** The white building on the field. Researchers and hardware engineers only. */
+/** The white building on the field: the hardware lab, and nobody else works in it. */
 export function LabView({ state, onLeave, onStaffMenu }: Props) {
   const ref = useRef<HTMLCanvasElement>(null)
   // where each person ended up this frame, so they can still be right-clicked
@@ -56,9 +51,7 @@ export function LabView({ state, onLeave, onStaffMenu }: Props) {
   const said = useRef<{ id: string; text: string; from: number }[]>([])
   const W = LAB_COLS * TILE
   const H = LAB_ROWS * TILE
-  const researchers = state.staff.filter((s) => s.role === 'researcher')
   const hardware = state.staff.filter((s) => s.role === 'hardware')
-  const running = state.researching.length > 0
   const week = globalWeek(state)
   const designing = Boolean(state.chipDesign)
 
@@ -78,8 +71,7 @@ export function LabView({ state, onLeave, onStaffMenu }: Props) {
       drawLabFridge(ctx, 28, 2, now)
       drawTestRig(ctx, 13, 4, now)
 
-      RESEARCH_BENCHES.forEach((b, i) => drawLabBench(ctx, b.x, b.y, now, i * 5))
-      HARDWARE_BENCHES.forEach((b, i) => drawHardwareBench(ctx, b.x, b.y, now, i * 3))
+      BENCHES.forEach((b, i) => drawHardwareBench(ctx, b.x, b.y, now, i * 3))
 
       // the people, at the benches their job belongs to
       hits.current = []
@@ -90,8 +82,7 @@ export function LabView({ state, onLeave, onStaffMenu }: Props) {
         drawCharacter(ctx, person, x, y, now, busy, false)
         drawMoodPip(ctx, x * SCALE, y * SCALE, person, now)
       }
-      researchers.slice(0, RESEARCH_BENCHES.length).forEach((p, i) => seat(p, RESEARCH_BENCHES[i], running))
-      hardware.slice(0, HARDWARE_BENCHES.length).forEach((p, i) => seat(p, HARDWARE_BENCHES[i], designing))
+      hardware.slice(0, BENCHES.length).forEach((p, i) => seat(p, BENCHES[i], designing))
 
       // what the two halves are working on, over their own bay
       ctx.font = '8px "Press Start 2P", monospace'
@@ -104,30 +95,21 @@ export function LabView({ state, onLeave, onStaffMenu }: Props) {
         ctx.fillText(text, tx * TILE * SCALE, ty * TILE * SCALE)
       }
       // the two bays are named on the wall over them
-      caption('RESEARCH', 8, 0.55, '#7f889c')
-      caption('HARDWARE', 23, 0.55, '#7f889c')
+      caption('HARDWARE LAB', 8, 0.55, '#7f889c')
+      caption('TEST FLOOR', 23, 0.55, '#7f889c')
 
-      if (running) {
-        const soonest = [...state.researching].sort((a, b) => a.weeksRemaining - b.weeksRemaining)[0]
-        drawWorkIcon(ctx, 15 * TILE * SCALE, 3 * TILE * SCALE, 'research')
-        caption(
-          `${RESEARCH_MAP[soonest.id]?.name ?? 'Research'} · ${Math.ceil(soonest.weeksRemaining)}wk`,
-          15,
-          2,
-          '#bfe6ff',
-        )
-      }
       if (state.chipDesign) {
+        drawWorkIcon(ctx, 15 * TILE * SCALE, 3 * TILE * SCALE, 'training')
         caption(
           `Gen ${state.chipDesign.toLevel} tape-out · ${Math.ceil(state.chipDesign.weeksRemaining)}wk`,
-          23,
-          12.5,
+          15,
+          2,
           '#ffd166',
         )
       }
 
       // the lab talks too
-      said.current = chatter.current.step(now, [...researchers, ...hardware], state, week)
+      said.current = chatter.current.step(now, hardware, state, week)
       for (const b of said.current) {
         const at = hits.current.find((h) => h.id === b.id)
         if (at) drawBubble(ctx, at.x * SCALE, at.y * SCALE, b.text, now - b.from, W * SCALE)
@@ -137,7 +119,7 @@ export function LabView({ state, onLeave, onStaffMenu }: Props) {
     }
     raf = requestAnimationFrame(draw)
     return () => cancelAnimationFrame(raf)
-  }, [researchers, hardware, running, designing, state, week, W])
+  }, [hardware, designing, state, week, W])
 
   /** Whoever is under a client-space point, the same way the office does it. */
   function personAt(clientX: number, clientY: number): string | null {
@@ -155,8 +137,7 @@ export function LabView({ state, onLeave, onStaffMenu }: Props) {
     return null
   }
 
-  const over = Math.max(0, researchers.length - RESEARCH_BENCHES.length)
-  const overHw = Math.max(0, hardware.length - HARDWARE_BENCHES.length)
+  const over = Math.max(0, hardware.length - BENCHES.length)
 
   return (
     <div className="campus-wrap">
@@ -177,19 +158,16 @@ export function LabView({ state, onLeave, onStaffMenu }: Props) {
         title="Right-click somebody to manage them"
       />
       <div className="campus-legend">
-        <span className="campus-name">The lab</span>
+        <span className="campus-name">Hardware lab</span>
         <span>
-          {researchers.length} researcher{researchers.length === 1 ? '' : 's'}
+          {hardware.length} hardware engineer{hardware.length === 1 ? '' : 's'}
           {over > 0 ? ` (${over} without a bench)` : ''}
         </span>
         <span>
-          {hardware.length} hardware engineer{hardware.length === 1 ? '' : 's'}
-          {overHw > 0 ? ` (${overHw} without a bench)` : ''}
+          {hardware.length === 0 ? 'Nobody works in here yet' : 'Nobody else works in here'}
         </span>
         <span>
-          {running
-            ? `${state.researching.length} project${state.researching.length === 1 ? '' : 's'} running`
-            : `Nothing in research · ${state.researched.length} techniques unlocked`}
+          {state.chipLevel > 0 ? `Generation ${state.chipLevel} silicon in the field` : 'Bought off the shelf'}
         </span>
         <span>
           {state.chipDesign

@@ -95,11 +95,11 @@ news feed; any new recurring cost belongs in `weeklyCosts` or the warnings will 
 `hall`) and swaps between `OfficeView`, `CampusView`, `LabView` and `DatacenterView`. The door
 hotspot in the office leads outside, and outside every building is a click target. Every canvas
 draws in art pixels on the same 16px world grid (`campusArt.ts`, `labArt.ts` and `serverArt.ts` all
-mirror `officeArt.ts`), so anything new is placed in tiles wherever it goes. Researchers and
-hardware engineers are drawn in the lab and nowhere else — `GameScreen` filters them out of the
-staff list it hands `OfficeView` — so a new role that belongs in a room of its own is filtered the
-same way, not special-cased in the view, and `LabView` carries the same right-click staff menu so
-nobody becomes unreachable by moving them.
+mirror `officeArt.ts`), so anything new is placed in tiles wherever it goes. Hardware engineers are
+drawn in the lab and nowhere else — `GameScreen` filters them out of the staff list it hands
+`OfficeView` — so a new role that belongs in a room of its own is filtered the same way, not
+special-cased in the view, and `LabView` carries the same right-click staff menu so nobody becomes
+unreachable by moving them.
 
 **The field is a layout, not a pile of draw calls.** `campusLayout.ts` imports nothing and returns
 every building's footprint in tiles; `CampusView` draws from it, hit-tests clicks and hover against
@@ -145,6 +145,12 @@ a new lever through `effortOf` rather than counting heads, or moods will stop ma
 Somebody on a week off is removed from `assigned()`, so every existing reader already ignores them.
 Answering a request goes through `EffectOp` (`moraleFor`, `moraleAll`, `assignFor`, `sabbaticalFor`,
 `cancelNoticeFor`), not a new action.
+
+**Who can be put on what** is `canAssign(role, job)` in `hiring.ts`, and it is enforced in the
+`ASSIGN_STAFF` case as well as read by the staff menu and the roster — the UI never decides a rule
+on its own. Everybody except a hardware engineer is locked to `defaultAssignment(role)` plus
+`training`, so curation is the marketers' job and reliability is the lawyers'; hiring for a job is
+the lever, not shuffling people into it.
 
 **Weekly pressure systems.** `advanceOneWeek` now runs four things in a fixed order that all read
 from the same week's numbers: enterprise contracts (paid, or lost on quality or reliability),

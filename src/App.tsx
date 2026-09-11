@@ -360,6 +360,7 @@ export default function App() {
           onStartTraining={(staffId) => dispatch({ type: 'START_STAFF_TRAINING', staffId })}
           onFireStaff={(staffId) => dispatch({ type: 'FIRE_STAFF', staffId })}
           onGiveRaise={(staffId) => dispatch({ type: 'GIVE_RAISE', staffId })}
+          onGiveBreak={(staffId) => dispatch({ type: 'GIVE_BREAK', staffId })}
           race={
             inRace
               ? { players: lobby.players, selfId: lobby.selfId, isHost: lobby.isHost, winner: lobby.winner }

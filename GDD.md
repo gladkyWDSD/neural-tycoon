@@ -447,7 +447,8 @@ outside, to a field with everything the company owns standing in it.
   sign over the door.
 - **A datacenter for every hall you own**, cooling units turning on the roof and a status light by
   the door. Rented halls are greyer and fly somebody else's pennant.
-- **The lab**, the white building with the glass front, standing between the office and the halls.
+- **The hardware lab**, the white building with the glass front, standing between the office and the
+  halls.
 - **A fab line for each one you have built**, with lit cleanrooms and a stack breathing steam.
 - **A dish for every data source** feeding the pipeline, tilting slowly on its mast.
 - Trees, a road along the bottom with traffic on it, and the field itself going through the same
@@ -461,23 +462,15 @@ itself under the pointer.
 yellow with its name over it; click it and you walk in. Everything else — the fabs, the dishes, the
 trees, the traffic — is the balance sheet as a place.
 
-### The lab
+### The hardware lab
 
-Click the white building and you go in. **Researchers and hardware engineers work in here and
-nowhere else**: hire either and they leave the office floor for the lab, and the office shows
-everybody else. A painted hazard line splits the room in two.
-
-- **Research**, on the left: a test rig down the middle of the building with something climbing
-  through it in bands of light, a whiteboard wall of working that gets rewritten as you watch, a
-  wall of screens showing a loss curve, a spectrogram and a grid lighting up, benches with
-  terminals, and a sample fridge humming in the corner. Whatever project is nearest to finishing
-  floats over the rig with the weeks left on it.
-- **Hardware**, on the right: steel benches with oscilloscopes tracing, trays of dies being probed,
-  a wafer catching the light and a soldering iron still smoking in its stand. A tape-out in progress
-  shows the generation and the weeks left under the bay.
-
-Right-click anybody in here to manage them, the same as at a desk. The readout counts researchers
-and hardware engineers, says what research is running, and says what the silicon is doing.
+Click the white building and you go in. **Only hardware engineers work in here** — hire one and they
+leave the office floor for the lab, and everybody else stays at a desk. Steel benches down both
+sides with oscilloscopes tracing, trays of dies being probed, a wafer catching the light and a
+soldering iron still smoking in its stand; the silicon test rig stands in the middle of the floor
+behind a painted hazard line, with something climbing through it in bands of light. A tape-out in
+progress floats over the rig with its generation and the weeks left. Right-click anybody in here to
+manage them, the same as at a desk.
 
 ### The datacenter floor
 
@@ -523,6 +516,16 @@ Nobody on the payroll is a number with a name on it.
 
 A team paid at market in a decent office runs around 60 and stays there. A team you never look at
 drifts down, works worse, and eventually walks.
+
+**What you can do about somebody** depends on what they are. Researchers, engineers, marketers and
+lawyers do the job they were hired for — research, training runs, data curation and reliability —
+and the only things you do to them are **train them up, give them a raise, send them home for a
+week, or lend them to a training run when there is a crunch**. Only **hardware engineers** move
+freely around the company, because chip design is the one job that is nobody's trade by default.
+
+A **week off** is yours to hand out rather than something they have to ask for: they do no work at
+all that week and come back 25 points happier, once every 20 weeks. It is the cheapest thing in the
+game and the only one that costs no money at all.
 
 ### Things that make the office feel lived in
 

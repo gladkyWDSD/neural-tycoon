@@ -195,6 +195,7 @@ const COURIER: Staff = {
   noticeWeeks: null,
   lastAskWeek: 0,
   joinedWeek: 0,
+  lastBreakWeek: 0,
 }
 
 interface Props {

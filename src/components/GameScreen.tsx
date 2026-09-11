@@ -61,6 +61,7 @@ interface Props {
   onStartTraining: (staffId: string) => void
   onFireStaff: (staffId: string) => void
   onGiveRaise: (staffId: string) => void
+  onGiveBreak: (staffId: string) => void
   /** present only when this game is a multiplayer race */
   race?: { players: LobbyPlayer[]; selfId: string; isHost: boolean; winner: string | null }
   onAttackPlayer: (targetId: string, targetName: string, kind: AttackKind) => void
@@ -122,6 +123,7 @@ export function GameScreen({
   onStartTraining,
   onFireStaff,
   onGiveRaise,
+  onGiveBreak,
   race,
   onAttackPlayer,
   onBidForStaff,
@@ -163,8 +165,8 @@ export function GameScreen({
   // one desk per person the office can hold, all the way up to the top upgrade
   const deskCount = maxStaff(state)
   // researchers have a lab of their own, so they are not also at a desk in here
-  // researchers and hardware engineers work in the lab, not on the office floor
-  const deskStaff = state.staff.filter((s) => s.role !== 'researcher' && s.role !== 'hardware')
+  // hardware engineers work in the lab; everybody else is on the office floor
+  const deskStaff = state.staff.filter((s) => s.role !== 'hardware')
 
   // Everything running right now gets its own bar over the office, oldest
   // first so a bar keeps its place while it fills. Only the first few fit.
@@ -250,6 +252,7 @@ export function GameScreen({
             state={state}
             onAssign={onAssignStaff}
             onRaise={onGiveRaise}
+            onBreak={onGiveBreak}
             onClose={() => setPanel(null)}
           />
         )}
@@ -396,6 +399,7 @@ export function GameScreen({
           onTrain={onStartTraining}
           onAssign={onAssignStaff}
           onRaise={onGiveRaise}
+          onBreak={onGiveBreak}
           onFire={onFireStaff}
           onClose={() => setStaffMenu(null)}
         />
