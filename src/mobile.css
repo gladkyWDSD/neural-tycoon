@@ -128,7 +128,9 @@
 /* --- the room -------------------------------------------------------- */
 .app-tall .office-wrap {
   order: 1;
-  padding: 4px;
+  /* The room is the point of the game. A slim frame makes the pixel art feel
+     deliberately presented instead of boxed into the leftover space. */
+  padding: 3px;
   min-height: 0;
 }
 
@@ -139,7 +141,7 @@
   flex-direction: row;
   align-items: stretch;
   gap: 6px;
-  padding: 7px 8px calc(7px + env(safe-area-inset-bottom, 0px));
+  padding: 5px 8px calc(5px + env(safe-area-inset-bottom, 0px));
   overflow-x: auto;
   overflow-y: hidden;
   background: linear-gradient(180deg, #22262f 0%, var(--panel) 70%);
@@ -155,8 +157,12 @@
 
 .app-tall .nav-tile {
   flex: 0 0 auto;
-  min-width: 104px;
-  padding: 6px 9px;
+  min-width: 92px;
+  min-height: 54px;
+  padding: 5px 8px;
+  gap: 1px;
+  border-radius: 3px;
+  scroll-snap-align: start;
 }
 
 .app-tall .nav-label {
@@ -164,16 +170,16 @@
 }
 
 .app-tall .nav-value {
-  font-size: 15px;
+  font-size: 14px;
 }
 
 .app-tall .nav-note {
-  font-size: 11px;
+  font-size: 10px;
 }
 
 /* --- the wire, one line under the top bar ---------------------------- */
 .app-tall .news-bar-head {
-  padding: 5px 10px;
+  padding: 4px 10px;
   gap: 8px;
 }
 
@@ -257,6 +263,48 @@
 .app-tall .hire-btn {
   white-space: normal;
   max-width: 100%;
+}
+
+/* A panel that scrolls must not scroll its own way out. */
+.app-tall .panel-header {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  flex: 0 0 auto;
+}
+
+/* Hiring is one journey on a phone: set the shortlist, hire somebody, then
+   continue down into the people you already employ. The panel itself owns the
+   scroll; on a screen this small the two nested scrolling lists each flexed
+   down to about one visible row, so the shortlist and the roster both looked
+   like the same cut-off list and most of each was unreachable. Here they are
+   one document instead, and each keeps a sticky heading so it stays obvious
+   which of the two lists of people you are looking at. */
+.app-tall .hire-panel {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+.app-tall .hire-panel .role-tabs,
+.app-tall .hire-panel .filters,
+.app-tall .hire-panel .candidate-list,
+.app-tall .hire-panel .model-list {
+  flex: 0 0 auto;
+  min-height: auto;
+  overflow: visible;
+}
+
+/* The sticky heading belonged to a list that scrolled on its own. Now the panel
+   scrolls and the header is the thing pinned to the top, so a heading that also
+   stuck would park itself underneath it and disappear. It rides along instead,
+   and reads as the divider between the two halves. */
+.app-tall .hire-panel .model-list-title {
+  position: static;
+  padding: 4px 0 6px;
+  margin: 0 0 2px;
+  font-size: 9px;
+  color: var(--accent-2);
 }
 
 .app-tall .people-sorts {
@@ -447,6 +495,99 @@
   .app-tall .news-bar-list {
     max-height: 40vh;
   }
+
+  /* One scrolling document is set up above; a landscape phone is short enough
+     that the two halves also want to stop looking like two sunken wells. */
+  .app-tall .hire-panel .candidate-list,
+  .app-tall .hire-panel .model-list {
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .app-tall .hire-panel .candidate-list {
+    padding: 8px 12px 16px;
+  }
+
+  /* Keep the setup and shortlist in the same sheet. The filter groups scroll
+     sideways as one compact row rather than pushing the first hire button
+     below the bottom of a landscape phone. */
+  .app-tall .hire-panel .role-tabs,
+  .app-tall .hire-panel .filters {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .app-tall .hire-panel .role-tabs::-webkit-scrollbar,
+  .app-tall .hire-panel .filters::-webkit-scrollbar {
+    display: none;
+  }
+
+  .app-tall .hire-panel .role-tabs {
+    gap: 5px;
+    padding: 7px 12px 0;
+  }
+
+  .app-tall .hire-panel .role-tab {
+    flex: 0 0 auto;
+    min-height: 36px;
+    padding: 6px 8px;
+    font-size: 8px;
+  }
+
+  .app-tall .hire-panel .filters {
+    flex-direction: row;
+    align-items: flex-end;
+    gap: 12px;
+    padding: 7px 12px;
+  }
+
+  .app-tall .hire-panel .filter-group {
+    flex: 0 0 auto;
+  }
+
+  .app-tall .hire-panel .filter-group label {
+    margin-bottom: 3px;
+  }
+
+  .app-tall .hire-panel .filter-buttons {
+    flex-wrap: nowrap;
+  }
+
+  .app-tall .hire-panel .filter-btn {
+    min-height: 34px;
+    padding: 5px 8px;
+    font-size: 8px;
+  }
+
+  /* Landscape has enough width for a candidate's key facts on one line. It
+     makes the shortlist immediately scannable and keeps its Hire key nearby. */
+  .app-tall .hire-panel .candidate {
+    grid-template-columns: minmax(170px, 1fr) auto auto auto;
+    gap: 6px;
+    padding: 6px 8px;
+  }
+
+  .app-tall .hire-panel .candidate > * {
+    grid-column: auto;
+  }
+
+  .app-tall .hire-panel .candidate-spec {
+    grid-column: 1;
+  }
+
+  .app-tall .hire-panel .candidate-name {
+    font-size: 17px;
+  }
+
+  .app-tall .hire-panel .candidate-salary {
+    font-size: 15px;
+  }
+
+  .app-tall .hire-panel .hire-btn {
+    min-height: 34px;
+    padding: 5px 9px;
+  }
 }
 
 /* A short window — a phone on its side, a small desktop one — has to give the
@@ -499,6 +640,92 @@
    way back are pinned to the screen so they do not scroll away with the field.
 */
 @media (orientation: portrait) {
+  /* Phone HUD ----------------------------------------------------------
+     On an upright phone, reserve the long labels for the panels they open.
+     The always-visible controls become a compact status strip, leaving the
+     office substantially more height without making touch targets smaller. */
+  .app-tall .topbar {
+    gap: 0 7px;
+    padding: 3px 8px calc(3px + env(safe-area-inset-top, 0px));
+  }
+
+  .app-tall .topbar-item,
+  .app-tall .topbar-btn {
+    font-size: 8px;
+    min-height: 30px;
+    padding-top: 4px;
+    padding-bottom: 4px;
+  }
+
+  .app-tall .company {
+    max-width: 44vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .app-tall .topbar-item.date {
+    font-size: 8px;
+  }
+
+  .app-tall .valuation-label,
+  .app-tall .valuation-track {
+    display: none;
+  }
+
+  .app-tall .valuation {
+    gap: 0;
+  }
+
+  .app-tall .pause-btn {
+    min-height: 36px;
+    padding: 6px 7px;
+    font-size: 8px;
+  }
+
+  .app-tall .sidenav {
+    scroll-snap-type: x proximity;
+  }
+
+  .app-tall .nav-note {
+    display: none;
+  }
+
+  .app-tall .nav-tile {
+    justify-content: center;
+    min-width: 82px;
+    min-height: 50px;
+    padding: 4px 7px;
+  }
+
+  .app-tall .nav-label {
+    font-size: 7px;
+    letter-spacing: 0.7px;
+  }
+
+  .app-tall .nav-value {
+    font-size: 14px;
+  }
+
+  .app-tall .news-bar-head {
+    min-height: 32px;
+    padding: 3px 8px;
+  }
+
+  .app-tall .news-bar-title {
+    font-size: 8px;
+    letter-spacing: 1px;
+  }
+
+  .app-tall .news-bar-mood {
+    font-size: 12px;
+  }
+
+  .app-tall .news-bar-toggle {
+    min-height: 30px;
+    padding: 4px 7px;
+    font-size: 8px;
+  }
+
   .app-tall .campus-wrap {
     justify-content: flex-start;
     overflow-x: auto;

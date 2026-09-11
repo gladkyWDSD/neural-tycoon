@@ -63,7 +63,7 @@ export function HirePanel({ state, onHire, onStartTraining, onClose }: Props) {
   }
 
   return (
-    <div className="panel">
+    <div className="panel hire-panel">
       <div className="panel-header">
         <h3 className="panel-title">Hire Staff</h3>
         <button className="close-btn" onClick={onClose}>
@@ -153,6 +153,9 @@ export function HirePanel({ state, onHire, onStartTraining, onClose }: Props) {
       </div>
 
       <div className="candidate-list">
+        {/* Both halves of this panel are rows of people who look alike, and on a
+            phone they run together in one scroll, so each half says which it is. */}
+        <h4 className="model-list-title">Shortlist — Hire</h4>
         {candidates.length === 0 && (
           <p className="placeholder">You have hired everyone on this shortlist.</p>
         )}

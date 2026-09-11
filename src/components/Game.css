@@ -597,6 +597,12 @@
   box-shadow: var(--recess);
 }
 
+/* the shortlist is padded a little tighter than the roster, so its heading
+   pins at its own top rather than a few pixels above it */
+.candidate-list .model-list-title {
+  top: -8px;
+}
+
 .model-list-title {
   position: sticky;
   top: -12px;
