@@ -5,6 +5,7 @@ import { weeklyRevenue } from '../game/research'
 import { companyValuation, weeklyCosts, weeklyIncome } from '../game/state'
 import { IPO_VALUATION, WIN_VALUATION } from '../game/constants'
 import type { PanelId } from './SideNav'
+import { useNarrow } from '../game/device'
 import './Game.css'
 
 interface Props {
@@ -37,6 +38,8 @@ export function TopBar({
 
   // the readouts are the buttons: press what you want to know more about
   const toggle = (id: Exclude<PanelId, null>) => onOpenPanel(panel === id ? null : id)
+  // a phone has no room for a sentence on a key
+  const narrow = useNarrow()
 
   // how long the cash lasts at the current burn, because zero ends the run
   const costs = weeklyCosts(state)
@@ -87,8 +90,12 @@ export function TopBar({
       <div className="topbar-item date">
         {formatDate(state.date)} · Wk {state.date.week}
       </div>
+      {/* On a phone the bar folds into three short lines instead of one long
+          one; these are where it folds. They are not there on a wide screen. */}
+      <span className="topbar-break" aria-hidden="true" />
+      <span className="topbar-break" aria-hidden="true" />
       <button className="pause-btn" onClick={onToggleMusic} title={musicOn ? 'Mute music' : 'Play music'}>
-        {musicOn ? 'Music on' : 'Music off'}
+        {narrow ? (musicOn ? 'Music' : 'Muted') : musicOn ? 'Music on' : 'Music off'}
       </button>
       <button
         className="pause-btn"

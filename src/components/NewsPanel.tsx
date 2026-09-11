@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { GameState } from '../game/types'
 import { companyValuation, marketMood } from '../game/state'
 import { formatMoney } from '../game/format'
+import { useNarrow } from '../game/device'
 import './Game.css'
 
 /**
@@ -10,7 +11,12 @@ import './Game.css'
  * without you.
  */
 export function NewsPanel({ state }: { state: GameState }) {
-  const [open, setOpen] = useState(true)
+  // On a phone the wire is a single line you open when you want it, because
+  // three lines of headlines is a third of the screen. Null means you have not
+  // said either way, so it follows the screen.
+  const narrow = useNarrow()
+  const [choice, setChoice] = useState<boolean | null>(null)
+  const open = choice ?? !narrow
   const list = useRef<HTMLDivElement>(null)
   const items = state.events
   const newest = items[0]?.id
@@ -27,9 +33,14 @@ export function NewsPanel({ state }: { state: GameState }) {
       <div className="news-bar-head">
         <span className="news-bar-title">The Wire</span>
         <span className="news-bar-mood" title="How the world feels about AI this week">
-          Market: {mood} ({state.hype.toFixed(2)}x) · {state.companyName} {formatMoney(companyValuation(state))}
+          {open || !items[0]
+            ? `Market: ${mood} (${state.hype.toFixed(2)}x) · ${state.companyName} ${formatMoney(companyValuation(state))}`
+            : items[0].text}
         </span>
-        <button className="news-bar-toggle" onClick={() => setOpen(!open)}>
+        <button
+          className="news-bar-toggle"
+          onClick={() => setChoice(!open)}
+        >
           {open ? 'Hide' : 'Show'}
         </button>
       </div>

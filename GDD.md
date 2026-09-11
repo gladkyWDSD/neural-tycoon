@@ -437,6 +437,30 @@ hears about itself reads like a spreadsheet.
 - **Milestones**, once each: ten thousand users, a hundred thousand, a million, and so on up to a
   hundred million, and the same ladder for followers.
 
+### On a phone
+
+The game plays on a phone in portrait, and it is the same game rather than a
+cut-down one — the layout stands up rather than being rebuilt.
+
+- **The rail lies down along the bottom**, where a thumb reaches it: the same
+  live readouts, in a strip you swipe sideways.
+- **The top bar folds into three short lines**: the company and the date, the
+  cash and the users, then the valuation and the two keys.
+- **The wire becomes one line** under the top bar, showing the latest headline.
+  Press Show to open it.
+- **A panel is the whole screen**, with its header and close button pinned to the
+  top however far you scroll.
+- **The office turns upright**: three desks to a row in a tall room instead of
+  six in a wide one, so the room fills the screen instead of lying across it in
+  a strip.
+- **Outside, the lab and the datacenter floor fill the height and you swipe
+  along them**, with the readout and the way back pinned to the screen.
+- **Press somebody to manage them.** There is no right button on a phone, so a
+  press on anybody in the office or the lab opens their card; right-click still
+  works where there is a mouse.
+- **A staff card is a sheet that comes up from the bottom**, and every choice on
+  it is a full-width key.
+
 ### Outside
 
 There is a door in the bottom-left corner of the office, under a lit exit sign. Click it and you go

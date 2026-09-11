@@ -37,6 +37,9 @@ html,
 body,
 #root {
   height: 100%;
+  /* dvh keeps the game the height of what you can actually see while a phone
+     browser's address bar slides in and out */
+  height: 100dvh;
   margin: 0;
 }
 
@@ -48,6 +51,19 @@ body {
   image-rendering: pixelated;
   -webkit-font-smoothing: none;
   overflow: hidden;
+  /* a game is not a document: no rubber-banding, no double-tap zoom, no grey
+     flash over everything you touch */
+  overscroll-behavior: none;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+}
+
+/* Nothing in the world is text you select; the panels still are. */
+canvas {
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 /* Buttons are physical keys: they sit on a hard base and press into it. No blur
@@ -116,4 +132,21 @@ input:focus {
   width: 100%;
   display: flex;
   flex-direction: column;
+}
+
+
+/* A finger is not a mouse: everything you can press has to be big enough to
+   press. This applies on touch screens only, so the desktop keeps its density. */
+@media (pointer: coarse) {
+  button,
+  select {
+    min-height: 44px;
+  }
+
+  input,
+  select,
+  textarea {
+    /* anything under 16px makes iOS zoom the page when it gets focus */
+    font-size: 16px;
+  }
 }

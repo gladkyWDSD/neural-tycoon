@@ -146,15 +146,17 @@ export function LabView({ state, onLeave, onStaffMenu }: Props) {
         width={W * SCALE}
         height={H * SCALE}
         onClick={(e) => {
-          // clicking a person does nothing; clicking the room takes you out
-          if (!personAt(e.clientX, e.clientY)) onLeave()
+          // pressing somebody opens their menu; pressing the room takes you out
+          const person = personAt(e.clientX, e.clientY)
+          if (person && onStaffMenu) onStaffMenu(person, e.clientX, e.clientY)
+          else if (!person) onLeave()
         }}
         onContextMenu={(e) => {
           e.preventDefault()
           const id = personAt(e.clientX, e.clientY)
           if (id && onStaffMenu) onStaffMenu(id, e.clientX, e.clientY)
         }}
-        title="Right-click somebody to manage them"
+        title="Press somebody to manage them"
       />
       <div className="campus-legend">
         <span className="campus-name">Hardware lab</span>

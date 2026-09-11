@@ -1,0 +1,531 @@
+/* The game on a phone.
+ *
+ * Everything here is a rearrangement, not a second interface: the same top bar,
+ * the same rail of readouts, the same panels. On a narrow screen the rail lies
+ * down along the bottom where a thumb can reach it, the wire becomes a single
+ * line under the top bar, and a panel stops being a column beside the room and
+ * becomes the whole screen.
+ *
+ * Every selector is prefixed with `body` on purpose: this file and the
+ * component stylesheets land in the bundle in whatever order the modules are
+ * evaluated, and a plain `.sidenav` here would lose to the `.sidenav` in
+ * Game.css half the time. One extra element in the selector settles it.
+ */
+
+@media (max-width: 900px) {
+  /* topbar / wire / room + rail */
+  body .news-bar {
+    order: 1;
+  }
+
+  body .game-body {
+    order: 2;
+    flex-direction: column;
+  }
+
+  /* --- the top bar ----------------------------------------------------- */
+  body .topbar {
+    flex-wrap: wrap;
+    gap: 0 8px;
+    padding: 4px 10px calc(4px + env(safe-area-inset-top, 0px));
+    align-items: center;
+  }
+
+  body .topbar-item,
+  body .topbar-btn {
+    font-size: 9px;
+    line-height: 1.1;
+    padding-top: 5px;
+    padding-bottom: 5px;
+  }
+
+  /* Three short lines: the company and the date, then the money, then the
+     users and the two buttons. The breaks are the two empty spans. */
+  body .topbar-break {
+    display: block;
+    flex: 0 0 100%;
+    height: 0;
+    margin: 0;
+  }
+
+  body .company {
+    order: 1;
+    margin-right: auto;
+  }
+
+  body .topbar-item.date {
+    order: 2;
+  }
+
+  body .topbar-break:nth-of-type(1) {
+    order: 3;
+  }
+
+  body .topbar-btn.money {
+    order: 4;
+  }
+
+  body .topbar-btn.dim {
+    order: 5;
+    margin-right: auto;
+  }
+
+  body .topbar-break:nth-of-type(2) {
+    order: 6;
+  }
+
+  body .topbar-btn.valuation {
+    order: 7;
+    margin-right: auto;
+  }
+
+  /* the two keys ride at the end of the last line */
+  body .pause-btn {
+    order: 8;
+  }
+
+  /* a row never starts with a divider */
+  body .topbar-break + .topbar-item,
+  body .topbar-break + .topbar-btn {
+    padding-left: 0;
+    border-left: none;
+  }
+
+  body .topbar-item + .topbar-item,
+  body .topbar-item + .topbar-btn {
+    padding-left: 10px;
+    border-left-width: 1px;
+  }
+
+  body .valuation {
+    gap: 5px;
+  }
+
+  body .valuation-track {
+    width: 30px;
+    height: 7px;
+  }
+
+  body .valuation-label,
+  body .dim {
+    font-size: 8px;
+  }
+
+  body .pause-btn {
+    font-size: 9px;
+    padding: 7px 8px;
+    min-height: 0;
+  }
+
+  /* --- the room -------------------------------------------------------- */
+  body .office-wrap {
+    order: 1;
+    padding: 4px;
+    min-height: 0;
+  }
+
+  /* --- the rail, lying down along the bottom --------------------------- */
+  body .sidenav {
+    order: 2;
+    flex: 0 0 auto;
+    flex-direction: row;
+    align-items: stretch;
+    gap: 6px;
+    padding: 7px 8px calc(7px + env(safe-area-inset-bottom, 0px));
+    overflow-x: auto;
+    overflow-y: hidden;
+    background: linear-gradient(180deg, #22262f 0%, var(--panel) 70%);
+    border-right: none;
+    border-top: 2px solid var(--border);
+    box-shadow: inset 0 2px 0 var(--lit), 0 -3px 0 rgba(0, 0, 0, 0.45);
+    scrollbar-width: none;
+  }
+
+  body .sidenav::-webkit-scrollbar {
+    display: none;
+  }
+
+  body .nav-tile {
+    flex: 0 0 auto;
+    min-width: 104px;
+    padding: 6px 9px;
+  }
+
+  body .nav-label {
+    font-size: 8px;
+  }
+
+  body .nav-value {
+    font-size: 15px;
+  }
+
+  body .nav-note {
+    font-size: 11px;
+  }
+
+  /* --- the wire, one line under the top bar ---------------------------- */
+  body .news-bar-head {
+    padding: 5px 10px;
+    gap: 8px;
+  }
+
+  body .news-bar-title {
+    font-size: 9px;
+  }
+
+  body .news-bar-mood {
+    font-size: 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  body .news-bar-toggle {
+    font-size: 9px;
+    padding: 6px 8px;
+    min-height: 0;
+  }
+
+  body .news-bar-list {
+    max-height: 34vh;
+  }
+
+  body .news-bar-item {
+    width: 74vw;
+  }
+
+  /* --- panels take the whole screen ------------------------------------ */
+  body .panel {
+    position: fixed;
+    inset: 0;
+    z-index: 1200;
+    width: 100%;
+    max-width: none;
+    flex: 1 1 auto;
+    margin: 0;
+    border-width: 0;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  body .panel-header {
+    padding: calc(10px + env(safe-area-inset-top, 0px)) 12px 10px;
+  }
+
+  body .panel-title {
+    font-size: 13px;
+  }
+
+  body .close-btn {
+    min-width: 46px;
+    min-height: 46px;
+    font-size: 16px;
+  }
+
+  /* the wide rows inside panels stack instead of squeezing */
+  body .candidate,
+  body .person-row {
+    grid-template-columns: 1fr;
+  }
+
+  body .candidate > *,
+  body .person-row > * {
+    grid-column: 1;
+  }
+
+  body .dc-stats,
+  body .comp-overview {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  body .filters,
+  body .role-tabs,
+  body .publish-row,
+  body .model-actions,
+  body .trade-fields {
+    flex-wrap: wrap;
+  }
+
+  /* a key with a long label wraps its words rather than the row */
+  body .hire-btn {
+    white-space: normal;
+    max-width: 100%;
+  }
+
+  body .people-sorts {
+    margin-left: 0;
+    width: 100%;
+  }
+
+  body .person-actions {
+    gap: 8px;
+  }
+
+  body .person-job {
+    margin-left: 0;
+  }
+
+  /* --- modals ---------------------------------------------------------- */
+  body .event-modal {
+    width: calc(100vw - 16px);
+    max-width: none;
+    max-height: 86dvh;
+    padding: 18px 14px;
+    gap: 10px;
+  }
+
+  body .event-icon {
+    font-size: 34px;
+  }
+
+  body .event-title {
+    font-size: 14px;
+  }
+
+  body .event-text {
+    font-size: 17px;
+  }
+
+  body .event-choice-label {
+    font-size: 10px;
+  }
+
+  body .report-modal,
+  body .call-modal {
+    width: calc(100vw - 16px);
+    max-width: none;
+    max-height: 86dvh;
+  }
+
+  body .call-head {
+    flex-direction: column;
+    text-align: center;
+    gap: 10px;
+  }
+
+  body .call-portrait {
+    width: 120px;
+    height: 138px;
+  }
+
+  body .event-person {
+    flex-direction: column;
+    text-align: center;
+    gap: 10px;
+  }
+
+  body .event-person-lines {
+    align-items: center;
+  }
+
+  /* --- the staff menu becomes a sheet you pull up ---------------------- */
+  body .staff-menu {
+    left: 0 !important;
+    right: 0;
+    top: auto !important;
+    bottom: 0;
+    width: 100%;
+    max-height: 76dvh;
+    border-width: 3px 0 0;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    box-shadow: 0 -6px 0 rgba(0, 0, 0, 0.5);
+  }
+
+  body .staff-menu-item {
+    padding: 12px;
+  }
+
+  body .staff-menu-label {
+    font-size: 11px;
+  }
+
+  body .staff-menu-hint {
+    font-size: 14px;
+  }
+
+  /* --- the bits that float over the room ------------------------------- */
+  body .campus-legend {
+    top: 6px;
+    left: 6px;
+    max-width: 62%;
+    padding: 6px 8px;
+    gap: 1px;
+    font-size: 12px;
+  }
+
+  body .campus-name {
+    font-size: 9px;
+  }
+
+  body .campus-back {
+    right: 8px;
+    bottom: 8px;
+    font-size: 9px;
+    padding: 10px 12px;
+  }
+
+  body .news-feed {
+    width: 62%;
+    left: 8px;
+    bottom: 8px;
+    font-size: 13px;
+  }
+
+  /* out of the way of every control there is: below the wire, above the room */
+  body .dev-toggle {
+    right: 8px;
+    top: 192px;
+    bottom: auto;
+    width: 36px;
+    height: 36px;
+    min-height: 0;
+    opacity: 0.75;
+  }
+
+  body .dev-console {
+    bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+    max-height: 56dvh;
+  }
+
+  /* --- the screens either side of a run -------------------------------- */
+  body .title-box {
+    padding: 24px 12px;
+    gap: 16px;
+    max-width: 100%;
+    width: 100%;
+  }
+
+  body .game-title {
+    font-size: 28px;
+  }
+
+  body .title-screen h1,
+  body .screen h1 {
+    font-size: 22px;
+  }
+
+  body .standings {
+    font-size: 12px;
+    padding: 6px 8px;
+  }
+}
+
+/* A phone lying on its side has almost no height: the rail and the wire both
+   have to shrink or there is no room left to look at. */
+@media (max-width: 900px) and (orientation: landscape) {
+  body .topbar {
+    padding: 3px 10px;
+  }
+
+  /* sideways there is width to spare and no height at all, so the bar goes
+     back to wrapping on its own rather than folding into three fixed lines */
+  body .topbar-break {
+    display: none;
+  }
+
+  body .company,
+  body .topbar-item.date,
+  body .topbar-btn.money,
+  body .topbar-btn.dim,
+  body .topbar-btn.valuation,
+  body .pause-btn {
+    order: 0;
+  }
+
+  body .topbar-btn.valuation,
+  body .topbar-btn.dim {
+    margin-right: 0;
+  }
+
+  body .nav-tile {
+    min-width: 92px;
+    padding: 4px 8px;
+  }
+
+  body .nav-note {
+    display: none;
+  }
+
+  body .sidenav {
+    padding: 5px 8px calc(5px + env(safe-area-inset-bottom, 0px));
+  }
+
+  body .news-bar-list {
+    max-height: 40vh;
+  }
+}
+
+
+/* Outside, the lab and the datacenter floor are all twice as wide as they are
+   tall, which on an upright phone would leave them a strip across the middle.
+   They fill the height instead and you swipe along them; the readout and the
+   way back are pinned to the screen so they do not scroll away with the field.
+*/
+@media (max-width: 900px) and (orientation: portrait) {
+  body .campus-wrap {
+    justify-content: flex-start;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+  }
+
+  body .campus-wrap::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* two classes deep on purpose: `.office-wrap canvas` in Game.css ties with
+     anything shorter and wins on source order */
+  body .campus-wrap > .campus-canvas {
+    flex: 0 0 auto;
+    height: 100%;
+    width: auto;
+    max-width: none;
+    max-height: 100%;
+    object-fit: fill;
+  }
+
+  body .campus-legend {
+    position: fixed;
+    top: auto;
+    bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+    left: 8px;
+    z-index: 3;
+  }
+
+  body .campus-back {
+    position: fixed;
+    right: 8px;
+    bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+    z-index: 3;
+  }
+
+  body .campus-hint {
+    display: none;
+  }
+}
+
+
+/* The smallest phones still in use are 360 wide, and everything has to give a
+   little for the top bar to stay at three lines. */
+@media (max-width: 380px) {
+  body .topbar-item,
+  body .topbar-btn {
+    font-size: 8px;
+  }
+
+  body .valuation-track {
+    width: 24px;
+  }
+
+  body .pause-btn {
+    font-size: 8px;
+    padding: 7px 6px;
+  }
+
+  body .nav-tile {
+    min-width: 96px;
+  }
+
+  body .news-bar-mood {
+    font-size: 11px;
+  }
+}

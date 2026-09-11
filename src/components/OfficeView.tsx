@@ -3,6 +3,7 @@ import type { GameState, Staff } from '../game/types'
 import { playWorkSfx } from '../game/audio'
 import { SPRITE_H, SPRITE_W, drawCharacter, hash } from './sprites'
 import { Chatter, drawBubble } from './bubbles'
+import { usePortrait } from '../game/device'
 import type { WorkKind } from './officeArt'
 import { SCALE, TILE, drawBurst, drawDesk, drawDeskProp, drawToilet, drawWorkIcon, drawWorkToken } from './officeArt'
 import {
@@ -106,8 +107,15 @@ interface Layout {
   gridW: number
 }
 
-function layoutFor(deskCount: number): Layout {
-  const cols = Math.min(MAX_DESK_COLS, Math.max(3, Math.ceil(deskCount / 3)))
+/**
+ * The room, sized around the desks.
+ *
+ * `most` and `aspect` are what change on a phone: a portrait screen wants a
+ * narrow, tall room with three desks to a row rather than the wide, short one a
+ * monitor wants.
+ */
+function layoutFor(deskCount: number, most = MAX_DESK_COLS, aspect = TARGET_ASPECT): Layout {
+  const cols = Math.min(most, Math.max(3, Math.ceil(deskCount / 3)))
   const rows = Math.max(1, Math.ceil(Math.max(1, deskCount) / cols))
   const gridW = (cols - 1) * PITCH_X + DESK_W
   const gridH = (rows - 1) * PITCH_Y + 2
@@ -115,8 +123,8 @@ function layoutFor(deskCount: number): Layout {
   // the canvas does not letterbox away half the panel
   let roomCols = gridW + 4
   let roomRows = gridH + 4
-  roomCols = Math.max(roomCols, Math.round(roomRows * TARGET_ASPECT))
-  roomRows = Math.max(roomRows, Math.round(roomCols / TARGET_ASPECT))
+  roomCols = Math.max(roomCols, Math.round(roomRows * aspect))
+  roomRows = Math.max(roomRows, Math.round(roomCols / aspect))
   return {
     cols,
     rows,
@@ -219,7 +227,13 @@ export function OfficeView({ staff, state, desks, jobs, amenities, week, load, o
   // who is talking, and the thing they said
   const chatter = useRef(new Chatter(2))
   const said = useRef<{ id: string; text: string; from: number }[]>([])
-  const layout = useMemo(() => layoutFor(desks), [desks])
+  // a phone holds the room the other way up: three desks to a row, and a
+  // roughly square floor instead of a letterbox
+  const portrait = usePortrait()
+  const layout = useMemo(
+    () => (portrait ? layoutFor(desks, 3, 0.8) : layoutFor(desks)),
+    [desks, portrait],
+  )
   const deskList = useMemo(() => generateDesks(desks, layout), [desks, layout])
   const W = layout.roomCols * TILE
   const H = layout.roomRows * TILE
@@ -572,7 +586,14 @@ export function OfficeView({ staff, state, desks, jobs, amenities, week, load, o
       width={W * SCALE}
       height={H * SCALE}
       onClick={(e) => {
-        // the door in the corner is the only thing in the room you can click
+        // Tapping somebody opens their menu. There is no right button on a
+        // phone, and hunting for one on a desktop was never obvious either.
+        const person = staffAt(e.clientX, e.clientY)
+        if (person && onStaffMenu) {
+          onStaffMenu(person, e.clientX, e.clientY)
+          return
+        }
+        // the door in the corner is the other thing in the room you can press
         const at = artPoint(e.clientX, e.clientY)
         if (!at || !onLeave) return
         const door = doorTile(layout)
@@ -592,7 +613,9 @@ export function OfficeView({ staff, state, desks, jobs, amenities, week, load, o
         height: '100%',
         objectFit: 'contain',
         display: 'block',
+        touchAction: 'manipulation',
       }}
+      title="Press somebody to manage them · press the door to go outside"
     />
   )
 }
