@@ -91,6 +91,13 @@ return early once it is set, so a finished run is genuinely stopped. `weeklyCost
 `weeklyIncome` are the shared readouts behind the warnings in the top bar, the Company panel and the
 news feed; any new recurring cost belongs in `weeklyCosts` or the warnings will lie.
 
+**Sound is synthesised, never loaded.** `audio.ts` builds everything from oscillators and noise at
+runtime: a look-ahead sequencer for the music and one-shot voices for the rest. Nothing may create
+an `AudioContext` outside a real user gesture, so sound effects check for a running context and
+return quietly if there is none. Melodic parts route through `duckBus` so kicks can ride over them;
+drums and effects bypass it. `playUi` is wired once in `App.tsx` on `pointerdown`, so a new button
+needs no sound code of its own.
+
 **Flavour is content, not logic.** `worldnews.ts` holds the headlines that cross The Wire, and
 nothing in it touches a number: `advanceOneWeek` picks a line and pushes it into `state.events`,
 which the bottom bar renders. Add flavour there, not in the reducer. The feed keeps `NEWS_KEPT`

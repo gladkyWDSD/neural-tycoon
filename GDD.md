@@ -643,6 +643,29 @@ because both belong to a connection rather than to a company.
 
 ---
 
+### Sound
+
+All of it is synthesised in the browser at runtime. There are no audio files.
+
+**The music** is a sequencer that schedules a quarter of a second ahead of itself, at 82 beats a
+minute with swung eighths. It runs two eight-bar progressions, one in A minor and one a fifth away,
+across a four-section arrangement, so the loop modulates rather than repeating the same eight bars.
+Every kick ducks the melodic parts under it by about forty percent for a quarter of a second, which
+is the single trick that makes a loop breathe. Sections end with a snare fill and a noise riser into
+the next one.
+
+**The market colours it.** The master filter opens up when the hype index is high and closes down in
+an AI winter, so the loop goes bright or grey with the mood. It moves over a few seconds, slowly
+enough to feel rather than notice.
+
+**The work sounds** are the tokens landing on the progress bars: an FM bell for research, a filtered
+pluck for a model, a coin for marketing. The note is picked off a pentatonic ladder by how full the
+bar is, so a bar filling up literally rises in pitch, and it is panned to where the token landed.
+
+**The interface** has its own set: a key click on every button, a till for anything you buy, a desk
+phone when the White House rings, a chime for a decision waiting, a descending alarm when the money
+runs out and a fanfare when you win.
+
 ## 10. Tech & Art
 
 - **Platform:** Web browser game (later: mobile + web).

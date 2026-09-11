@@ -5,7 +5,7 @@ import type { LobbyState } from './game/multiplayer'
 import { LobbyScreen } from './components/LobbyScreen'
 import { parseCommand } from './game/commands'
 import { clearSave, loadState, saveState } from './game/save'
-import { isMusicEnabled, setMusicEnabled, startMusic, stopMusic } from './game/audio'
+import { isMusicEnabled, playUi, setMusicEnabled, setMusicMood, startMusic, stopMusic } from './game/audio'
 import { TitleScreen } from './components/TitleScreen'
 import { NamingScreen } from './components/NamingScreen'
 import { GameScreen } from './components/GameScreen'
@@ -37,6 +37,64 @@ export default function App() {
   const [lobby, setLobby] = useState<LobbyState>(session.state)
   useEffect(() => session.subscribe(setLobby), [session])
   const inRace = lobby.phase === 'playing' || lobby.phase === 'over'
+
+  // Every button in the game clicks. One listener rather than a prop on each
+  // one, because a control that makes no sound feels broken next to one that does.
+  useEffect(() => {
+    const hit = (e: Event) => {
+      const el = (e.target as HTMLElement | null)?.closest('button')
+      if (!el || (el as HTMLButtonElement).disabled) return
+      playUi('click')
+    }
+    const onDown = (e: PointerEvent) => hit(e)
+    // a button pressed with the keyboard fires click and no pointer event, so
+    // it is picked up here rather than being the one silent control
+    const onClick = (e: MouseEvent) => {
+      if (e.detail === 0) hit(e)
+    }
+    window.addEventListener('pointerdown', onDown)
+    window.addEventListener('click', onClick)
+    return () => {
+      window.removeEventListener('pointerdown', onDown)
+      window.removeEventListener('click', onClick)
+    }
+  }, [])
+
+  // the music takes its colour from the market
+  useEffect(() => {
+    setMusicMood(state.hype)
+  }, [state.hype])
+
+  // Spending money makes a till sound. Working it out from the money itself
+  // rather than from every button means nothing has to remember to ask.
+  const purse = useRef({ money: state.money, week: 0 })
+  useEffect(() => {
+    const week = globalWeek(state)
+    const spent = purse.current.money - state.money
+    // a weekly bill is not a purchase, and neither is a rounding error
+    if (week === purse.current.week && spent > 1000) playUi('buy')
+    purse.current = { money: state.money, week }
+  }, [state.money, state])
+
+  // the moments worth hearing
+  const heard = useRef({ call: false, event: false, lost: false, won: false, trade: false, bid: false })
+  useEffect(() => {
+    const was = heard.current
+    if (state.presidentCall && !was.call) playUi('ring')
+    if (state.pendingEvent && !was.event) playUi('notify')
+    if (state.pendingTrade && !was.trade) playUi('notify')
+    if (state.pendingBid && !was.bid) playUi('notify')
+    if (state.lost && !was.lost) playUi('alarm')
+    if (state.won && !was.won) playUi('fanfare')
+    heard.current = {
+      call: Boolean(state.presidentCall),
+      event: Boolean(state.pendingEvent),
+      trade: Boolean(state.pendingTrade),
+      bid: Boolean(state.pendingBid),
+      lost: state.lost,
+      won: state.won,
+    }
+  }, [state.presidentCall, state.pendingEvent, state.pendingTrade, state.pendingBid, state.lost, state.won])
 
   // the reducer's race rules follow the live connection, not a flag left behind
   useEffect(() => {

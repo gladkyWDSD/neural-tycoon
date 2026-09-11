@@ -35,6 +35,20 @@ const PROGRESSION: Chord[] = [
   { bass: 43, pad: [59, 62, 65, 67], arp: [55, 59, 62, 65, 67] },
 ]
 
+// The other half of the loop, a fifth away: Dm9 | Bb6/9 | Fmaj9 | C | Dm9 | Gm9 | Am7 | E7.
+// Sections two and four sit here, so the whole thing modulates rather than
+// looping the same eight bars for six minutes.
+const PROGRESSION_B: Chord[] = [
+  { bass: 38, pad: [57, 60, 65, 69], arp: [50, 57, 60, 65, 69] },
+  { bass: 34, pad: [58, 62, 65, 69], arp: [53, 58, 62, 65, 69] },
+  { bass: 41, pad: [57, 60, 64, 69], arp: [48, 57, 60, 64, 69] },
+  { bass: 36, pad: [55, 60, 64, 67], arp: [52, 55, 60, 64, 67] },
+  { bass: 38, pad: [57, 60, 65, 69], arp: [50, 57, 60, 65, 69] },
+  { bass: 43, pad: [58, 62, 65, 70], arp: [50, 58, 62, 65, 70] },
+  { bass: 45, pad: [57, 60, 64, 67], arp: [52, 57, 60, 64, 67] },
+  { bass: 40, pad: [56, 59, 64, 68], arp: [51, 56, 59, 64, 68] },
+]
+
 // Which chord tone the arpeggio plays on each eighth of a bar.
 const ARP_PATTERN = [0, 2, 1, 3, 2, 4, 3, 5]
 const ARP_GATE_FULL = [1, 0, 1, 1, 0, 1, 1, 1]
@@ -62,15 +76,17 @@ interface Section {
   arpBusy: boolean
   lead: boolean
   pad: number
+  /** which half of the harmony this section sits in */
+  chords: 'A' | 'B'
 }
 
 // The loop is four eight-bar sections, so it plays for a minute and a half
 // before it repeats and the texture keeps changing on the way through.
 const ARRANGEMENT: Section[] = [
-  { kick: 0, snare: false, hat: 0.5, openHat: false, shaker: false, arp: 0.45, arpBusy: false, lead: false, pad: 1 },
-  { kick: 1, snare: true, hat: 1, openHat: false, shaker: true, arp: 0.9, arpBusy: true, lead: false, pad: 0.85 },
-  { kick: 1, snare: true, hat: 1, openHat: true, shaker: true, arp: 1, arpBusy: true, lead: true, pad: 0.8 },
-  { kick: 0.5, snare: false, hat: 0.6, openHat: false, shaker: false, arp: 0.6, arpBusy: false, lead: true, pad: 1 },
+  { kick: 0, snare: false, hat: 0.5, openHat: false, shaker: false, arp: 0.45, arpBusy: false, lead: false, pad: 1, chords: 'A' },
+  { kick: 1, snare: true, hat: 1, openHat: false, shaker: true, arp: 0.9, arpBusy: true, lead: false, pad: 0.85, chords: 'B' },
+  { kick: 1, snare: true, hat: 1, openHat: true, shaker: true, arp: 1, arpBusy: true, lead: true, pad: 0.8, chords: 'A' },
+  { kick: 0.5, snare: false, hat: 0.6, openHat: false, shaker: false, arp: 0.6, arpBusy: false, lead: true, pad: 1, chords: 'B' },
 ]
 
 // --------------------------------------------------------------------- sfx
@@ -86,6 +102,8 @@ const PENTATONIC = [0, 2, 4, 7, 9, 12, 14, 16, 19, 21, 24]
 
 let ctx: AudioContext | null = null
 let musicBus: GainNode | null = null // everything the sequencer plays
+let duckBus: GainNode | null = null // the melodic parts, ducked under every kick
+let toneFilter: BiquadFilterNode | null = null // the master colour, which follows the market
 let musicFade: GainNode | null = null // the node that fades music in and out
 let sfxBus: GainNode | null = null
 let reverbSend: GainNode | null = null
@@ -183,6 +201,13 @@ function ensureContext(): AudioContext | null {
   musicBus = c.createGain()
   musicBus.gain.value = 1
   musicBus.connect(tone)
+  toneFilter = tone
+
+  // Everything melodic goes through here and every kick pulls it down for a
+  // fifth of a second. It is the one trick that makes a loop breathe.
+  duckBus = c.createGain()
+  duckBus.gain.value = 1
+  duckBus.connect(musicBus)
 
   // sfx keep their own path so the music's filter sweep never dulls them
   sfxBus = c.createGain()
@@ -306,7 +331,7 @@ function playPad(c: AudioContext, time: number, notes: number[], dur: number, le
       osc.stop(time + dur + 0.1)
     }
     // spread the voicing across the stereo field, low notes left
-    route(c, gain, { pan: (i / (notes.length - 1) - 0.5) * 0.7, verb: 0.4 })
+    route(c, gain, { bus: duckBus ?? undefined, pan: (i / (notes.length - 1) - 0.5) * 0.7, verb: 0.4 })
   })
 }
 
@@ -340,8 +365,8 @@ function playBass(c: AudioContext, time: number, midi: number, dur: number): voi
   sub.start(time)
   sub.stop(time + dur + 0.05)
 
-  route(c, gain, { verb: 0.05 })
-  route(c, subGain, {})
+  route(c, gain, { bus: duckBus ?? undefined, verb: 0.05 })
+  route(c, subGain, { bus: duckBus ?? undefined })
 }
 
 /** Plucked arpeggio: a saw through a resonant filter that snaps shut. */
@@ -362,7 +387,7 @@ function playArp(c: AudioContext, time: number, midi: number, level: number, pan
   filter.connect(gain)
   osc.start(time)
   osc.stop(time + 0.35)
-  route(c, gain, { pan, verb: 0.2, echo: 0.3 })
+  route(c, gain, { bus: duckBus ?? undefined, pan, verb: 0.2, echo: 0.3 })
 }
 
 /** Lead line: a triangle with a detuned sine shadow, soft on the attack. */
@@ -386,21 +411,30 @@ function playLead(c: AudioContext, time: number, midi: number, dur: number): voi
     osc.start(time)
     osc.stop(time + dur + 0.05)
   }
-  route(c, gain, { pan: 0.18, verb: 0.35, echo: 0.35 })
+  route(c, gain, { bus: duckBus ?? undefined, pan: 0.18, verb: 0.35, echo: 0.35 })
 }
 
 function playKick(c: AudioContext, time: number, level: number): void {
   const osc = c.createOscillator()
   osc.type = 'sine'
-  osc.frequency.setValueAtTime(150, time)
-  osc.frequency.exponentialRampToValueAtTime(44, time + 0.1)
+  osc.frequency.setValueAtTime(190, time)
+  osc.frequency.exponentialRampToValueAtTime(48, time + 0.06)
+  osc.frequency.exponentialRampToValueAtTime(38, time + 0.3)
   const gain = c.createGain()
-  gain.gain.setValueAtTime(0.55 * level, time)
-  gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.28)
+  gain.gain.setValueAtTime(0.6 * level, time)
+  gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.34)
   osc.connect(gain)
   osc.start(time)
-  osc.stop(time + 0.3)
+  osc.stop(time + 0.36)
   route(c, gain, {})
+
+  // pull the melodic parts down under it, and let them back up
+  if (duckBus) {
+    duckBus.gain.cancelScheduledValues(time)
+    duckBus.gain.setValueAtTime(1, time)
+    duckBus.gain.linearRampToValueAtTime(1 - 0.42 * level, time + 0.015)
+    duckBus.gain.linearRampToValueAtTime(1, time + 0.26)
+  }
 
   // beater click, so the kick still reads on small speakers
   const click = burst(c, time, 0.01)
@@ -470,13 +504,47 @@ function playShaker(c: AudioContext, time: number, level: number): void {
   route(c, gain, { pan: -0.3 })
 }
 
+function playClap(c: AudioContext, time: number, level: number): void {
+  // three short bursts a few milliseconds apart, which is what a clap is
+  for (const offset of [0, 0.011, 0.023]) {
+    const src = burst(c, time + offset, 0.05)
+    const bp = c.createBiquadFilter()
+    bp.type = 'bandpass'
+    bp.frequency.value = 1500
+    bp.Q.value = 1.4
+    const gain = c.createGain()
+    gain.gain.setValueAtTime(0.12 * level, time + offset)
+    gain.gain.exponentialRampToValueAtTime(0.0001, time + offset + 0.06)
+    src.connect(bp)
+    bp.connect(gain)
+    route(c, gain, { pan: 0.15, verb: 0.35 })
+  }
+}
+
+/** A noise sweep that rises into the next section. */
+function playRiser(c: AudioContext, time: number, dur: number): void {
+  const src = burst(c, time, dur)
+  const bp = c.createBiquadFilter()
+  bp.type = 'bandpass'
+  bp.Q.value = 2.5
+  bp.frequency.setValueAtTime(600, time)
+  bp.frequency.exponentialRampToValueAtTime(7000, time + dur)
+  const gain = c.createGain()
+  gain.gain.setValueAtTime(0.0001, time)
+  gain.gain.exponentialRampToValueAtTime(0.07, time + dur * 0.9)
+  gain.gain.exponentialRampToValueAtTime(0.0001, time + dur)
+  src.connect(bp)
+  bp.connect(gain)
+  route(c, gain, { verb: 0.4 })
+}
+
 // --------------------------------------------------------------- sequencer
 
 function scheduleStep(c: AudioContext, index: number, time: number): void {
   const bar = Math.floor(index / STEPS_PER_BAR) % BARS_PER_SECTION
   const section = ARRANGEMENT[Math.floor(index / (STEPS_PER_BAR * BARS_PER_SECTION)) % SECTIONS]
   const inBar = index % STEPS_PER_BAR
-  const chord = PROGRESSION[bar]
+  const chord = (section.chords === 'B' ? PROGRESSION_B : PROGRESSION)[bar]
   const barSeconds = SECONDS_PER_STEP * STEPS_PER_BAR
   const lastBar = bar === BARS_PER_SECTION - 1
 
@@ -492,6 +560,17 @@ function scheduleStep(c: AudioContext, index: number, time: number): void {
   }
   if (section.snare && (inBar === 4 || (lastBar && (inBar === 5 || inBar === 7)))) {
     playSnare(c, time, inBar === 4 ? 1 : 0.7)
+  }
+  // a clap doubling the backbeat, once the arrangement is busy
+  if (section.snare && section.openHat && inBar === 4) playClap(c, time, 0.9)
+  // and a fill out of the last bar of every section
+  if (lastBar) {
+    if (inBar === 6) playRiser(c, time, SECONDS_PER_STEP * 2)
+    if (section.snare && (inBar === 6 || inBar === 7)) {
+      for (const sub of [0, 0.5]) {
+        playSnare(c, time + SECONDS_PER_STEP * sub, 0.35 + sub * 0.3)
+      }
+    }
   }
   if (section.hat > 0 && inBar % 2 === 1) {
     const open = section.openHat && lastBar && inBar === 7
@@ -525,7 +604,9 @@ function tick(): void {
 
 /** The chord the loop is on, so sfx always land in key with the music. */
 function currentChord(): Chord {
-  return PROGRESSION[Math.floor(step / STEPS_PER_BAR) % BARS_PER_SECTION]
+  const section = ARRANGEMENT[Math.floor(step / (STEPS_PER_BAR * BARS_PER_SECTION)) % SECTIONS]
+  const bar = Math.floor(step / STEPS_PER_BAR) % BARS_PER_SECTION
+  return (section.chords === 'B' ? PROGRESSION_B : PROGRESSION)[bar]
 }
 
 // --------------------------------------------------------------------- sfx
@@ -635,6 +716,110 @@ export function playWorkSfx(kind: WorkSfx, progress = 0, pan = 0): void {
   }
 }
 
+/**
+ * The music takes its colour from the market. A hot market opens the filter up
+ * and brightens everything; an AI winter closes it down and the loop goes grey.
+ * Nothing else about the arrangement changes, and it moves slowly enough that
+ * you feel it rather than notice it.
+ */
+export function setMusicMood(hype: number): void {
+  if (!ctx || !toneFilter) return
+  const warmth = Math.max(0, Math.min(1, (hype - 0.55) / 1.2))
+  const target = 1400 + warmth * 2600
+  toneFilter.frequency.cancelScheduledValues(ctx.currentTime)
+  toneFilter.frequency.setTargetAtTime(target, ctx.currentTime, 4)
+}
+
+/**
+ * The interface, which until now made no sound at all. Every one of these is a
+ * few oscillators long and they all ride the same bus as the work hits, so they
+ * duck under nothing and never queue up behind the music.
+ */
+export type UiSfx = 'click' | 'open' | 'close' | 'buy' | 'deny' | 'notify' | 'alarm' | 'fanfare' | 'ring'
+
+export function playUi(kind: UiSfx): void {
+  if (!enabled) return
+  const c = ctx
+  if (!c || !sfxBus || c.state !== 'running') return
+  const time = c.currentTime + 0.004
+
+  const blip = (freq: number, at: number, dur: number, level: number, type: OscillatorType = 'square') => {
+    const osc = c.createOscillator()
+    osc.type = type
+    osc.frequency.value = freq
+    const gain = c.createGain()
+    gain.gain.setValueAtTime(0.0001, time + at)
+    gain.gain.linearRampToValueAtTime(level, time + at + 0.004)
+    gain.gain.exponentialRampToValueAtTime(0.0001, time + at + dur)
+    osc.connect(gain)
+    osc.start(time + at)
+    osc.stop(time + at + dur + 0.02)
+    route(c, gain, { bus: sfxBus ?? undefined, verb: 0.12 })
+    return osc
+  }
+
+  const tick = (level: number, cutoff: number, dur = 0.03) => {
+    const src = burst(c, time, dur)
+    const hp = c.createBiquadFilter()
+    hp.type = 'highpass'
+    hp.frequency.value = cutoff
+    const gain = c.createGain()
+    gain.gain.setValueAtTime(level, time)
+    gain.gain.exponentialRampToValueAtTime(0.0001, time + dur)
+    src.connect(hp)
+    hp.connect(gain)
+    route(c, gain, { bus: sfxBus ?? undefined })
+  }
+
+  switch (kind) {
+    case 'click':
+      // the sound of a key going down: a tick and a very short body
+      tick(0.05, 5200, 0.02)
+      blip(880, 0, 0.035, 0.035, 'triangle')
+      break
+    case 'open':
+      blip(520, 0, 0.06, 0.05, 'triangle')
+      blip(780, 0.045, 0.09, 0.045, 'triangle')
+      break
+    case 'close':
+      blip(700, 0, 0.05, 0.045, 'triangle')
+      blip(440, 0.04, 0.09, 0.04, 'triangle')
+      break
+    case 'buy':
+      // a till: two rising notes and a bright tick
+      tick(0.06, 6000, 0.02)
+      blip(784, 0, 0.09, 0.06)
+      blip(1175, 0.07, 0.18, 0.055)
+      break
+    case 'deny':
+      blip(220, 0, 0.09, 0.06, 'sawtooth')
+      blip(165, 0.08, 0.16, 0.055, 'sawtooth')
+      break
+    case 'notify':
+      blip(988, 0, 0.12, 0.05, 'sine')
+      blip(1319, 0.09, 0.22, 0.045, 'sine')
+      break
+    case 'ring':
+      // a desk phone, two bursts of a warbling pair
+      for (const start of [0, 0.42]) {
+        for (let i = 0; i < 8; i++) {
+          blip(i % 2 === 0 ? 1046 : 784, start + i * 0.035, 0.03, 0.05, 'triangle')
+        }
+      }
+      break
+    case 'alarm':
+      for (const [at, freq] of [[0, 440], [0.18, 330], [0.36, 247]] as const) {
+        blip(freq, at, 0.22, 0.07, 'sawtooth')
+      }
+      break
+    case 'fanfare':
+      for (const [at, freq] of [[0, 523], [0.1, 659], [0.2, 784], [0.32, 1046]] as const) {
+        blip(freq, at, 0.32, 0.06, 'triangle')
+      }
+      break
+  }
+}
+
 // ----------------------------------------------------------------- controls
 
 export function isMusicEnabled(): boolean {
@@ -655,6 +840,12 @@ export function startMusic(): void {
 }
 
 export function stopMusic(): void {
+  // a kick may have left the melodic bus ducked; it only comes back up on the
+  // next kick, and the intro section has none, so lift it by hand
+  if (ctx && duckBus) {
+    duckBus.gain.cancelScheduledValues(ctx.currentTime)
+    duckBus.gain.setValueAtTime(1, ctx.currentTime)
+  }
   if (timer !== null) {
     clearInterval(timer)
     timer = null
