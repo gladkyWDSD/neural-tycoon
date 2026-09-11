@@ -291,7 +291,9 @@ export function OfficeView({ staff, desks, jobs, amenities, onStaffMenu }: Props
         ctx.fillText(text, (barX + 2) * SCALE, midY)
       })
 
-      world()
+      // people are drawn in art pixels now, the same space the desks use, so a
+      // face has enough room to be a face
+      art()
       const activeKinds = new Set(bars.map((b) => b.kind))
       // rebuilt every frame so a right-click hits people where they actually are,
       // including the ones pacing the corridor

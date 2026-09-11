@@ -36,24 +36,6 @@ function box(g: Grid, x: number, y: number, w: number, h: number, ch: string) {
   for (let yy = y; yy < y + h; yy++) for (let xx = x; xx < x + w; xx++) put(g, xx, yy, ch)
 }
 
-function paintGrid(ctx: CanvasRenderingContext2D, g: Grid, ox: number, oy: number, palette: Record<string, string>) {
-  for (let y = 0; y < SPRITE_H; y++) {
-    let x = 0
-    while (x < SPRITE_W) {
-      const ch = g[y][x]
-      if (ch === '.') {
-        x++
-        continue
-      }
-      // run-length: one fillRect per horizontal run of the same colour
-      let run = 1
-      while (x + run < SPRITE_W && g[y][x + run] === ch) run++
-      ctx.fillStyle = palette[ch] ?? '#ff00ff'
-      ctx.fillRect(ox + x, oy + y, run, 1)
-      x += run
-    }
-  }
-}
 
 function shade(hex: string, amount: number): string {
   const n = parseInt(hex.slice(1), 16)
@@ -102,6 +84,8 @@ export function lookFor(staff: Staff): Look {
       O: '#0b0c11', // glasses frame
       L: '#ffd166', // light bulb
       R: '#4aa3ff', // phone screen glow
+      n: shade(skin, 0.86), // nose
+      e: shade(skin, 1.1), // the white of an eye
     },
   }
 }
@@ -217,6 +201,7 @@ export function buildSprite(staff: Staff, look: Look, pose: Pose): Grid {
     put(g, 4 + eyeShift, hy + 3, 'E')
     put(g, 7 + eyeShift, hy + 3, 'E')
   }
+  put(g, 5, hy + 4, 'n') // the bridge of the nose
   put(g, 5, hy + 5, 'M')
   put(g, 6, hy + 5, 'M')
   if (look.beard) {
@@ -317,6 +302,120 @@ function idleActionFor(staff: Staff, phase: number, now: number): { action: Acti
   return { action: actions[pick], t: t / ACTION_LENGTH }
 }
 
+const OUTLINE = '#0a0b10'
+
+/**
+ * Paint a sprite at twice its grid resolution, with a light on it.
+ *
+ * Every cell becomes four art pixels, and each of those four is lit or shaded
+ * by what is next to it: an edge with nothing above catches the light, an edge
+ * with nothing below falls into shadow, and the whole silhouette gets a dark
+ * outline so a person reads against the floor instead of melting into it. Eyes
+ * and mouths are drawn at the finer resolution, which is what a face needs.
+ *
+ * `ox`/`oy` are in art pixels, so the caller works in the same space the desks
+ * are drawn in.
+ */
+function paintLit(
+  ctx: CanvasRenderingContext2D,
+  g: Grid,
+  ox: number,
+  oy: number,
+  palette: Record<string, string>,
+) {
+  const at = (x: number, y: number) => (x < 0 || y < 0 || x >= SPRITE_W || y >= SPRITE_H ? '.' : g[y][x])
+  const px = (x: number, y: number, w: number, h: number, c: string) => {
+    ctx.fillStyle = c
+    ctx.fillRect(ox + x, oy + y, w, h)
+  }
+
+  for (let y = 0; y < SPRITE_H; y++) {
+    for (let x = 0; x < SPRITE_W; x++) {
+      const ch = at(x, y)
+      if (ch === '.') continue
+      const base = palette[ch] ?? '#ff00ff'
+      const X = x * 2
+      const Y = y * 2
+
+      // features are drawn whole and small, so a face keeps its shape
+      if (ch === 'E') {
+        px(X, Y, 2, 2, palette.e ?? base)
+        px(X, Y + 1, 1, 1, base)
+        px(X + 1, Y, 1, 1, '#f8fafd')
+        continue
+      }
+      if (ch === 'n') {
+        px(X, Y, 2, 2, palette.S ?? base)
+        px(X + 1, Y + 1, 1, 1, base)
+        continue
+      }
+      if (ch === 'M') {
+        px(X, Y, 2, 2, palette.S ?? base)
+        px(X, Y, 2, 1, base)
+        continue
+      }
+      // eyewear is a rim and a glint, not a band of black across the face
+      if (ch === 'O') {
+        px(X, Y, 2, 2, palette.S ?? base)
+        px(X, Y, 2, 1, base)
+        px(X, Y + 1, 1, 1, base)
+        continue
+      }
+      if (ch === 'K' && at(x, y - 1) !== '.' && (at(x - 1, y) === 'K' || at(x + 1, y) === 'K')) {
+        px(X, Y, 2, 2, base)
+        px(X, Y, 2, 1, shade(base, 1.9))
+        px(X, Y + 1, 1, 1, shade(base, 1.4))
+        continue
+      }
+
+      // Everything else is painted as four quarter-pixels. A quarter with
+      // nothing above or beside it is an outside corner and gets rounded away,
+      // which is what turns a stack of squares into a shoulder or a skull.
+      for (let qy = 0; qy < 2; qy++) {
+        for (let qx = 0; qx < 2; qx++) {
+          const sideEmpty = at(qx === 0 ? x - 1 : x + 1, y) === '.'
+          const endEmpty = at(x, qy === 0 ? y - 1 : y + 1) === '.'
+          const diagEmpty = at(qx === 0 ? x - 1 : x + 1, qy === 0 ? y - 1 : y + 1) === '.'
+          if (sideEmpty && endEmpty && diagEmpty) continue // rounded corner
+          let colour = base
+          if ((qy === 0 && endEmpty) || (qx === 0 && sideEmpty)) colour = shade(base, 1.3)
+          if ((qy === 1 && endEmpty) || (qx === 1 && sideEmpty)) colour = shade(base, 0.66)
+          px(X + qx, Y + qy, 1, 1, colour)
+          // the outline hugs whatever was actually painted
+          if (endEmpty) px(X + qx, Y + qy + (qy === 0 ? -1 : 1), 1, 1, OUTLINE)
+          if (sideEmpty) px(X + qx + (qx === 0 ? -1 : 1), Y + qy, 1, 1, OUTLINE)
+        }
+      }
+    }
+  }
+}
+
+// Painting a lit sprite costs a few hundred rectangles, and an office holds
+// twenty-four people at sixty frames a second. Each distinct pose is rasterised
+// once into its own little canvas and then blitted, so the cost is paid on the
+// frame a pose first appears and never again.
+const SPRITE_PAD = 1
+const CACHE_W = SPRITE_W * 2 + SPRITE_PAD * 2
+const CACHE_H = SPRITE_H * 2 + SPRITE_PAD * 2
+const CACHE_LIMIT = 800
+const spriteCache = new Map<string, HTMLCanvasElement>()
+
+function cachedSprite(key: string, g: Grid, palette: Record<string, string>): HTMLCanvasElement | null {
+  if (typeof document === 'undefined') return null
+  const hit = spriteCache.get(key)
+  if (hit) return hit
+  const canvas = document.createElement('canvas')
+  canvas.width = CACHE_W
+  canvas.height = CACHE_H
+  const c = canvas.getContext('2d')
+  if (!c) return null
+  c.imageSmoothingEnabled = false
+  paintLit(c, g, SPRITE_PAD, SPRITE_PAD, palette)
+  if (spriteCache.size >= CACHE_LIMIT) spriteCache.clear()
+  spriteCache.set(key, canvas)
+  return canvas
+}
+
 export function drawCharacter(
   ctx: CanvasRenderingContext2D,
   staff: Staff,
@@ -340,9 +439,19 @@ export function drawCharacter(
 
   const g = buildSprite(staff, look, { bob, blink, typing, walk, action: idle.action, actionT: idle.t })
 
-  // shadow stays on the floor — only the body hops
-  ctx.fillStyle = 'rgba(0,0,0,0.25)'
-  ctx.fillRect(x + 2, y + 15, 8, 1)
+  // The shadow stays on the floor while the body hops, and it is drawn in art
+  // pixels like the sprite, so it can taper at the ends instead of being a bar.
+  const ax = x * 2
+  const ay = y * 2
+  ctx.fillStyle = 'rgba(0,0,0,0.28)'
+  ctx.fillRect(ax + 4, ay + 31, 16, 2)
+  ctx.fillRect(ax + 6, ay + 30, 12, 1)
+  ctx.fillStyle = 'rgba(0,0,0,0.16)'
+  ctx.fillRect(ax + 2, ay + 31, 2, 2)
+  ctx.fillRect(ax + 20, ay + 31, 2, 2)
 
-  paintGrid(ctx, g, x, y, look.palette)
+  const key = `${staff.id}|${staff.role}|${bob}|${blink ? 1 : 0}|${typing ?? 'n'}|${walk ?? 'n'}|${idle.action}|${Math.floor(idle.t * 8)}`
+  const sprite = cachedSprite(key, g, look.palette)
+  if (sprite) ctx.drawImage(sprite, ax - SPRITE_PAD, ay - SPRITE_PAD)
+  else paintLit(ctx, g, ax, ay, look.palette)
 }
