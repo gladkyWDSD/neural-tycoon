@@ -94,6 +94,12 @@ coupled — signing a big deal can push you over the line. Balance for all of th
 `constants.ts`; the scripted run in the balance simulation is the instrument for checking a change
 has not made the game unwinnable.
 
+**The President rings about events, not thresholds.** Every call goes through `ringPresident(state,
+reason, about)` in `state.ts`, which owns the rules about who gets called and how often. Reducer
+cases call it on the way out (`return ringPresident(newState, 'ipo', '...')`), and `advanceOneWeek`
+calls it for incidents and new regulations. A new trigger means a new entry in `PRESIDENT_REASONS`
+and one call site, not a condition bolted onto the weekly tick.
+
 **Caricature art.** `presidentArt.ts` draws the President as chunky pixels in three moods on one
 56x64 canvas, scaled up with `image-rendering: pixelated` in `PresidentCall.tsx`. It is drawn from
 scratch in the game's own style, not traced from a photograph, and the lines in `PRESIDENT_LINES`

@@ -285,8 +285,7 @@ export const LOBBY_DURATION = 8 // weeks of reduced regulatory risk
 // If most of your staff are American, the White House takes an interest in what
 // you are building. It is a caricature and a phone call: praise when you are
 // winning, a warning when you are sloppy, and a shouting when you are a mess.
-export const PRESIDENT_COOLDOWN = 16
-export const PRESIDENT_CALL_CHANCE = 0.55
+export const PRESIDENT_COOLDOWN = 10
 export const PRESIDENT_START_WEEK = 14
 // what a call does to your standing with the public
 export const PRESIDENT_PRAISE_FOLLOWERS = 0.06
@@ -294,26 +293,120 @@ export const PRESIDENT_RAGE_FOLLOWERS = 0.05
 // and the chance an angry one is followed by a new rule
 export const PRESIDENT_RAGE_REGULATION_CHANCE = 0.35
 
-export const PRESIDENT_LINES = {
-  happy: [
-    'Tremendous. Really tremendous. American AI, built here, by an American company. Everybody is talking about it.',
-    'You are beating labs nobody can even pronounce and I love it. Good job. Keep going.',
-    'They told me it could not be done and you did it anyway. That is the American way. Good job.',
-    'I have seen the numbers. Beautiful numbers. Some of the best numbers I have ever seen.',
-  ],
-  annoyed: [
-    'I am hearing things about you. Not good things. Watch your mouth and clean it up.',
-    'People are complaining. A lot of complaining. Sort it out before I have to.',
-    'You are one bad headline from a very long week. Do not make it my problem.',
-    'Nobody wants a mess here. Fix what you are doing and we never had this call.',
-  ],
-  furious: [
-    'You are getting cooked. My people are looking at you right now, today.',
-    'This is a disaster. An absolute disaster. Fix it or Washington fixes it for you.',
-    'One more story like that and you will wish you had never started this company.',
-    'I defended you. I will not do it twice. Sort this out.',
-  ],
-} as const
+/**
+ * He does not ring on a schedule. Every call is a reaction to something you did
+ * that week, and what he says is about that thing.
+ */
+export type PresidentReason =
+  | 'sota'
+  | 'ipo'
+  | 'contract'
+  | 'acquisition'
+  | 'won'
+  | 'distill'
+  | 'smear'
+  | 'incident'
+  | 'traced'
+  | 'regulation'
+  | 'crisis'
+  | 'pact'
+
+export const PRESIDENT_REASONS: Record<
+  PresidentReason,
+  { mood: 'happy' | 'annoyed' | 'furious'; lines: string[] }
+> = {
+  sota: {
+    mood: 'happy',
+    lines: [
+      'The best model on the planet and it is ours. Not theirs. Ours. Tremendous work.',
+      'I am told nothing out there is better than what you just shipped. That is how it should be.',
+      'Everybody is calling me about your new model. Everybody. Keep going.',
+    ],
+  },
+  ipo: {
+    mood: 'happy',
+    lines: [
+      'You rang the bell and the whole country watched. Beautiful. Just beautiful.',
+      'A public company now. American jobs, American AI, American money. Good job.',
+    ],
+  },
+  contract: {
+    mood: 'happy',
+    lines: [
+      'Big American companies buying American AI. That is what I like to see.',
+      'I hear you signed a serious deal. Serious money. Very good.',
+    ],
+  },
+  acquisition: {
+    mood: 'happy',
+    lines: [
+      'You bought them out. Just like that. I love a winner.',
+      'One less competitor and all their people work for you now. Smart. Very smart.',
+    ],
+  },
+  won: {
+    mood: 'happy',
+    lines: [
+      'A hundred billion dollars. Nobody has ever done what you just did. Nobody.',
+      'They said it could not be done here. You did it here. Congratulations.',
+    ],
+  },
+  distill: {
+    mood: 'annoyed',
+    lines: [
+      'They caught you training on somebody else\'s model. Watch your mouth in public about it.',
+      'Copying homework, they are saying. I do not like hearing that. Clean it up.',
+    ],
+  },
+  smear: {
+    mood: 'annoyed',
+    lines: [
+      'I saw what you posted about them. Funny. Also stupid. Watch your mouth.',
+      'Fight them with product, not with your thumbs. People are noticing.',
+    ],
+  },
+  incident: {
+    mood: 'annoyed',
+    lines: [
+      'Your model made the news for the wrong reason. Fix it before it becomes my problem.',
+      'People are complaining about what your AI said. A lot of complaining. Sort it out.',
+    ],
+  },
+  traced: {
+    mood: 'furious',
+    lines: [
+      'They traced it back to you. To you. You are getting cooked out there and you earned it.',
+      'You sent people after a competitor and got caught doing it. This is a disaster.',
+    ],
+  },
+  regulation: {
+    mood: 'furious',
+    lines: [
+      'Congress just wrote a rule with your name all over it. Well done. Truly.',
+      'I had to sign something today because of you. Think about that.',
+    ],
+  },
+  crisis: {
+    mood: 'furious',
+    lines: [
+      'Another one. That is it. My people are looking at you right now, today.',
+      'One more story like that and you will wish you had never started this company.',
+    ],
+  },
+  pact: {
+    mood: 'annoyed',
+    lines: [
+      'You gave your word and then tore it up. People remember that. I remember that.',
+      'Breaking a deal you signed. Not a good look. Watch yourself.',
+    ],
+  },
+}
+
+export const PRESIDENT_MOOD_REASONS: Record<'happy' | 'annoyed' | 'furious', PresidentReason[]> = {
+  happy: ['sota', 'ipo', 'contract', 'acquisition', 'won'],
+  annoyed: ['distill', 'smear', 'incident', 'pact'],
+  furious: ['traced', 'regulation', 'crisis'],
+}
 
 // ----------------------------------------------------------- acquisitions
 // Buying a rival outright, once you are public. You pay over the odds for what

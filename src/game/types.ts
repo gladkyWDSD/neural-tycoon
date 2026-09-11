@@ -333,7 +333,13 @@ export interface GameState {
   risk: number
   lastAuditWeek: number
   /** the White House on the line, and when it last was */
-  presidentCall: { mood: 'happy' | 'annoyed' | 'furious'; line: string; week: number } | null
+  presidentCall: {
+    mood: 'happy' | 'annoyed' | 'furious'
+    line: string
+    week: number
+    /** the thing you did that made him pick up the phone */
+    about: string
+  } | null
   lastPresidentWeek: number
   /** enterprise deals you are running, and the ones on the table */
   contracts: Contract[]

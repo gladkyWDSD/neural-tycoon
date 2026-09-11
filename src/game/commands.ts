@@ -37,7 +37,7 @@ export function parseCommand(input: string, state: GameState): CommandResult {
           '  /datacenter N - set built datacenters',
           '  /finish       - complete all research & training now',
           '  /researchall  - unlock all research',
-          '  /call [mood]  - ring the White House (happy, annoyed, furious)',
+          '  /call [mood]  - fake a call from the White House for testing',
           '  /week         - show current week',
           '  /money        - show current money',
         ].join('\n'),

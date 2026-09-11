@@ -467,19 +467,27 @@ product is an explicit move rather than something you discover.
 
 ### The President calls
 
-If most of your staff are American, the White House takes an interest. From week 14, at most once
-every 16 weeks, the President rings up in one of three moods, decided entirely by how you have been
-running the place.
+If most of your staff are American, the White House watches what you do. He does not ring on a
+timer: every call is a reaction to something that happened, and what he says is about that thing.
 
-| Mood | When | What it does |
+| What you did | Mood | He is calling about |
 | --- | --- | --- |
-| Pleased | Best model in the world, worth $1B, or running an enterprise contract | +6% followers |
-| Not pleased | Safety debt over 35, living under a rule, caught distilling, or an incident this week | Nothing yet |
-| Furious | Safety debt over 70, two rules in force, or an incident on top of real debt | −5% followers, and a 35% chance a new rule lands with the call |
+| Shipped the best model in the world | Pleased | your new model |
+| Went public | Pleased | the float |
+| Signed an enterprise contract | Pleased | the deal |
+| Bought a rival outright | Pleased | the acquisition |
+| Reached $100B | Pleased | winning |
+| Got caught training on a rival's model | Not pleased | the copy |
+| Smeared a competitor | Not pleased | what you posted |
+| Had a safety incident | Not pleased | your model in the news |
+| Tore up a non-aggression pact | Not pleased | your word |
+| Had a bot army or hackers traced back to you | Furious | getting caught |
+| A new regulation passed | Furious | the rule |
+| Another incident on top of real safety debt | Furious | the mess |
 
-He is a caricature drawn in the game's own pixels, three moods on one canvas, and the lines are
-bluster rather than anything anyone said. The dev console can ring him on demand with
-`/call happy | annoyed | furious`.
+Being pleased is worth about 6% more followers; being furious costs about 5%. He will not call
+twice inside ten weeks, will not call before week 14, and never interrupts himself. The dev console
+can fake one with `/call happy | annoyed | furious` for testing.
 
 There is no flag on the company itself, so being American is read off the people: you are an
 American company when the Americans outnumber every other nationality on the payroll.

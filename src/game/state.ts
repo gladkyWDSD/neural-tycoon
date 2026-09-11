@@ -1,3 +1,4 @@
+import type { PresidentReason } from './constants'
 import type { AIModel, AttackKind, Contract, Difficulty, GameEvent, GameState, Pact, PendingEvent, PostType, PricingModel, PromoKind, RunStats, Staff, StaffBid, StaffCard, TradeKind, TradeOffer } from './types'
 import {
   DESKS_PER_LEVEL,
@@ -18,12 +19,11 @@ import {
   COMPETITOR_POACH_GRACE_WEEKS,
   FIRE_SEVERANCE_WEEKS,
   ACQUISITION_FOLLOWERS_KEPT,
-  PRESIDENT_CALL_CHANCE,
   PRESIDENT_COOLDOWN,
-  PRESIDENT_LINES,
+  PRESIDENT_MOOD_REASONS,
+  PRESIDENT_REASONS,
   PRESIDENT_PRAISE_FOLLOWERS,
   PRESIDENT_RAGE_FOLLOWERS,
-  PRESIDENT_RAGE_REGULATION_CHANCE,
   PRESIDENT_START_WEEK,
   ACQUISITION_PREMIUM,
   ACQUISITION_USER_KEPT,
@@ -512,6 +512,37 @@ function computeQuality(state: GameState, gpus: number, dataTier?: string, disti
 /** What an audit costs right now: more debt, more work to clear it. */
 export function auditCost(state: GameState): number {
   return Math.max(AUDIT_MIN_COST, Math.round(state.risk * AUDIT_COST_PER_POINT))
+}
+
+/**
+ * Put the President on the line about one specific thing. Every call in the
+ * game goes through here, so the rules about who gets called and how often live
+ * in one place, and the mood is decided by what happened rather than by a roll.
+ */
+export function ringPresident(state: GameState, reason: PresidentReason, about: string): GameState {
+  if (state.presidentCall) return state // he is already on the line
+  if (!isAmericanCompany(state)) return state
+  const week = globalWeek(state)
+  if (week < PRESIDENT_START_WEEK) return state
+  if (week - state.lastPresidentWeek < PRESIDENT_COOLDOWN) return state
+  const spec = PRESIDENT_REASONS[reason]
+  const next: GameState = {
+    ...state,
+    presidentCall: {
+      mood: spec.mood,
+      line: spec.lines[Math.floor(Math.random() * spec.lines.length)],
+      week,
+      about,
+    },
+    lastPresidentWeek: week,
+    stats: { ...state.stats, presidentCalls: state.stats.presidentCalls + 1 },
+  }
+  if (spec.mood === 'happy') {
+    next.followers = state.followers + Math.round(state.followers * PRESIDENT_PRAISE_FOLLOWERS) + 250
+  } else if (spec.mood === 'furious') {
+    next.followers = Math.max(0, state.followers - Math.round(state.followers * PRESIDENT_RAGE_FOLLOWERS))
+  }
+  return next
 }
 
 /**
@@ -1389,7 +1420,7 @@ function advanceOneWeek(state: GameState): GameState {
     events = [...newEvents, ...state.events].slice(0, 20)
   }
 
-  const next = {
+  let next = {
     ...state,
     date,
     money,
@@ -1410,55 +1441,17 @@ function advanceOneWeek(state: GameState): GameState {
     activeRegulations,
   }
 
-  // The White House calls, if you are an American company and there is a reason
-  // to. Which of the three moods depends entirely on how you have been running
-  // the place: shipping the best model in the world, or a pile of safety debt.
-  if (
-    week >= PRESIDENT_START_WEEK &&
-    week - next.lastPresidentWeek >= PRESIDENT_COOLDOWN &&
-    isAmericanCompany(next) &&
-    next.models.some((m) => m.status === 'published') &&
-    Math.random() < PRESIDENT_CALL_CHANCE
-  ) {
-    const sotaNow = stateOfTheArt(next.competitors, week)
-    const bestQuality = next.models.reduce(
-      (best, m) => (m.status === 'published' ? Math.max(best, m.quality) : best),
-      0,
+  // The White House rings about things that happened this week, not on a timer.
+  if (incident) {
+    const bad = next.risk >= 55 ? 'crisis' : 'incident'
+    next = ringPresident(
+      next,
+      bad,
+      bad === 'crisis' ? 'another safety incident, on top of the last one' : 'your model in the news for the wrong reason',
     )
-    const caught = next.models.some((m) => m.status === 'published' && m.distillCaught)
-    let mood: 'happy' | 'annoyed' | 'furious' | null = null
-    if (next.risk >= 70 || next.activeRegulations.length >= 2 || (incident && next.risk >= 45)) {
-      mood = 'furious'
-    } else if (next.risk >= 35 || next.activeRegulations.length >= 1 || caught || incident) {
-      mood = 'annoyed'
-    } else if (bestQuality >= sotaNow || companyValuation(next) >= 1e9 || next.contracts.length > 0) {
-      mood = 'happy'
-    }
-    if (mood) {
-      const lines = PRESIDENT_LINES[mood]
-      next.presidentCall = { mood, line: lines[Math.floor(Math.random() * lines.length)], week }
-      next.lastPresidentWeek = week
-      next.stats = { ...next.stats, presidentCalls: next.stats.presidentCalls + 1 }
-      if (mood === 'happy') {
-        next.followers += Math.round(next.followers * PRESIDENT_PRAISE_FOLLOWERS) + 250
-      } else if (mood === 'furious') {
-        next.followers = Math.max(0, next.followers - Math.round(next.followers * PRESIDENT_RAGE_FOLLOWERS))
-        if (Math.random() < PRESIDENT_RAGE_REGULATION_CHANCE) {
-          const rule = pickNewRegulation(next.activeRegulations)
-          if (rule) {
-            next.activeRegulations = [...next.activeRegulations, rule.id]
-            next.events = [
-              {
-                id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-                text: `${rule.icon} Washington moved on you the same week: ${rule.name} is now in force.`,
-                week,
-              },
-              ...next.events,
-            ].slice(0, 20)
-          }
-        }
-      }
-    }
+  }
+  if (!next.presidentCall && newRegulation) {
+    next = ringPresident(next, 'regulation', `${newRegulation.name} passing because of companies like yours`)
   }
 
   // the high-water marks and the week's swing, for the report at the end
@@ -1480,6 +1473,7 @@ function advanceOneWeek(state: GameState): GameState {
     if (valuation >= WIN_VALUATION) {
       next.won = true
       next.paused = true // the run is over; the player can unpause to keep going
+      next = ringPresident(next, 'won', 'reaching a hundred billion dollars')
       next.events = [
         {
           id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -1529,13 +1523,17 @@ export function reducer(state: GameState, action: Action): GameState {
         if (Math.random() < BOT_ATTACK_BACKFIRE_CHANCE) {
           const lost = Math.round(state.followers * 0.1) + 200
           add(`🕵️ Your bot army was traced back to you! ${action.targetName} called you out, and you lost ${lost.toLocaleString()} followers.`)
-          return {
-            ...state,
-            money,
-            followers: Math.max(0, state.followers - lost),
-            lastBotAttackWeek: week,
-            events: [...news, ...state.events].slice(0, 20),
-          }
+          return ringPresident(
+            {
+              ...state,
+              money,
+              followers: Math.max(0, state.followers - lost),
+              lastBotAttackWeek: week,
+              events: [...news, ...state.events].slice(0, 20),
+            },
+            'traced',
+            `your bot army being traced back to you`,
+          )
         }
         add(`🤖 You unleashed a bot army on ${action.targetName}.`)
         return {
@@ -1947,7 +1945,7 @@ export function reducer(state: GameState, action: Action): GameState {
       const pact = state.pacts.find((p) => p.playerId === action.playerId)
       if (!pact) return state
       const lost = Math.round(state.followers * PACT_BREAK_FOLLOWER_LOSS)
-      return {
+      const broken: GameState = {
         ...state,
         followers: Math.max(0, state.followers - lost),
         pacts: state.pacts.filter((p) => p.playerId !== action.playerId),
@@ -1968,6 +1966,7 @@ export function reducer(state: GameState, action: Action): GameState {
           ...state.events,
         ].slice(0, 20),
       }
+      return ringPresident(broken, 'pact', `tearing up your word to ${pact.name}`)
     }
     case 'PACT_BROKEN': {
       const pact = state.pacts.find((p) => p.playerId === action.from || p.name === action.from)
@@ -2082,7 +2081,8 @@ export function reducer(state: GameState, action: Action): GameState {
       const models = best
         ? state.models.map((m) => (m.id === best.id ? { ...m, customers: m.customers + arriving } : m))
         : state.models
-      return {
+      return ringPresident(
+        {
         ...state,
         money: state.money - cost,
         competitors: state.competitors.filter((c) => c.id !== action.id),
@@ -2099,27 +2099,34 @@ export function reducer(state: GameState, action: Action): GameState {
           },
           ...state.events,
         ].slice(0, 20),
-      }
+        },
+        'acquisition',
+        `buying ${target.name}`,
+      )
     }
     case 'SIGN_CONTRACT': {
       const offer = state.contractOffers.find((o) => o.id === action.id)
       if (!offer) return state
       const { expiresIn: _drop, ...contract } = offer
       void _drop
-      return {
-        ...state,
-        contracts: [...state.contracts, contract],
-        contractOffers: state.contractOffers.filter((o) => o.id !== action.id),
-        stats: { ...state.stats, contractsSigned: state.stats.contractsSigned + 1 },
-        events: [
-          {
-            id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-            text: `Signed with ${contract.client}: ${contract.seats.toLocaleString()} seats at $${contract.weeklyFee.toLocaleString()} a week for ${contract.weeksLeft} weeks.`,
-            week: globalWeek(state),
-          },
-          ...state.events,
-        ].slice(0, 20),
-      }
+      return ringPresident(
+        {
+          ...state,
+          contracts: [...state.contracts, contract],
+          contractOffers: state.contractOffers.filter((o) => o.id !== action.id),
+          stats: { ...state.stats, contractsSigned: state.stats.contractsSigned + 1 },
+          events: [
+            {
+              id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+              text: `Signed with ${contract.client}: ${contract.seats.toLocaleString()} seats at $${contract.weeklyFee.toLocaleString()} a week for ${contract.weeksLeft} weeks.`,
+              week: globalWeek(state),
+            },
+            ...state.events,
+          ].slice(0, 20),
+        },
+        'contract',
+        `the ${contract.client} deal`,
+      )
     }
     case 'DECLINE_CONTRACT':
       return state.contractOffers.some((o) => o.id === action.id)
@@ -2150,13 +2157,16 @@ export function reducer(state: GameState, action: Action): GameState {
       return state.presidentCall ? { ...state, presidentCall: null } : state
     case 'FORCE_PRESIDENT_CALL': {
       // a cheat, so the call can be looked at without waiting for the week it lands
-      const lines = PRESIDENT_LINES[action.mood]
+      const reasons = PRESIDENT_MOOD_REASONS[action.mood]
+      const reason = reasons[Math.floor(Math.random() * reasons.length)]
+      const spec = PRESIDENT_REASONS[reason]
       return {
         ...state,
         presidentCall: {
           mood: action.mood,
-          line: lines[Math.floor(Math.random() * lines.length)],
+          line: spec.lines[Math.floor(Math.random() * spec.lines.length)],
           week: globalWeek(state),
+          about: 'a test call from the terminal',
         },
       }
     }
@@ -2290,13 +2300,17 @@ export function reducer(state: GameState, action: Action): GameState {
         },
         ...state.events,
       ].slice(0, 20)
-      return {
-        ...state,
-        isPublic: true,
-        money: state.money + payout,
-        followers: state.followers + 50000,
-        events,
-      }
+      return ringPresident(
+        {
+          ...state,
+          isPublic: true,
+          money: state.money + payout,
+          followers: state.followers + 50000,
+          events,
+        },
+        'ipo',
+        `${state.companyName} going public`,
+      )
     }
     case 'LAUNCH_CAMPAIGN': {
       if (state.campaignWeeksLeft > 0) return state
@@ -2366,7 +2380,11 @@ export function reducer(state: GameState, action: Action): GameState {
           },
           ...state.events,
         ].slice(0, 20)
-        return { ...state, money, followers: Math.max(0, state.followers - lost), lastBotAttackWeek: week, events }
+        return ringPresident(
+          { ...state, money, followers: Math.max(0, state.followers - lost), lastBotAttackWeek: week, events },
+          'traced',
+          `your bot army being traced back to you`,
+        )
       }
 
       const ratio = 0.05 + Math.random() * 0.07
@@ -2420,14 +2438,18 @@ export function reducer(state: GameState, action: Action): GameState {
           },
           ...state.events,
         ].slice(0, 20)
-        return {
+        return ringPresident(
+          {
           ...state,
           money,
           models,
           followers: Math.max(0, state.followers - lostFollowers),
           lastHackerWeek: week,
           events,
-        }
+        },
+          'traced',
+          `your hackers getting caught inside ${target.name}`,
+        )
       }
 
       const ratio = 0.08 + Math.random() * 0.07
@@ -2731,7 +2753,7 @@ export function reducer(state: GameState, action: Action): GameState {
 
       const newEvents = [...scandalEvents, ...launchEvents]
       const events = newEvents.length > 0 ? [...newEvents, ...state.events].slice(0, 20) : state.events
-      return {
+      const shippedState: GameState = {
         ...state,
         models: published,
         events,
@@ -2741,6 +2763,15 @@ export function reducer(state: GameState, action: Action): GameState {
         risk: Math.min(RISK_MAX, state.risk + riskAdded),
         stats: { ...state.stats, modelsShipped: state.stats.modelsShipped + 1 },
       }
+      // he watches what ships: the best model in the world gets a call, and so
+      // does being caught training on somebody else's
+      if (caught && model) {
+        return ringPresident(shippedState, 'distill', `${model.name} being caught as a copy`)
+      }
+      if (model && model.quality >= stateOfTheArt(state.competitors, week)) {
+        return ringPresident(shippedState, 'sota', `${model.name} shipping as the best model in the world`)
+      }
+      return shippedState
     }
     case 'MAKE_POST': {
       const currentWeek = globalWeek(state)
@@ -2855,13 +2886,17 @@ export function reducer(state: GameState, action: Action): GameState {
           : []),
         ...state.events,
       ].slice(0, 20)
-      return {
-        ...state,
-        competitors,
-        followers: state.followers + gainedFollowers,
-        lastPostWeek: currentWeek,
-        events,
-      }
+      return ringPresident(
+        {
+          ...state,
+          competitors,
+          followers: state.followers + gainedFollowers,
+          lastPostWeek: currentWeek,
+          events,
+        },
+        'smear',
+        `what you posted about ${target.name}`,
+      )
     }
     case 'RESOLVE_EVENT': {
       const ev = state.pendingEvent

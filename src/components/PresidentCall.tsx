@@ -59,6 +59,7 @@ export function PresidentCall({ state, onHangUp }: Props) {
             <p className="call-sub">
               The President · week {call.week} · {state.companyName}, an American company
             </p>
+            <p className="call-about">About {call.about}.</p>
           </div>
         </div>
 
