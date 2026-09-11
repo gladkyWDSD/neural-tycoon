@@ -199,6 +199,20 @@ import {
   isDistillUnlocked,
 } from './distill'
 import {
+  DELIGHTED,
+  NOTICE_WEEKS,
+  QUIT_AFTER_WEEKS,
+  REQUEST_GAP_WEEKS,
+  STARTING_MORALE,
+  UNHAPPY,
+  effortOf,
+  hasTrait,
+  moraleWeek,
+  pickRequest,
+  resignationEvent,
+  rollTraits,
+} from './people'
+import {
   REGULATION_MAP,
   pickNewRegulation,
   regulationDatacenterShutdownChance,
@@ -286,6 +300,8 @@ export function initialState(): GameState {
     lobbyWeeksLeft: 0,
     pacts: [],
     lastLobbyWeek: -LOBBY_COOLDOWN,
+    lastRequestWeek: -REQUEST_GAP_WEEKS,
+    sabbaticals: [],
   }
 }
 
@@ -388,11 +404,17 @@ export function avgScoreByRole(staff: Staff[], role: Staff['role']): number {
   return avgScoreOf(staff, role)
 }
 
-/** The average weight of the people of a role inside a given group. */
+/**
+ * The average weight of the people of a role inside a given group.
+ *
+ * This is what they are worth *this week*, not on paper: a miserable team is
+ * measurably worse than the same team in a good mood, and a night owl is worth
+ * more than their exam score says.
+ */
 export function avgScoreOf(staff: Staff[], role: Staff['role']): number {
   const list = staff.filter((s) => s.role === role)
   if (list.length === 0) return 0
-  return list.reduce((sum, s) => sum + staffPower(s), 0) / list.length
+  return list.reduce((sum, s) => sum + staffPower(s) * effortOf(s), 0) / list.length
 }
 
 /** The length and difficulty preset this run is being played on. */
@@ -456,6 +478,13 @@ export function migrateState(raw: Partial<GameState>): GameState {
       level: s.level ?? 1,
       // saves from before the office had jobs in it put everyone on their role's
       assignment: s.assignment ?? defaultAssignment(s.role),
+      // and saves from before people had personalities get one now
+      traits: s.traits ?? rollTraits(),
+      morale: s.morale ?? STARTING_MORALE,
+      unhappyWeeks: s.unhappyWeeks ?? 0,
+      noticeWeeks: s.noticeWeeks ?? null,
+      lastAskWeek: s.lastAskWeek ?? 0,
+      joinedWeek: s.joinedWeek ?? 0,
     })),
     models,
     researching,
@@ -539,6 +568,8 @@ export function migrateState(raw: Partial<GameState>): GameState {
     activeRegulations: raw.activeRegulations ?? [],
     lobbyWeeksLeft: raw.lobbyWeeksLeft ?? 0,
     lastLobbyWeek: raw.lastLobbyWeek ?? -LOBBY_COOLDOWN,
+    lastRequestWeek: raw.lastRequestWeek ?? -REQUEST_GAP_WEEKS,
+    sabbaticals: raw.sabbaticals ?? [],
   }
 }
 
@@ -651,7 +682,7 @@ export function chipDesignCost(state: GameState): number {
 }
 
 export function chipDesignWeeks(state: GameState): number {
-  const heads = state.staff.filter((s) => s.assignment === 'chips' && s.role === 'hardware').length
+  const heads = effortSum(assigned(state, 'chips').filter((s) => s.role === 'hardware'))
   return Math.max(6, Math.round(CHIP_DESIGN_WEEKS / Math.max(1, heads)))
 }
 
@@ -686,7 +717,17 @@ export function weeklyIncome(state: GameState): number {
 
 /** People on a given job, and the weight they pull, which is what levels buy. */
 export function assigned(state: GameState, job: Staff['assignment']): Staff[] {
-  return state.staff.filter((s) => s.assignment === job)
+  return state.staff.filter((s) => s.assignment === job && !onLeave(state, s.id))
+}
+
+/** Somebody who asked for a week off and got it: not at work, still on payroll. */
+export function onLeave(state: GameState, id: string): boolean {
+  return (state.sabbaticals ?? []).some((sb) => sb.id === id)
+}
+
+/** How many pairs of hands a group is really worth this week. */
+export function effortSum(list: Staff[]): number {
+  return list.reduce((sum, s) => sum + effortOf(s), 0)
 }
 
 export function assignedCount(state: GameState, job: Staff['assignment']): number {
@@ -1733,6 +1774,93 @@ function advanceOneWeek(state: GameState): GameState {
     }
   }
 
+  // ---------------------------------------------------------------------
+  // The people, one at a time.
+  //
+  // Everything above decided what kind of week the company had. This decides
+  // what kind of week each person had, which is not the same thing: the same
+  // week is a good one for the night owl with the raise and a bad one for the
+  // idealist watching the safety debt climb.
+  // ---------------------------------------------------------------------
+  {
+    const heads = Math.max(1, next.staff.length)
+    // how much work there is per pair of hands
+    const load =
+      next.researching.length + next.models.filter((m) => m.status === 'training').length + (next.chipDesign ? 1 : 0)
+    const crunch = load / Math.max(1, heads / 3)
+    const shipped = next.models.some((m) => m.publishedWeek != null && week - m.publishedWeek <= 1)
+    const mentors = next.staff.filter((s) => hasTrait(s, 'mentor')).length
+    const ctx = { crunch, shipped, incident: Boolean(incident), mentors, week }
+
+    // the weekly feed was flushed above, so anything from here goes on directly
+    const say = (text: string) => {
+      next.events = [
+        { id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, text, week },
+        ...next.events,
+      ].slice(0, NEWS_KEPT)
+    }
+
+    const resigned: Staff[] = []
+    const left: Staff[] = []
+    const turned: string[] = []
+    next.staff = next.staff
+      .map((s) => {
+        const change = moraleWeek(next, s, ctx)
+        const was = s.morale ?? STARTING_MORALE
+        const morale = Math.max(0, Math.min(100, was + change.delta))
+        // the week somebody's mood turns is worth a line on the wire
+        if (was >= UNHAPPY && morale < UNHAPPY) turned.push(`${s.name} is unhappy — ${change.reason}.`)
+        else if (was < DELIGHTED && morale >= DELIGHTED) turned.push(`${s.name} is having the time of their life.`)
+        const unhappyWeeks = morale < UNHAPPY ? (s.unhappyWeeks ?? 0) + 1 : 0
+        let noticeWeeks = s.noticeWeeks
+        if (noticeWeeks != null) {
+          noticeWeeks = noticeWeeks - 1
+        } else if (unhappyWeeks >= QUIT_AFTER_WEEKS) {
+          noticeWeeks = NOTICE_WEEKS
+          resigned.push({ ...s, morale, unhappyWeeks })
+        }
+        return { ...s, morale, unhappyWeeks, noticeWeeks }
+      })
+      .filter((s) => {
+        if (s.noticeWeeks != null && s.noticeWeeks <= 0) {
+          left.push(s)
+          return false
+        }
+        return true
+      })
+
+    for (const line of turned.slice(0, 2)) say(line)
+
+    // a week off ends on its own
+    next.sabbaticals = next.sabbaticals.filter((sb) => sb.untilWeek > week)
+
+    for (const s of left) {
+      next.staffTraining = next.staffTraining.filter((t) => t.staffId !== s.id)
+      next.stats = { ...next.stats, departures: next.stats.departures + 1 }
+      say(`${s.name} worked their last week. ${staffPower(s).toLocaleString()} pts walked out of the door.`)
+    }
+
+    // the first person to resign this week gets to say it to your face
+    let toldInPerson = 0
+    if (resigned.length > 0 && !next.pendingEvent) {
+      next.pendingEvent = resignationEvent(next, resigned[0], week)
+      toldInPerson = 1
+    }
+    for (const s of resigned.slice(toldInPerson)) {
+      say(`${s.name} handed in their notice.`)
+    }
+
+    // and somebody may simply want a word
+    if (!next.pendingEvent && !poachOffer && Math.random() < 0.4) {
+      const ask = pickRequest(next, week)
+      if (ask?.person) {
+        next.pendingEvent = ask
+        next.lastRequestWeek = week
+        next.staff = next.staff.map((s) => (s.id === ask.person!.id ? { ...s, lastAskWeek: week } : s))
+      }
+    }
+  }
+
   // a poaching decision is waiting on the player, so it takes the slot
   if (poachOffer) {
     next.pendingEvent = poachOffer
@@ -2514,7 +2642,10 @@ export function reducer(state: GameState, action: Action): GameState {
       if (state.money < action.staff.salary) return state
       return {
         ...state,
-        staff: [...state.staff, action.staff],
+        staff: [
+          ...state.staff.map((s) => ({ ...s, morale: Math.min(100, s.morale + 2) })),
+          { ...action.staff, joinedWeek: globalWeek(state), lastAskWeek: globalWeek(state) },
+        ],
         money: state.money - action.staff.salary,
         stats: { ...state.stats, hires: state.stats.hires + 1 },
       }
@@ -2527,8 +2658,9 @@ export function reducer(state: GameState, action: Action): GameState {
       // its quality bonus and its slice of the valuation again.
       if (!isResearchAvailable(item.id, state.researched, state.researching.map((r) => r.id))) return state
       // only the people you have put on research move it along
-      const researchers = assigned(state, 'research').filter((s) => s.role === 'researcher').length
-      if (researchers < 1) return state
+      const onIt = assigned(state, 'research').filter((s) => s.role === 'researcher')
+      const researchers = effortSum(onIt)
+      if (onIt.length < 1) return state
       // The office bonus is applied after the rounding, not before it, or a 20%
       // cut would vanish on any job short enough to round back up. Job timers are
       // fractional anyway; only the display rounds.
@@ -2594,7 +2726,7 @@ export function reducer(state: GameState, action: Action): GameState {
       if (state.staff.length >= maxStaff(state)) return state
       const role: Staff['role'] = Math.random() < 0.5 ? 'researcher' : 'engineer'
       const nat = role === 'researcher' ? 'china' : 'europe'
-      const hire = generateCandidate(nat, role, 190, 200)
+      const hire = generateCandidate(nat, role, 190, 200, globalWeek(state))
       const competitors = state.competitors.map((c) => {
         if (c.id !== action.competitorId) return c
         // they are down a person, and it shows in what they can build next
@@ -2891,7 +3023,10 @@ export function reducer(state: GameState, action: Action): GameState {
       return {
         ...state,
         money: state.money - severance,
-        staff: state.staff.filter((x) => x.id !== action.staffId),
+        // the room notices when somebody is walked out
+        staff: state.staff
+          .filter((x) => x.id !== action.staffId)
+          .map((x) => ({ ...x, morale: Math.max(0, x.morale - 5) })),
         // any course they were part-way through goes with them
         staffTraining: state.staffTraining.filter((t) => t.staffId !== action.staffId),
         stats: { ...state.stats, departures: state.stats.departures + 1 },
@@ -2911,7 +3046,11 @@ export function reducer(state: GameState, action: Action): GameState {
       }
       return {
         ...state,
-        staff: state.staff.map((x) => (x.id === action.staffId ? { ...x, salary: market } : x)),
+        staff: state.staff.map((x) =>
+          x.id === action.staffId
+            ? { ...x, salary: market, morale: Math.min(100, x.morale + 20), unhappyWeeks: 0 }
+            : x,
+        ),
         events: [news, ...state.events].slice(0, NEWS_KEPT),
       }
     }
@@ -3299,6 +3438,36 @@ export function reducer(state: GameState, action: Action): GameState {
         staff = staff.map((s) => (s.id === e.keepStaffId ? { ...s, salary } : s))
       }
 
+      // answering somebody moves them, and sometimes everybody
+      let sabbaticals = state.sabbaticals
+      if (e.moraleFor) {
+        const { id: who, delta } = e.moraleFor
+        staff = staff.map((s) =>
+          s.id === who
+            ? { ...s, morale: Math.max(0, Math.min(100, s.morale + delta)), unhappyWeeks: delta > 0 ? 0 : s.unhappyWeeks }
+            : s,
+        )
+      }
+      if (e.moraleAll) {
+        const delta = e.moraleAll
+        staff = staff.map((s) => ({ ...s, morale: Math.max(0, Math.min(100, s.morale + delta)) }))
+      }
+      if (e.assignFor) {
+        const { id: who, assignment } = e.assignFor
+        staff = staff.map((s) => (s.id === who ? { ...s, assignment } : s))
+      }
+      if (e.cancelNoticeFor) {
+        const who = e.cancelNoticeFor
+        staff = staff.map((s) => (s.id === who ? { ...s, noticeWeeks: null, unhappyWeeks: 0 } : s))
+      }
+      if (e.sabbaticalFor) {
+        const who = e.sabbaticalFor
+        sabbaticals = [
+          ...sabbaticals.filter((sb) => sb.id !== who),
+          { id: who, untilWeek: globalWeek(state) + 1 },
+        ]
+      }
+
       if (e.loseBestEngineer) {
         const engineers = staff.filter((s) => s.role === 'engineer')
         if (engineers.length > 0) {
@@ -3312,7 +3481,7 @@ export function reducer(state: GameState, action: Action): GameState {
       if (e.hireRole) {
         if (staff.length < maxStaff(state)) {
           const nat = e.hireRole === 'researcher' ? 'china' : e.hireRole === 'engineer' ? 'europe' : 'usa'
-          staff = [...staff, generateCandidate(nat, e.hireRole, 195, 200)]
+          staff = [...staff, generateCandidate(nat, e.hireRole, 195, 200, globalWeek(state))]
         }
       }
 
@@ -3336,6 +3505,7 @@ export function reducer(state: GameState, action: Action): GameState {
         gpuCards,
         staff,
         staffTraining,
+        sabbaticals,
         models,
         pendingEvent: null,
         stats: {

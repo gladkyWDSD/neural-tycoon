@@ -8,6 +8,7 @@ import {
 } from '../game/constants'
 import { canTrain, marketSalaryFor, staffPower, trainingCostFor, trainingWeeksFor } from '../game/hiring'
 import { globalWeek } from '../game/state'
+import { moodColour, moodLabel, traitsOf } from '../game/people'
 import './StaffMenu.css'
 
 interface Props {
@@ -141,6 +142,26 @@ export function StaffMenu({ staff, state, x, y, onTrain, onAssign, onRaise, onFi
           </div>
           <div className="staff-menu-sub">
             {staff.examScore} base × {staff.level} · {money(staff.salary)}/wk
+          </div>
+          <div className="staff-menu-mood">
+            <div className="staff-menu-mood-track">
+              <div
+                className="staff-menu-mood-fill"
+                style={{ width: `${Math.round(staff.morale ?? 70)}%`, background: moodColour(staff.morale ?? 70) }}
+              />
+            </div>
+            <span style={{ color: moodColour(staff.morale ?? 70) }}>
+              {staff.noticeWeeks != null
+                ? `Leaving in ${staff.noticeWeeks}wk`
+                : `${moodLabel(staff.morale ?? 70)} (${Math.round(staff.morale ?? 70)}%)`}
+            </span>
+          </div>
+          <div className="staff-menu-traits">
+            {traitsOf(staff).map((t) => (
+              <span className="staff-menu-trait" key={t.id} title={t.blurb}>
+                {t.name}
+              </span>
+            ))}
           </div>
         </div>
         {items.map((item, i) => (

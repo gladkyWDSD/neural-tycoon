@@ -3,11 +3,13 @@ import { assignedCount, maxStaff } from '../game/state'
 import { activeCards } from '../game/gpu'
 import { cardsFree, cardsTraining, serviceLoad } from '../game/state'
 import { RESEARCH_MAP } from '../game/research'
+import { averageMorale, moodLabel, unhappyCount } from '../game/people'
 import { CAMPAIGN_DURATION } from '../game/constants'
 import './Game.css'
 
 export type PanelId =
   | 'hire'
+  | 'people'
   | 'build'
   | 'research'
   | 'datacenters'
@@ -26,6 +28,8 @@ interface Tile {
   note?: string
   /** something is running here right now, so the tile glows */
   busy?: boolean
+  /** something is wrong here and the tile should say so in red */
+  alarm?: boolean
   title: string
 }
 
@@ -46,6 +50,8 @@ function tilesFor(state: GameState, racing: boolean): Tile[] {
     ? [...state.researching].sort((a, b) => a.weeksRemaining - b.weeksRemaining)[0]
     : null
   const learning = state.staffTraining.length
+  const unhappy = unhappyCount(state)
+  const leaving = state.staff.filter((s) => s.noticeWeeks != null).length
   const rawLoad = serviceLoad(state)
   const load = Number.isFinite(rawLoad) ? rawLoad : 9.99
 
@@ -60,6 +66,22 @@ function tilesFor(state: GameState, racing: boolean): Tile[] {
           : `${assignedCount(state, 'research')}R ${assignedCount(state, 'training')}T ${assignedCount(state, 'data')}D ${assignedCount(state, 'ops')}O`,
       busy: learning > 0,
       title: 'Hire and train people',
+    },
+    {
+      id: 'people',
+      label: 'Mood',
+      value: state.staff.length === 0 ? '—' : `${Math.round(averageMorale(state))}%`,
+      note:
+        leaving > 0
+          ? `${leaving} working notice`
+          : unhappy > 0
+            ? `${unhappy} unhappy`
+            : state.staff.length > 0
+              ? moodLabel(averageMorale(state)).toLowerCase()
+              : undefined,
+      alarm: leaving > 0 || unhappy > 0,
+      busy: leaving > 0,
+      title: 'How everybody is, what they are paid and what they want',
     },
     {
       id: 'build',
@@ -153,7 +175,7 @@ export function SideNav({ state, panel, racing, onOpen }: {
       {tilesFor(state, racing).map((t) => (
         <button
           key={t.id}
-          className={`nav-tile ${panel === t.id ? 'active' : ''} ${t.busy ? 'busy' : ''}`}
+          className={`nav-tile ${panel === t.id ? 'active' : ''} ${t.busy ? 'busy' : ''} ${t.alarm ? 'alarm' : ''}`}
           onClick={() => onOpen(panel === t.id ? null : t.id)}
           title={t.title}
         >

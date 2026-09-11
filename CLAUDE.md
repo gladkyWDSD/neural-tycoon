@@ -134,6 +134,18 @@ research speed, training quality, curation and serving capacity each read only t
 to that job (`assigned`/`assignedCount`). A change to any of the three moves the whole balance, so
 re-run the balance simulation, and teach it the new lever first if a competent player would use one.
 
+**People are people, in `people.ts`.** Traits, mood, what somebody says and what they ask for all
+live there, and nothing in it decides a company-wide number on its own — it always goes through one
+person first. `advanceOneWeek` runs one pass over `state.staff` at the very end: `moraleWeek` moves
+each mood, five miserable weeks sets `noticeWeeks`, a notice that runs out removes them, and
+`pickRequest` may put somebody in `state.pendingEvent` with a `person` attached (which is what makes
+the modal show a face). Mood is not cosmetic: `effortOf` multiplies what a person contributes and is
+read by `avgScoreOf` (quality), `effortSum` (research and chip-design speed) and nothing else — put
+a new lever through `effortOf` rather than counting heads, or moods will stop mattering to it.
+Somebody on a week off is removed from `assigned()`, so every existing reader already ignores them.
+Answering a request goes through `EffectOp` (`moraleFor`, `moraleAll`, `assignFor`, `sabbaticalFor`,
+`cancelNoticeFor`), not a new action.
+
 **Weekly pressure systems.** `advanceOneWeek` now runs four things in a fixed order that all read
 from the same week's numbers: enterprise contracts (paid, or lost on quality or reliability),
 serving capacity (users over `activeCards * USERS_PER_CARD` churn), safety debt (decays, then rolls
@@ -177,7 +189,7 @@ is added to `GameState`/`AIModel`/`ResearchProgress`, add a corresponding fallba
 **Screens vs. panels.** Top-level navigation is a tiny state machine (`Screen`: `title` →
 `naming` → `main`, with `title` → `lobby` → `main` for multiplayer), driven by `state.screen` and
 rendered by `App.tsx`. Once in `main`,
-`GameScreen` manages a separate local `panel` selection (hire/build/research/twitter/datacenters/
+`GameScreen` manages a separate local `panel` selection (hire/people/build/research/twitter/datacenters/
 competitors/company/ads/government/trading) via its own `useState` — panel switching is UI-only navigation,
 not part of `GameState`/the reducer. There is no button bar: every panel is opened from a readout of the thing
 it contains. The left rail (`SideNav.tsx`) shows live figures — staff count, weeks of research

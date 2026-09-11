@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef } from 'react'
-import type { Staff } from '../game/types'
+import type { GameState, Staff } from '../game/types'
 import { playWorkSfx } from '../game/audio'
 import { SPRITE_H, SPRITE_W, drawCharacter, hash } from './sprites'
+import { Chatter, drawBubble, drawMoodPip } from './bubbles'
 import type { WorkKind } from './officeArt'
 import { SCALE, TILE, drawBurst, drawDesk, drawDeskProp, drawToilet, drawWorkIcon, drawWorkToken } from './officeArt'
 import {
@@ -188,10 +189,18 @@ const COURIER: Staff = {
   level: 1,
   salary: 0,
   assignment: 'ops',
+  traits: [],
+  morale: 70,
+  unhappyWeeks: 0,
+  noticeWeeks: null,
+  lastAskWeek: 0,
+  joinedWeek: 0,
 }
 
 interface Props {
   staff: Staff[]
+  /** the whole company, so the people in it have something to talk about */
+  state: GameState
   desks: number
   /** everything running right now, one bar each, already capped at MAX_BARS */
   jobs: Job[]
@@ -207,8 +216,11 @@ interface Props {
   onLeave?: () => void
 }
 
-export function OfficeView({ staff, desks, jobs, amenities, week, load, onStaffMenu, onLeave }: Props) {
+export function OfficeView({ staff, state, desks, jobs, amenities, week, load, onStaffMenu, onLeave }: Props) {
   const ref = useRef<HTMLCanvasElement>(null)
+  // who is talking, and the thing they said
+  const chatter = useRef(new Chatter(2))
+  const said = useRef<{ id: string; text: string; from: number }[]>([])
   const layout = useMemo(() => layoutFor(desks), [desks])
   const deskList = useMemo(() => generateDesks(desks, layout), [desks, layout])
   const W = layout.roomCols * TILE
@@ -418,6 +430,19 @@ export function OfficeView({ staff, desks, jobs, amenities, week, load, onStaffM
         const here = at(p.t)
         drawWorkToken(ctx, here.x, here.y, p.kind, now, p.seed)
       }
+
+      // The mood marks and the bubbles go on last of all: the desks are drawn
+      // over the people, and neither of these may be covered by a monitor.
+      art()
+      for (const h of hits.current) {
+        const who = staff.find((s) => s.id === h.id)
+        if (who) drawMoodPip(ctx, h.x * SCALE, h.y * SCALE, who, now)
+      }
+      for (const b of said.current) {
+        const at = hits.current.find((h) => h.id === b.id)
+        if (!at) continue
+        drawBubble(ctx, at.x * SCALE, at.y * SCALE, b.text, now - b.from, W * SCALE)
+      }
     }
 
     drawScene(performance.now())
@@ -500,13 +525,15 @@ export function OfficeView({ staff, desks, jobs, amenities, week, load, onStaffM
       for (const f of flashes.current) f.t += dt
       flashes.current = flashes.current.filter((f) => f.t < FLASH_LIFE)
 
+      said.current = chatter.current.step(now, staff, state, week)
+
       drawScene(now)
       raf = requestAnimationFrame(loop)
     }
 
     raf = requestAnimationFrame(loop)
     return () => cancelAnimationFrame(raf)
-  }, [background, staff, deskList, layout, barX, barW, W, jobs, amenities, load])
+  }, [background, staff, state, week, deskList, layout, barX, barW, W, jobs, amenities, load])
 
   /** Where a click landed on the canvas, in art pixels. */
   function artPoint(clientX: number, clientY: number): { x: number; y: number } | null {

@@ -9,7 +9,8 @@ import {
   MIN_SCORE,
 } from '../game/constants'
 import { canTrain, generateCandidate, staffPower, trainingCostFor, trainingWeeksFor } from '../game/hiring'
-import { maxStaff } from '../game/state'
+import { globalWeek, maxStaff } from '../game/state'
+import { moodColour, moodLabel, traitsOf } from '../game/people'
 import './Game.css'
 
 type Sort = 'score' | 'salary-asc' | 'salary-desc'
@@ -40,7 +41,7 @@ export function HirePanel({ state, onHire, onStartTraining, onClose }: Props) {
     const list: Staff[] = []
     for (let i = 0; i < 6; i++) {
       const n = nat ?? (['china', 'europe', 'usa'] as Nationality[])[i % 3]
-      list.push(generateCandidate(n, role, minScore, maxScore))
+      list.push(generateCandidate(n, role, minScore, maxScore, globalWeek(state)))
     }
     return list
     // the key covers every input; listing them again would regenerate on each keystroke
@@ -165,6 +166,13 @@ export function HirePanel({ state, onHire, onStartTraining, onClose }: Props) {
             </div>
             <div className="candidate-spec">
               {ROLES.find((r) => r.id === c.role)?.label}
+              <span className="candidate-traits">
+                {traitsOf(c).map((t) => (
+                  <span className="candidate-trait" key={t.id} title={t.blurb}>
+                    {t.name}
+                  </span>
+                ))}
+              </span>
             </div>
             <div className={`candidate-score ${c.examScore >= 190 ? 'elite' : ''}`}>
               {c.examScore} pts
@@ -196,6 +204,16 @@ export function HirePanel({ state, onHire, onStartTraining, onClose }: Props) {
                 </div>
                 <div className="candidate-spec">
                   {ROLES.find((r) => r.id === s.role)?.label} · {staffPower(s).toLocaleString()} pts
+                  <span className="candidate-traits">
+                    <span className="candidate-trait" style={{ color: moodColour(s.morale ?? 70) }}>
+                      {moodLabel(s.morale ?? 70)}
+                    </span>
+                    {traitsOf(s).map((t) => (
+                      <span className="candidate-trait" key={t.id} title={t.blurb}>
+                        {t.name}
+                      </span>
+                    ))}
+                  </span>
                 </div>
                 <div className={`candidate-score ${s.examScore >= 190 ? 'elite' : ''}`}>Lv {s.level}</div>
                 {training ? (

@@ -108,4 +108,10 @@ const TECH = {
   level: 1,
   salary: 0,
   assignment: 'ops' as const,
+  traits: [],
+  morale: 70,
+  unhappyWeeks: 0,
+  noticeWeeks: null,
+  lastAskWeek: 0,
+  joinedWeek: 0,
 }

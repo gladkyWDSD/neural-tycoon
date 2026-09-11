@@ -13,6 +13,7 @@ import type { LobbyPlayer } from '../game/multiplayer'
 import type { AttackKind, StaffCard, TradeKind } from '../game/types'
 import { BidModal } from './BidModal'
 import { HirePanel } from './HirePanel'
+import { PeoplePanel } from './PeoplePanel'
 import { ResearchPanel } from './ResearchPanel'
 import { BuildPanel } from './BuildPanel'
 import { TwitterPanel } from './TwitterPanel'
@@ -228,6 +229,7 @@ export function GameScreen({
           ) : (
           <OfficeView
             staff={deskStaff}
+            state={state}
             desks={deskCount}
             jobs={jobs}
             amenities={state.amenities}
@@ -242,6 +244,14 @@ export function GameScreen({
 
         {panel === 'hire' && (
           <HirePanel state={state} onHire={onHire} onStartTraining={onStartTraining} onClose={() => setPanel(null)} />
+        )}
+        {panel === 'people' && (
+          <PeoplePanel
+            state={state}
+            onAssign={onAssignStaff}
+            onRaise={onGiveRaise}
+            onClose={() => setPanel(null)}
+          />
         )}
         {panel === 'research' && (
           <ResearchPanel state={state} onStartResearch={onStartResearch} onClose={() => setPanel(null)} />

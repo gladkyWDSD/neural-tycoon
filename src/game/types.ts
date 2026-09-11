@@ -2,6 +2,21 @@ export type Nationality = 'china' | 'europe' | 'usa'
 
 export type Role = 'researcher' | 'engineer' | 'marketer' | 'lawyer' | 'hardware'
 
+/**
+ * A fixed quirk, rolled when somebody is hired and never changed. Two people
+ * with the same exam score are not the same hire: the traits decide how they
+ * work, how fast their mood moves and what they will eventually ask you for.
+ */
+export type TraitId =
+  | 'nightowl'
+  | 'perfectionist'
+  | 'mercenary'
+  | 'mentor'
+  | 'fragile'
+  | 'steady'
+  | 'showman'
+  | 'idealist'
+
 /** What someone in the office actually spends their week on. */
 export type Assignment = 'research' | 'training' | 'data' | 'ops' | 'chips'
 
@@ -17,6 +32,18 @@ export interface Staff {
   salary: number // weekly $
   /** where their week goes; defaults from their role when they are hired */
   assignment: Assignment
+  /** one or two quirks, fixed at hiring */
+  traits: TraitId[]
+  /** 0-100. Drifts every week off pay, workload, the office and the news. */
+  morale: number
+  /** how many weeks in a row they have been miserable, which is what makes them quit */
+  unhappyWeeks: number
+  /** counting down once they have handed in their notice; null while they are staying */
+  noticeWeeks: number | null
+  /** the week they last asked you for something, so nobody nags */
+  lastAskWeek: number
+  /** the week they walked in, for the roster */
+  joinedWeek: number
 }
 
 export interface GameDate {
@@ -261,6 +288,15 @@ export interface EffectOp {
   /** this exact person stays, on the new weekly salary in keepStaffSalary */
   keepStaffId?: string
   keepStaffSalary?: number
+  /** move this person's mood, and everybody else's */
+  moraleFor?: { id: string; delta: number }
+  moraleAll?: number
+  /** put this person on this job, because they asked */
+  assignFor?: { id: string; assignment: Assignment }
+  /** they take next week off: no output, a much better mood */
+  sabbaticalFor?: string
+  /** they stop working their notice and stay */
+  cancelNoticeFor?: string
 }
 
 export interface EventChoice {
@@ -278,6 +314,8 @@ export interface PendingEvent {
   title: string
   text: string
   choices: EventChoice[]
+  /** when somebody is asking for this themselves, so the modal can show a face */
+  person?: Staff
 }
 
 export interface GameState {
@@ -374,4 +412,8 @@ export interface GameState {
   activeRegulations: string[]
   lobbyWeeksLeft: number
   lastLobbyWeek: number
+  /** the week somebody last asked you for something, so requests stay rare */
+  lastRequestWeek: number
+  /** who is on a week off, and until when */
+  sabbaticals: { id: string; untilWeek: number }[]
 }

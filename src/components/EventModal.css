@@ -52,7 +52,7 @@
 .event-choice {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 5px;
   padding: 12px;
   font-size: 12px;
   text-align: left;
@@ -69,7 +69,10 @@
 }
 
 .event-choice-hint {
-  font-size: 16px;
+  /* the hint explains the label, so it must not shout louder than it */
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1.35;
   color: var(--text-dim);
 }
 
@@ -80,4 +83,55 @@
 
 .event-choice.is-disabled:hover .event-choice-label {
   color: var(--text);
+}
+
+/* Somebody asking you for something, rather than the world happening at you. */
+.event-modal.is-person {
+  border-color: rgba(201, 164, 58, 0.55);
+}
+
+.event-person {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 12px;
+  margin: 0 0 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 2px solid var(--border);
+  box-shadow: var(--recess);
+}
+
+.event-portrait {
+  image-rendering: pixelated;
+  width: 96px;
+  height: 120px;
+  flex: 0 0 auto;
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.event-person-lines {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
+}
+
+.event-person-name {
+  font-family: var(--mono);
+  font-size: 19px;
+  color: var(--text);
+}
+
+.event-person-mood {
+  font-family: var(--mono);
+  font-size: 14px;
+}
+
+.event-person-trait {
+  font-family: var(--mono);
+  font-size: 12px;
+  padding: 2px 7px;
+  color: var(--gold);
+  border: 1px solid rgba(201, 164, 58, 0.5);
+  background: rgba(201, 164, 58, 0.08);
 }

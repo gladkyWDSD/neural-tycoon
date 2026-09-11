@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import type { GameState, Staff } from '../game/types'
 import { SCALE, TILE, drawWorkIcon } from './officeArt'
 import { SPRITE_H, SPRITE_W, drawCharacter } from './sprites'
+import { Chatter, drawBubble, drawMoodPip } from './bubbles'
 import {
   LAB_COLS,
   LAB_ROWS,
@@ -14,7 +15,7 @@ import {
   drawWhiteboardWall,
 } from './labArt'
 import { RESEARCH_MAP } from '../game/research'
-import { chipDesignWeeks } from '../game/state'
+import { chipDesignWeeks, globalWeek } from '../game/state'
 
 interface Props {
   state: GameState
@@ -51,11 +52,14 @@ export function LabView({ state, onLeave, onStaffMenu }: Props) {
   const ref = useRef<HTMLCanvasElement>(null)
   // where each person ended up this frame, so they can still be right-clicked
   const hits = useRef<{ id: string; x: number; y: number }[]>([])
+  const chatter = useRef(new Chatter(2))
+  const said = useRef<{ id: string; text: string; from: number }[]>([])
   const W = LAB_COLS * TILE
   const H = LAB_ROWS * TILE
   const researchers = state.staff.filter((s) => s.role === 'researcher')
   const hardware = state.staff.filter((s) => s.role === 'hardware')
   const running = state.researching.length > 0
+  const week = globalWeek(state)
   const designing = Boolean(state.chipDesign)
 
   useEffect(() => {
@@ -84,6 +88,7 @@ export function LabView({ state, onLeave, onStaffMenu }: Props) {
         const y = b.y * TILE + 18
         hits.current.push({ id: person.id, x, y })
         drawCharacter(ctx, person, x, y, now, busy, false)
+        drawMoodPip(ctx, x * SCALE, y * SCALE, person, now)
       }
       researchers.slice(0, RESEARCH_BENCHES.length).forEach((p, i) => seat(p, RESEARCH_BENCHES[i], running))
       hardware.slice(0, HARDWARE_BENCHES.length).forEach((p, i) => seat(p, HARDWARE_BENCHES[i], designing))
@@ -121,11 +126,18 @@ export function LabView({ state, onLeave, onStaffMenu }: Props) {
         )
       }
 
+      // the lab talks too
+      said.current = chatter.current.step(now, [...researchers, ...hardware], state, week)
+      for (const b of said.current) {
+        const at = hits.current.find((h) => h.id === b.id)
+        if (at) drawBubble(ctx, at.x * SCALE, at.y * SCALE, b.text, now - b.from, W * SCALE)
+      }
+
       raf = requestAnimationFrame(draw)
     }
     raf = requestAnimationFrame(draw)
     return () => cancelAnimationFrame(raf)
-  }, [researchers, hardware, running, designing, state.researching, state.chipDesign])
+  }, [researchers, hardware, running, designing, state, week, W])
 
   /** Whoever is under a client-space point, the same way the office does it. */
   function personAt(clientX: number, clientY: number): string | null {

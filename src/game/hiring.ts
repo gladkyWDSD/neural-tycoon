@@ -1,4 +1,5 @@
 import type { Nationality, Role, Staff } from './types'
+import { STARTING_MORALE, rollTraits } from './people'
 import {
   MAX_SCORE,
   MAX_STAFF_LEVEL,
@@ -108,7 +109,13 @@ export function defaultAssignment(role: Role): Staff['assignment'] {
   return 'ops'
 }
 
-export function generateCandidate(nationality: Nationality, role: Role, minScore: number, maxScore: number): Staff {
+export function generateCandidate(
+  nationality: Nationality,
+  role: Role,
+  minScore: number,
+  maxScore: number,
+  week = 0,
+): Staff {
   const bias = roleBias(nationality, role)
   const raw = rand(minScore, maxScore)
   const score = Math.min(MAX_SCORE, Math.max(0, raw + bias))
@@ -122,5 +129,12 @@ export function generateCandidate(nationality: Nationality, role: Role, minScore
     examScore: score,
     level: 1,
     salary: salaryFor(role, score),
+    traits: rollTraits(),
+    // people arrive keen, and a little unsure
+    morale: STARTING_MORALE + rand(-6, 6),
+    unhappyWeeks: 0,
+    noticeWeeks: null,
+    lastAskWeek: week,
+    joinedWeek: week,
   }
 }

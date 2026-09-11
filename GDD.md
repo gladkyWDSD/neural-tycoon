@@ -489,6 +489,41 @@ panel traces the service load in green, amber or red, and a technician walks the
 readout says how many cards are racked, how many of those are training, how many have nowhere to go,
 what generation of silicon you are running and how many halls you own.
 
+### The people
+
+Nobody on the payroll is a number with a name on it.
+
+- **Every hire has one or two quirks**, rolled when they are hired and fixed for life, shown on the
+  hire card before you pay for them: **night owl** (gets more done than anybody and burns out for
+  it), **perfectionist** (slower, better), **mercenary** (falls behind market and they are gone),
+  **mentor** (lifts everybody around them), **fragile** (takes every week to heart), **steady**
+  (nothing rattles them), **showman** (people follow the company because of them) and **idealist**
+  (cutting corners on safety eats at them). Two people with the same exam score are not the same
+  hire.
+- **Everybody has a mood**, 0 to 100, that moves every week off what you actually did: how far
+  behind the market their pay has drifted, how much work there is per pair of hands, what the
+  office has in it, whether you shipped, whether there was an incident, and how much safety debt
+  an idealist is watching you carry. A quirk decides how hard it swings. Mood is not decoration —
+  it multiplies everything that person contributes, from 0.78 at rock bottom to 1.10 when they
+  love it here.
+- **They say so out loud.** Speech bubbles over their heads, in their own words and about their own
+  situation: "I looked up what I am worth", "Fourth coffee", "Did anyone red-team this?", "Last few
+  weeks here." A red bolt floats beside anybody unhappy, a green note beside anybody delighted, and
+  an open door beside anybody working their notice.
+- **They ask you for things.** Every so often somebody stops the week to ask: a raise, a move onto
+  the work they came here to do, a week off before they make a mistake, two weeks of safety evals,
+  a conference talk, a better machine, or to bring somebody in from their old lab. Each one is a
+  modal with their face on it and two or three answers, and every answer costs something — money,
+  or their goodwill.
+- **They leave.** Five miserable weeks and they hand in their notice, to your face, with a
+  counter-offer on the table. Refuse it and they work three more weeks and walk out with everything
+  they knew. The **Mood** tile on the rail turns red before any of that happens, and the roster
+  behind it sorts by mood, by pay gap or by value and says in one line what each person's problem
+  is.
+
+A team paid at market in a decent office runs around 60 and stays there. A team you never look at
+drifts down, works worse, and eventually walks.
+
 ### Things that make the office feel lived in
 
 - **Four seasons of light.** The room's floor and walls shift through winter, spring, summer and
