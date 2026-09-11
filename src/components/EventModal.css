@@ -18,6 +18,9 @@
   flex-direction: column;
   gap: 14px;
   text-align: center;
+  /* a long event, a long report or a small window all have to stay readable */
+  max-height: 88vh;
+  overflow-y: auto;
 }
 
 .event-icon {
