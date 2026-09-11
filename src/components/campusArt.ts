@@ -7,10 +7,11 @@ import { px } from './officeArt'
 // Drawn in art pixels on the same grid as the office, so a tile out here is a
 // tile in there.
 
+import { CAMPUS_COLS, CAMPUS_ROWS } from './campusLayout'
+
 const FT = 32 // art pixels per world tile
 
-export const CAMPUS_COLS = 44
-export const CAMPUS_ROWS = 22
+export { CAMPUS_COLS, CAMPUS_ROWS }
 
 const GRASS = ['#2f4a33', '#33513a', '#2b4530']
 const ROAD = '#2a2d38'

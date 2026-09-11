@@ -447,29 +447,41 @@ outside, to a field with everything the company owns standing in it.
   sign over the door.
 - **A datacenter for every hall you own**, cooling units turning on the roof and a status light by
   the door. Rented halls are greyer and fly somebody else's pennant.
-- **The research lab**, a long low building with a glass front and a lit sign, standing between the
-  office and the halls.
+- **The lab**, the white building with the glass front, standing between the office and the halls.
 - **A fab line for each one you have built**, with lit cleanrooms and a stack breathing steam.
 - **A dish for every data source** feeding the pipeline, tilting slowly on its mast.
 - Trees, a road along the bottom with traffic on it, and the field itself going through the same
   four seasons as the office.
 
 A readout in the corner says what you are looking at, and the sign by the door takes you back in.
-Most of it is the balance sheet as a place — but two of the buildings open.
+Nothing stands on anything else: every building has a fixed plot, so the field never rearranges
+itself under the pointer.
 
-### The research lab
+**The office, the lab and every datacenter open.** Put the pointer on one and it is framed in
+yellow with its name over it; click it and you walk in. Everything else — the fabs, the dishes, the
+trees, the traffic — is the balance sheet as a place.
 
-Click the lab and you go in. **Only researchers work in here**: hire a researcher and they leave the
-office floor for the lab, and the office shows everybody else. Inside there is a test rig down the
-middle of the room with something climbing through it in bands of light, a whiteboard wall of working
-that gets rewritten as you watch, a wall of screens showing a loss curve, a spectrogram and a grid
-lighting up, benches with terminals, and a sample fridge humming in the corner. Whatever is nearest
-to finishing floats over the rig with the weeks left on it. The readout says how many researchers are
-on the payroll, how many techniques are unlocked and how many projects are running.
+### The lab
+
+Click the white building and you go in. **Researchers and hardware engineers work in here and
+nowhere else**: hire either and they leave the office floor for the lab, and the office shows
+everybody else. A painted hazard line splits the room in two.
+
+- **Research**, on the left: a test rig down the middle of the building with something climbing
+  through it in bands of light, a whiteboard wall of working that gets rewritten as you watch, a
+  wall of screens showing a loss curve, a spectrogram and a grid lighting up, benches with
+  terminals, and a sample fridge humming in the corner. Whatever project is nearest to finishing
+  floats over the rig with the weeks left on it.
+- **Hardware**, on the right: steel benches with oscilloscopes tracing, trays of dies being probed,
+  a wafer catching the light and a soldering iron still smoking in its stand. A tape-out in progress
+  shows the generation and the weeks left under the bay.
+
+Right-click anybody in here to manage them, the same as at a desk. The readout counts researchers
+and hardware engineers, says what research is running, and says what the silicon is doing.
 
 ### The datacenter floor
 
-Click any hall and you walk in between the racks. **Every card you own is in there**: the racks fill
+Click any hall on the field — they all open — and you walk in between the racks. **Every card you own is in there**: the racks fill
 from the front, a filled slot is a server with a green board, chips, a spinning fan and a cable off
 the back into the spine, and an empty slot gets a blanking plate. Cable trays run overhead with a
 light chasing along them, cooling walls at the end of each row breathe cold into the aisle, a wall

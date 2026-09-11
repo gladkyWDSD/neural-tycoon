@@ -162,7 +162,8 @@ export function GameScreen({
   // one desk per person the office can hold, all the way up to the top upgrade
   const deskCount = maxStaff(state)
   // researchers have a lab of their own, so they are not also at a desk in here
-  const deskStaff = state.staff.filter((s) => s.role !== 'researcher')
+  // researchers and hardware engineers work in the lab, not on the office floor
+  const deskStaff = state.staff.filter((s) => s.role !== 'researcher' && s.role !== 'hardware')
 
   // Everything running right now gets its own bar over the office, oldest
   // first so a bar keeps its place while it fills. Only the first few fit.
@@ -217,7 +218,11 @@ export function GameScreen({
               onEnterHall={() => setPlace('hall')}
             />
           ) : place === 'lab' ? (
-            <LabView state={state} onLeave={() => setPlace('campus')} />
+            <LabView
+              state={state}
+              onLeave={() => setPlace('campus')}
+              onStaffMenu={(id, x, y) => setStaffMenu({ id, x, y })}
+            />
           ) : place === 'hall' ? (
             <DatacenterView state={state} onLeave={() => setPlace('campus')} />
           ) : (

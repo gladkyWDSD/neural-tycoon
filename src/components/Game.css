@@ -1586,6 +1586,7 @@
   position: absolute;
   top: 12px;
   left: 12px;
+  max-width: 330px;
   display: flex;
   flex-direction: column;
   gap: 3px;

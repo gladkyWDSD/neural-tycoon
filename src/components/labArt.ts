@@ -7,15 +7,26 @@ import { px } from './officeArt'
 const FT = 32
 
 export const LAB_COLS = 30
-export const LAB_ROWS = 13
+export const LAB_ROWS = 14
+
+/** The room is split down the middle: research on the left, hardware on the right. */
+export const HARDWARE_FROM = 18
 
 export function drawLabRoom(ctx: CanvasRenderingContext2D, now: number): void {
-  // a pale floor, because a lab is not an office
+  // a pale floor, because a lab is not an office. The hardware bay is warmer,
+  // so you can see at a glance which half of the building you are looking at.
   for (let row = 1; row < LAB_ROWS - 1; row++) {
     for (let col = 1; col < LAB_COLS - 1; col++) {
-      px(ctx, col * FT, row * FT, FT, FT, (row + col) % 2 === 0 ? '#2b3140' : '#2f3646')
-      px(ctx, col * FT, row * FT, FT, 1, '#353d4f')
+      const bay = col >= HARDWARE_FROM
+      const even = (row + col) % 2 === 0
+      px(ctx, col * FT, row * FT, FT, FT, bay ? (even ? '#33313f' : '#383544') : even ? '#2b3140' : '#2f3646')
+      px(ctx, col * FT, row * FT, FT, 1, bay ? '#413d4e' : '#353d4f')
     }
+  }
+  // the hazard line painted on the floor between the two bays
+  for (let row = 1; row < LAB_ROWS - 1; row++) {
+    px(ctx, HARDWARE_FROM * FT - 6, row * FT, 5, FT, '#3a3524')
+    for (let i = 0; i < 4; i++) px(ctx, HARDWARE_FROM * FT - 6, row * FT + i * 8, 5, 4, '#c9a43a')
   }
   // walls, lit along the top
   px(ctx, 0, 0, LAB_COLS * FT, FT, '#1b2029')
@@ -179,4 +190,53 @@ export function drawLabFridge(ctx: CanvasRenderingContext2D, tx: number, ty: num
   px(ctx, x + 4, y + FT + 4, FT - 8, FT - 12, '#8e94a8')
   px(ctx, x + FT - 9, y + 20, 4, 10, '#454b5e') // handle
   px(ctx, x + 6, y + 3, 6, 2, Math.sin(now / 700) > 0 ? '#3ddc84' : '#14361f')
+}
+
+/**
+ * A hardware bench: a scope with a live trace, a tray of dies, an iron with a
+ * wisp of smoke coming off it and a wafer catching the light.
+ */
+export function drawHardwareBench(
+  ctx: CanvasRenderingContext2D,
+  tx: number,
+  ty: number,
+  now: number,
+  seed: number,
+): void {
+  const x = tx * FT
+  const y = ty * FT
+  // steel worktop, not the white one the researchers get
+  px(ctx, x, y + 8, FT * 2, 22, '#8e94a8')
+  px(ctx, x, y + 8, FT * 2, 3, '#c9cddb')
+  px(ctx, x, y + 30, FT * 2, 4, '#5d6376')
+
+  // the scope, standing on the bench
+  px(ctx, x + 2, y - 14, 30, 24, '#20242f')
+  px(ctx, x + 4, y - 12, 26, 18, '#0b1a12')
+  for (let i = 0; i < 24; i++) {
+    const v = Math.round(Math.sin((i + now / 90 + seed) / 2) * 6)
+    px(ctx, x + 5 + i, y - 3 + v, 1, 2, '#3ddc84')
+  }
+  px(ctx, x + 6, y - 16, 4, 2, '#c9a43a')
+
+  // a tray of dies, one of which is being probed
+  px(ctx, x + 36, y + 12, 20, 14, '#2b3141')
+  for (let r = 0; r < 2; r++) {
+    for (let c = 0; c < 3; c++) {
+      const hot = (Math.floor(now / 900) + seed) % 6 === r * 3 + c
+      px(ctx, x + 38 + c * 6, y + 14 + r * 6, 4, 4, hot ? '#4aa3ff' : '#1f6b42')
+    }
+  }
+  // the wafer, leaning against the back
+  const shimmer = (Math.sin(now / 700 + seed) + 1) / 2
+  px(ctx, x + 58, y + 10, 4, 16, `rgba(140,190,235,${(0.45 + shimmer * 0.4).toFixed(2)})`)
+
+  // the iron in its stand, still smoking
+  px(ctx, x + 6, y + 14, 14, 4, '#454b5e')
+  px(ctx, x + 8, y + 12, 10, 3, '#b5544a')
+  px(ctx, x + 17, y + 13, 4, 2, '#ffd166')
+  for (let i = 0; i < 3; i++) {
+    const t = ((now / 800 + i * 0.33) % 1)
+    px(ctx, x + 18 + Math.round(t * 3), y + 10 - Math.round(t * 14), 2, 2, `rgba(200,210,225,${(0.35 * (1 - t)).toFixed(2)})`)
+  }
 }
