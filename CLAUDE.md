@@ -91,6 +91,11 @@ return early once it is set, so a finished run is genuinely stopped. `weeklyCost
 `weeklyIncome` are the shared readouts behind the warnings in the top bar, the Company panel and the
 news feed; any new recurring cost belongs in `weeklyCosts` or the warnings will lie.
 
+**Two views, one office.** `GameScreen` swaps between `OfficeView` and `CampusView` on a local
+flag; the door hotspot in the office and the sign outside are the only ways across. Both canvases
+draw in art pixels on the same 16px world grid (`campusArt.ts` mirrors `officeArt.ts`), so anything
+new outside is placed in tiles like anything inside.
+
 **Sound is synthesised, never loaded.** `audio.ts` builds everything from oscillators and noise at
 runtime: a look-ahead sequencer for the music and one-shot voices for the rest. Nothing may create
 an `AudioContext` outside a real user gesture, so sound effects check for a running context and

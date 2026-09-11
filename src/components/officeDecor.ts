@@ -325,6 +325,30 @@ export function drawAmenities(ctx: CanvasRenderingContext2D, room: RoomInfo, own
   }
 }
 
+/** The way out. It sits in the bottom-left corner of the room and it opens. */
+export function drawDoor(ctx: CanvasRenderingContext2D, room: RoomInfo, now: number) {
+  const tile = doorTile(room)
+  const x = tile.tx * FT
+  const y = tile.ty * FT
+  px(ctx, x + 2, y + 2, 28, 30, '#20242f') // frame
+  px(ctx, x + 4, y + 4, 24, 28, '#8a6038') // the door itself
+  px(ctx, x + 4, y + 4, 24, 3, '#a8763f')
+  px(ctx, x + 15, y + 4, 2, 28, '#5c3f22') // the line down the middle
+  px(ctx, x + 8, y + 16, 5, 3, '#ffd166') // handles
+  px(ctx, x + 19, y + 16, 5, 3, '#ffd166')
+  // a lit exit sign above it, which is how you find a door in a dark room
+  px(ctx, x + 6, y - 8, 20, 8, '#1a2e20')
+  px(ctx, x + 7, y - 7, 18, 6, Math.sin(now / 1800) > -0.9 ? '#3ddc84' : '#1f6b42')
+  px(ctx, x + 10, y - 5, 2, 2, '#0b0c11')
+  px(ctx, x + 14, y - 5, 2, 2, '#0b0c11')
+  px(ctx, x + 18, y - 5, 2, 2, '#0b0c11')
+}
+
+/** Where that door is, in world tiles, so a click can find it. */
+export function doorTile(room: RoomInfo): { tx: number; ty: number } {
+  return { tx: 1, ty: room.roomRows - 2 }
+}
+
 // ------------------------------------------------------------------ layout
 
 /**

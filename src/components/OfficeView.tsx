@@ -4,7 +4,17 @@ import { playWorkSfx } from '../game/audio'
 import { SPRITE_H, SPRITE_W, drawCharacter, hash } from './sprites'
 import type { WorkKind } from './officeArt'
 import { SCALE, TILE, drawBurst, drawDesk, drawDeskProp, drawToilet, drawWorkIcon, drawWorkToken } from './officeArt'
-import { breakSpots, drawAmenities, drawDecor, drawRackLights, drawWallClock, rackTile, tripFor } from './officeDecor'
+import {
+  breakSpots,
+  doorTile,
+  drawAmenities,
+  drawDecor,
+  drawDoor,
+  drawRackLights,
+  drawWallClock,
+  rackTile,
+  tripFor,
+} from './officeDecor'
 
 // winter, spring, summer, autumn: floor, alternate floor, wall
 const SEASON_LIGHT: [string, string, string][] = [
@@ -193,9 +203,11 @@ interface Props {
   load: number
   /** right-clicking a person opens their menu at the pointer */
   onStaffMenu?: (staffId: string, clientX: number, clientY: number) => void
+  /** clicking the door in the corner takes you outside */
+  onLeave?: () => void
 }
 
-export function OfficeView({ staff, desks, jobs, amenities, week, load, onStaffMenu }: Props) {
+export function OfficeView({ staff, desks, jobs, amenities, week, load, onStaffMenu, onLeave }: Props) {
   const ref = useRef<HTMLCanvasElement>(null)
   const layout = useMemo(() => layoutFor(desks), [desks])
   const deskList = useMemo(() => generateDesks(desks, layout), [desks, layout])
@@ -374,6 +386,7 @@ export function OfficeView({ staff, desks, jobs, amenities, week, load, onStaffM
       }
       // the parts of the furniture that move
       if (rack) drawRackLights(ctx, rack.tx, rack.ty, now, load)
+      drawDoor(ctx, layout, now)
       drawWallClock(ctx, 1, 0, now)
 
       // The tokens and the impact they make are drawn in art pixels, so a brain
@@ -495,16 +508,26 @@ export function OfficeView({ staff, desks, jobs, amenities, week, load, onStaffM
     return () => cancelAnimationFrame(raf)
   }, [background, staff, deskList, layout, barX, barW, W, jobs, amenities, load])
 
-  /** Which person, if any, is under a client-space point. */
-  function staffAt(clientX: number, clientY: number): string | null {
+  /** Where a click landed on the canvas, in art pixels. */
+  function artPoint(clientX: number, clientY: number): { x: number; y: number } | null {
     const canvas = ref.current
     if (!canvas) return null
     const rect = canvas.getBoundingClientRect()
     // object-fit: contain letterboxes the canvas inside its box, so undo that first
     const zoom = Math.min(rect.width / canvas.width, rect.height / canvas.height)
     if (zoom <= 0) return null
-    const artX = (clientX - rect.left - (rect.width - canvas.width * zoom) / 2) / zoom
-    const artY = (clientY - rect.top - (rect.height - canvas.height * zoom) / 2) / zoom
+    return {
+      x: (clientX - rect.left - (rect.width - canvas.width * zoom) / 2) / zoom,
+      y: (clientY - rect.top - (rect.height - canvas.height * zoom) / 2) / zoom,
+    }
+  }
+
+  /** Which person, if any, is under a client-space point. */
+  function staffAt(clientX: number, clientY: number): string | null {
+    const at = artPoint(clientX, clientY)
+    if (!at) return null
+    const artX = at.x
+    const artY = at.y
     const x = artX / SCALE
     const y = artY / SCALE
     // last drawn is nearest the front, so search back to front
@@ -527,6 +550,15 @@ export function OfficeView({ staff, desks, jobs, amenities, week, load, onStaffM
       ref={ref}
       width={W * SCALE}
       height={H * SCALE}
+      onClick={(e) => {
+        // the door in the corner is the only thing in the room you can click
+        const at = artPoint(e.clientX, e.clientY)
+        if (!at || !onLeave) return
+        const door = doorTile(layout)
+        const dx = door.tx * TILE * SCALE
+        const dy = door.ty * TILE * SCALE
+        if (at.x >= dx && at.x <= dx + TILE * SCALE && at.y >= dy - 10 && at.y <= dy + TILE * SCALE) onLeave()
+      }}
       onContextMenu={(e) => {
         // the browser menu is suppressed app-wide; this only decides whose menu opens
         e.preventDefault()

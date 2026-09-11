@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { AIModel, GameState, PostType, PricingModel, PromoKind, Staff } from '../game/types'
 import { TopBar } from './TopBar'
 import { MAX_BARS, OfficeView } from './OfficeView'
+import { CampusView } from './CampusView'
 import type { Job } from './OfficeView'
 import { StaffMenu } from './StaffMenu'
 import { RunReport } from './RunReport'
@@ -151,6 +152,8 @@ export function GameScreen({
   const [winSeen, setWinSeen] = useState(false)
   // the report can also be opened on purpose, from the Company panel
   const [reportOpen, setReportOpen] = useState(false)
+  // inside at a desk, or outside looking at what the company owns
+  const [outside, setOutside] = useState(false)
   const myRaceName = race?.players.find((p) => (race.isHost ? p.isHost : p.id === race.selfId))?.name
   const menuStaff = staffMenu ? state.staff.find((s) => s.id === staffMenu.id) : undefined
 
@@ -202,6 +205,9 @@ export function GameScreen({
         <SideNav state={state} panel={panel} racing={Boolean(race)} onOpen={setPanel} />
 
         <div className="office-wrap">
+          {outside ? (
+            <CampusView state={state} onEnter={() => setOutside(false)} />
+          ) : (
           <OfficeView
             staff={state.staff}
             desks={deskCount}
@@ -210,7 +216,9 @@ export function GameScreen({
             week={globalWeek(state)}
             load={Number.isFinite(serviceLoad(state)) ? serviceLoad(state) : 9}
             onStaffMenu={(id, x, y) => setStaffMenu({ id, x, y })}
+            onLeave={() => setOutside(true)}
           />
+          )}
           {race && <Standings players={race.players} selfId={race.selfId} isHost={race.isHost} />}
         </div>
 

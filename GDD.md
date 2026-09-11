@@ -437,6 +437,24 @@ hears about itself reads like a spreadsheet.
 - **Milestones**, once each: ten thousand users, a hundred thousand, a million, and so on up to a
   hundred million, and the same ladder for followers.
 
+### Outside
+
+There is a door in the bottom-left corner of the office, under a lit exit sign. Click it and you go
+outside, to a field with everything the company owns standing in it.
+
+- **Your office block**, which grows with the upgrades, from a small unit at level one to a proper
+  building by level four, with lit windows, people at desks inside them and the company name on a
+  sign over the door.
+- **A datacenter for every hall you own**, cooling units turning on the roof and a status light by
+  the door. Rented halls are greyer and fly somebody else's pennant.
+- **A fab line for each one you have built**, with lit cleanrooms and a stack breathing steam.
+- **A dish for every data source** feeding the pipeline, tilting slowly on its mast.
+- Trees, a road along the bottom with traffic on it, and the field itself going through the same
+  four seasons as the office.
+
+A readout in the corner says what you are looking at, and the sign by the door takes you back in.
+Nothing out there is a control. It is the balance sheet, as a place.
+
 ### Things that make the office feel lived in
 
 - **Four seasons of light.** The room's floor and walls shift through winter, spring, summer and
