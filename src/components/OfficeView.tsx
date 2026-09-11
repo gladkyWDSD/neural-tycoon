@@ -67,7 +67,7 @@ function roleKind(role: Staff['role']): WorkKind | null {
   if (role === 'researcher') return 'research'
   if (role === 'engineer') return 'training'
   if (role === 'marketer') return 'marketing'
-  return null
+  return null // lawyers and the hardware bench have no bar of their own
 }
 
 interface Desk {

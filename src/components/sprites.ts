@@ -173,6 +173,13 @@ export function buildSprite(staff: Staff, look: Look, pose: Pose): Grid {
     put(g, 6, ty + 1, 'W')
     put(g, 5, ty + 2, 'W')
     put(g, 6, ty + 2, 'W')
+  } else if (staff.role === 'hardware') {
+    // a bench coat over the shirt, with a pen in the top pocket
+    box(g, 1, ty + 1, 2, 3, 'G')
+    box(g, 9, ty + 1, 2, 3, 'G')
+    put(g, 2, ty, 'G')
+    put(g, 9, ty, 'G')
+    put(g, 8, ty + 2, 'A')
   } else if (staff.role === 'marketer') {
     // lanyard and badge
     put(g, 5, ty + 1, 'W')
@@ -264,6 +271,10 @@ export function buildSprite(staff: Staff, look: Look, pose: Pose): Grid {
   } else if (staff.role === 'marketer') {
     // sunglasses
     box(g, 3, hy + 3, 6, 1, 'K')
+  } else if (staff.role === 'hardware') {
+    // a loupe pushed up on the forehead
+    box(g, 4, hy + 1, 4, 1, 'K')
+    put(g, 5, hy + 1, 'R')
   }
 
   // --- a light bulb goes on when a researcher gets an idea ---

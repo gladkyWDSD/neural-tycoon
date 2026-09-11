@@ -75,6 +75,7 @@ export function StaffMenu({ staff, state, x, y, onTrain, onAssign, onRaise, onFi
     { id: 'training', label: 'Training runs', hint: 'Engineers here build models faster and better.' },
     { id: 'data', label: 'Data curation', hint: 'Anyone here fills the data pipeline faster.' },
     { id: 'ops', label: 'Reliability', hint: 'Anyone here stretches what a card can serve and softens incidents.' },
+    { id: 'chips', label: 'Chip design', hint: 'Hardware engineers here design silicon of your own.' },
   ]
 
   const items: Item[] = [

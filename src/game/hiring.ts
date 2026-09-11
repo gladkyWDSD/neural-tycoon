@@ -38,6 +38,9 @@ function roleBias(nationality: Nationality, role: Role): number {
       return info.marketingBias
     case 'lawyer':
       return info.legalBias
+    case 'hardware':
+      // chip people come out of the same pool as the coders
+      return info.codingBias
   }
 }
 
@@ -46,6 +49,7 @@ const ROLE_SALARY_BASE: Record<Role, number> = {
   engineer: 2750,
   marketer: 2000,
   lawyer: 2500,
+  hardware: 3400,
 }
 
 function salaryFor(role: Role, score: number): number {
@@ -100,6 +104,7 @@ export function defaultAssignment(role: Role): Staff['assignment'] {
   if (role === 'researcher') return 'research'
   if (role === 'engineer') return 'training'
   if (role === 'marketer') return 'data'
+  if (role === 'hardware') return 'chips'
   return 'ops'
 }
 

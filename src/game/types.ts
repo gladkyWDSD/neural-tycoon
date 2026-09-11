@@ -1,9 +1,9 @@
 export type Nationality = 'china' | 'europe' | 'usa'
 
-export type Role = 'researcher' | 'engineer' | 'marketer' | 'lawyer'
+export type Role = 'researcher' | 'engineer' | 'marketer' | 'lawyer' | 'hardware'
 
 /** What someone in the office actually spends their week on. */
-export type Assignment = 'research' | 'training' | 'data' | 'ops'
+export type Assignment = 'research' | 'training' | 'data' | 'ops' | 'chips'
 
 export interface Staff {
   id: string
@@ -334,6 +334,13 @@ export interface GameState {
   books: string[]
   /** office extras you have paid for, by id */
   amenities: string[]
+  /**
+   * Your own silicon. Level 0 is buying whatever the market sells; each
+   * generation past that is a chip you designed, and fabs turn them out.
+   */
+  chipLevel: number
+  chipDesign: { weeksRemaining: number; totalWeeks: number; toLevel: number } | null
+  fabs: number
   /** the data pipeline: what feeds it, and how much is piled up in terabytes */
   dataSources: string[]
   dataStock: number

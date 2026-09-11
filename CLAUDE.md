@@ -91,6 +91,11 @@ return early once it is set, so a finished run is genuinely stopped. `weeklyCost
 `weeklyIncome` are the shared readouts behind the warnings in the top bar, the Company panel and the
 news feed; any new recurring cost belongs in `weeklyCosts` or the warnings will lie.
 
+**Adding a staff role** means five places, not one: `Role` in `types.ts`, `ROLES` in `constants.ts`
+(which drives the hiring tabs), `ROLE_SALARY_BASE` and `roleBias` and `defaultAssignment` in
+`hiring.ts`, a desk set in `drawDeskProp`, and an outfit in `buildSprite`. Miss the salary table and
+every hire of that role costs NaN.
+
 **The production chain.** Three scarce things drive the strategy and they all read from the same
 state. Compute: `cardsTraining` is the sum of `gpus` on models in training, `cardsFree` is what is
 left, and `servingCapacity` only counts free cards. Data: `data.ts` owns the sources, the stock

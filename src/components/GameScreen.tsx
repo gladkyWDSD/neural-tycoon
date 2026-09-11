@@ -64,6 +64,8 @@ interface Props {
   onResolveBid: (matched: boolean) => void
   onBuyAmenity: (id: string) => void
   onBuyDataSource: (id: string) => void
+  onDesignChip: () => void
+  onBuildFab: () => void
   onAssignStaff: (staffId: string, assignment: Staff['assignment']) => void
   onRunAudit: () => void
   onHangUp: () => void
@@ -122,6 +124,8 @@ export function GameScreen({
   onResolveBid,
   onBuyAmenity,
   onBuyDataSource,
+  onDesignChip,
+  onBuildFab,
   onAssignStaff,
   onRunAudit,
   onHangUp,
@@ -252,6 +256,8 @@ export function GameScreen({
             onBuyRam={onBuyRam}
             onBuySsd={onBuySsd}
             onBuyDataSource={onBuyDataSource}
+            onDesignChip={onDesignChip}
+            onBuildFab={onBuildFab}
             onBuildDatacenter={onBuildDatacenter}
             onRentDatacenter={onRentDatacenter}
             onClose={() => setPanel(null)}

@@ -429,6 +429,23 @@ says plainly that you have less cash than next week costs.
 The lifelines are all still there: raise a funding round, fire someone, sell GPUs or a datacenter to
 another player, cancel a data source, or take an enterprise contract. The loss is for ignoring them.
 
+### Your own silicon
+
+Past **$5,000,000,000** of company value, a lab stops buying whatever the market sells and builds
+its own chips. It needs **hardware engineers**, a fifth role hired like any other and put on chip
+design from the right-click menu.
+
+- **Designing a generation** costs $40M for the first and 1.8x more each time after, and takes
+  26 weeks divided by the hardware engineers on it, with a floor of six weeks. Four generations
+  exist.
+- **Each generation** makes every card you own worth **30%** more, in serving capacity and in
+  training, and draws **12%** less power.
+- **Fabrication lines** cost $25M each, up to six, and run at $120k a week. Each turns out **3
+  cards a week at $1,400**, against $5,000 on the open market. A fab with no cash makes nothing.
+
+It is the biggest single investment in the game and it pays for the rest of the run: cheaper cards,
+more users per card, faster training and a smaller power bill.
+
 ### The chain
 
 The company is a production chain, and the point of the game is keeping it balanced. Money buys

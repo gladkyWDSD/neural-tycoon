@@ -126,6 +126,18 @@ import {
   RISK_PER_RESEARCHER,
   RISK_RUSHED,
   RISK_RUSHED_WEEKS,
+  CHIP_COST_GROWTH,
+  CHIP_DESIGN_COST,
+  CHIP_DESIGN_WEEKS,
+  CHIP_EFFICIENCY_PER_LEVEL,
+  CHIP_MAX_LEVEL,
+  CHIP_POWER_PER_LEVEL,
+  CHIP_UNLOCK_VALUATION,
+  FAB_CARDS_PER_WEEK,
+  FAB_COST,
+  FAB_COST_PER_CARD,
+  FAB_UPKEEP,
+  MAX_FABS,
   OPS_CAPACITY_MAX,
   OPS_CAPACITY_PER_HEAD,
   OPS_INCIDENT_SHIELD,
@@ -240,6 +252,9 @@ export function initialState(): GameState {
     lastCampaignWeek: -CAMPAIGN_COOLDOWN,
     books: [],
     amenities: [],
+    chipLevel: 0,
+    chipDesign: null,
+    fabs: 0,
     // everyone starts with the free crawler and nothing in the bank of data
     dataSources: ['scraped'],
     dataStock: 40,
@@ -318,6 +333,8 @@ export type Action =
   | { type: 'BUY_BOOK'; id: string }
   | { type: 'BUY_AMENITY'; id: string }
   | { type: 'BUY_DATA_SOURCE'; id: string }
+  | { type: 'START_CHIP_DESIGN' }
+  | { type: 'BUILD_FAB' }
   | { type: 'ASSIGN_STAFF'; staffId: string; assignment: Staff['assignment'] }
   | { type: 'RUN_SAFETY_AUDIT' }
   | { type: 'ACQUIRE_COMPETITOR'; id: string }
@@ -488,6 +505,9 @@ export function migrateState(raw: Partial<GameState>): GameState {
     lastCampaignWeek: raw.lastCampaignWeek ?? -CAMPAIGN_COOLDOWN,
     books: raw.books ?? [],
     amenities: raw.amenities ?? [],
+    chipLevel: raw.chipLevel ?? 0,
+    chipDesign: raw.chipDesign ?? null,
+    fabs: raw.fabs ?? 0,
     dataSources: raw.dataSources ?? ['scraped'],
     dataStock: raw.dataStock ?? 40,
     hype: raw.hype ?? HYPE_START,
@@ -506,11 +526,16 @@ export function migrateState(raw: Partial<GameState>): GameState {
   }
 }
 
+/** Cards count for more once they are yours, in training as well as in serving. */
+export function effectiveCards(state: GameState, gpus: number): number {
+  return gpus * chipPower(state)
+}
+
 function computeQuality(state: GameState, gpus: number, dataTier?: string, distillQuality?: number): number {
   // only the people actually on the work count towards it
   const avgResearcher = avgScoreOf(assigned(state, 'research'), 'researcher')
   const avgEngineer = avgScoreOf(assigned(state, 'training'), 'engineer')
-  const factor = gpuQualityFactor(gpus)
+  const factor = gpuQualityFactor(effectiveCards(state, gpus))
   const techBonus = state.researched.reduce((sum, id) => sum + (RESEARCH_MAP[id]?.qualityBonus ?? 0), 0)
   // what your pipeline is made of, not a tier bought for this one run
   const dataQuality = dataTier ? (DATA_TIER_MAP[dataTier]?.quality ?? 0) : dataQualityOf(state.dataSources)
@@ -594,6 +619,31 @@ export function marketMood(hype: number): string {
   return 'AI winter'
 }
 
+/** Every card you own is worth this much more once you design your own. */
+export function chipPower(state: GameState): number {
+  return 1 + state.chipLevel * CHIP_POWER_PER_LEVEL
+}
+
+/** And draws this much less power. */
+export function chipEfficiency(state: GameState): number {
+  return Math.max(0.3, 1 - state.chipLevel * CHIP_EFFICIENCY_PER_LEVEL)
+}
+
+/** What the next generation costs to design, and how long it takes. */
+export function chipDesignCost(state: GameState): number {
+  return Math.round(CHIP_DESIGN_COST * Math.pow(CHIP_COST_GROWTH, state.chipLevel))
+}
+
+export function chipDesignWeeks(state: GameState): number {
+  const heads = state.staff.filter((s) => s.assignment === 'chips' && s.role === 'hardware').length
+  return Math.max(6, Math.round(CHIP_DESIGN_WEEKS / Math.max(1, heads)))
+}
+
+/** Whether the company is big enough for anyone to take the idea seriously. */
+export function chipsUnlocked(state: GameState): boolean {
+  return state.chipLevel > 0 || companyValuation(state) >= CHIP_UNLOCK_VALUATION
+}
+
 /**
  * What next week will cost before a penny comes in: the payroll, the power for
  * the cards, the rent on borrowed halls and the data sources. Cash below this
@@ -646,7 +696,7 @@ export function cardsFree(state: GameState): number {
  */
 export function servingCapacity(state: GameState): number {
   const opsBonus = Math.min(OPS_CAPACITY_MAX, assignedCount(state, 'ops') * OPS_CAPACITY_PER_HEAD)
-  return Math.round(cardsFree(state) * USERS_PER_CARD * (1 + opsBonus))
+  return Math.round(cardsFree(state) * USERS_PER_CARD * chipPower(state) * (1 + opsBonus))
 }
 
 /** Everyone using your service: the public product plus enterprise seats. */
@@ -771,6 +821,7 @@ function advanceJobs(state: GameState, delta: number): GameState {
     state.campaignWeeksLeft > 0 ||
     state.lobbyWeeksLeft > 0 ||
     state.pacts.length > 0 ||
+    state.chipDesign !== null ||
     state.models.some((m) => m.status === 'training')
   // nothing is running, so hand back the same object and skip the re-render
   if (!busy) return state
@@ -779,6 +830,21 @@ function advanceJobs(state: GameState, delta: number): GameState {
   const newEvents: GameEvent[] = []
   const announce = (text: string) => {
     newEvents.push({ id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, text, week })
+  }
+
+  // a chip of your own, once the hardware team finishes drawing it
+  const chipAfter = { level: state.chipLevel, design: state.chipDesign }
+  if (chipAfter.design) {
+    const weeksRemaining = chipAfter.design.weeksRemaining - delta
+    if (weeksRemaining <= 0) {
+      chipAfter.level = chipAfter.design.toLevel
+      chipAfter.design = null
+      announce(
+        `Your own silicon taped out. Generation ${chipAfter.level}: every card you own is worth ${Math.round((1 + chipAfter.level * CHIP_POWER_PER_LEVEL) * 100 - 100)}% more and draws less power.`,
+      )
+    } else {
+      chipAfter.design = { ...chipAfter.design, weeksRemaining }
+    }
   }
 
   // research
@@ -854,6 +920,8 @@ function advanceJobs(state: GameState, delta: number): GameState {
     datacenterBuilds,
     campaignWeeksLeft: Math.max(0, state.campaignWeeksLeft - delta),
     lobbyWeeksLeft: Math.max(0, state.lobbyWeeksLeft - delta),
+    chipLevel: chipAfter.level,
+    chipDesign: chipAfter.design,
     pacts: pactsAfter(state, delta, announce),
     events: newEvents.length > 0 ? [...newEvents, ...state.events].slice(0, 20) : state.events,
   }
@@ -874,6 +942,18 @@ function advanceOneWeek(state: GameState): GameState {
   // salaries (paid weekly)
   money -= state.staff.reduce((sum, s) => sum + s.salary, 0)
 
+  // the fabs: your own cards, made far cheaper than the market sells them
+  let gpuCards = state.gpuCards
+  let fabbed = 0
+  if (state.fabs > 0 && state.chipLevel > 0) {
+    money -= state.fabs * FAB_UPKEEP
+    const wanted = state.fabs * FAB_CARDS_PER_WEEK
+    const affordable = Math.floor(Math.max(0, money) / FAB_COST_PER_CARD)
+    fabbed = Math.min(wanted, affordable)
+    gpuCards += fabbed
+    money -= fabbed * FAB_COST_PER_CARD
+  }
+
   // the data pipeline: what the sources produce, and what they cost to run
   const inflow = dataInflow(state)
   const dataStock = state.dataStock + inflow
@@ -885,6 +965,7 @@ function advanceOneWeek(state: GameState): GameState {
       ELECTRICITY_PER_CARD_WEEK *
       (1 - companyEfficiency(state)) *
       amenityElectricityMultiplier(state.amenities) *
+      chipEfficiency(state) *
       regulationElectricityMultiplier(activeRegulations),
   )
 
@@ -1150,7 +1231,7 @@ function advanceOneWeek(state: GameState): GameState {
   let brokenThisWeek = 0
   {
     const bestQuality = models.reduce((best, m) => (m.status === 'published' ? Math.max(best, m.quality) : best), 0)
-    const capacityNow = activeCards(state) * USERS_PER_CARD
+    const capacityNow = activeCards(state) * USERS_PER_CARD * chipPower(state)
     const servedNow =
       models.reduce((sum, m) => sum + (m.status === 'published' ? m.customers + m.freeCustomers : 0), 0) +
       contracts.reduce((sum, c) => sum + c.seats, 0)
@@ -1233,7 +1314,7 @@ function advanceOneWeek(state: GameState): GameState {
   // buy your way out of it.
   let overload: { load: number; lost: number; followersLost: number } | null = null
   {
-    const capacity = activeCards(state) * USERS_PER_CARD
+    const capacity = activeCards(state) * USERS_PER_CARD * chipPower(state)
     const served =
       models.reduce((sum, m) => sum + (m.status === 'published' ? m.customers + m.freeCustomers : 0), 0) +
       contracts.reduce((sum, c) => sum + c.seats, 0)
@@ -1513,6 +1594,7 @@ function advanceOneWeek(state: GameState): GameState {
     rentedDatacenters,
     competitors,
     followers,
+    gpuCards,
     dataStock,
     hype,
     hypeTrend,
@@ -2247,6 +2329,43 @@ export function reducer(state: GameState, action: Action): GameState {
       return state.contractOffers.some((o) => o.id === action.id)
         ? { ...state, contractOffers: state.contractOffers.filter((o) => o.id !== action.id) }
         : state
+    case 'START_CHIP_DESIGN': {
+      if (state.chipDesign || state.chipLevel >= CHIP_MAX_LEVEL) return state
+      if (!chipsUnlocked(state)) return state
+      if (state.staff.filter((p) => p.assignment === 'chips' && p.role === 'hardware').length < 1) return state
+      const cost = chipDesignCost(state)
+      if (state.money < cost) return state
+      const weeks = chipDesignWeeks(state)
+      return {
+        ...state,
+        money: state.money - cost,
+        chipDesign: { weeksRemaining: weeks, totalWeeks: weeks, toLevel: state.chipLevel + 1 },
+        events: [
+          {
+            id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            text: `Your hardware team started work on a chip of your own. ${weeks} weeks and $${cost.toLocaleString()}.`,
+            week: globalWeek(state),
+          },
+          ...state.events,
+        ].slice(0, 20),
+      }
+    }
+    case 'BUILD_FAB': {
+      if (state.chipLevel < 1 || state.fabs >= MAX_FABS || state.money < FAB_COST) return state
+      return {
+        ...state,
+        money: state.money - FAB_COST,
+        fabs: state.fabs + 1,
+        events: [
+          {
+            id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            text: `A fabrication line came online. It turns out ${FAB_CARDS_PER_WEEK} of your own cards a week at $${FAB_COST_PER_CARD.toLocaleString()} each.`,
+            week: globalWeek(state),
+          },
+          ...state.events,
+        ].slice(0, 20),
+      }
+    }
     case 'BUY_DATA_SOURCE': {
       const src = DATA_SOURCE_MAP[action.id]
       if (!src || state.dataSources.includes(src.id) || state.money < src.cost) return state

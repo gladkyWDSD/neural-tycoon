@@ -40,6 +40,7 @@ export const ROLES: { id: Role; label: string; icon: string }[] = [
   { id: 'engineer', label: 'Engineer', icon: '</>' },
   { id: 'marketer', label: 'Marketer', icon: '★' },
   { id: 'lawyer', label: 'Lawyer', icon: '§' },
+  { id: 'hardware', label: 'Hardware', icon: '⌗' },
 ]
 
 export const NATIONALITIES: Record<Nationality, NationalityInfo> = {
@@ -477,6 +478,25 @@ export const HYPE_SHOCK_CHANCE = 0.05
 export const HYPE_SHOCK_SIZE = 0.22
 // growth only feels part of the mood; valuations feel all of it
 export const HYPE_GROWTH_SHARE = 0.5
+
+// -------------------------------------------------------------- own silicon
+// Past a certain size a lab stops buying whatever the market sells and builds
+// its own chips. It is a big, slow investment that makes every card you own
+// worth more and every new one far cheaper.
+export const CHIP_UNLOCK_VALUATION = 5_000_000_000
+export const CHIP_DESIGN_WEEKS = 26 // for one hardware engineer; more is faster
+export const CHIP_DESIGN_COST = 40_000_000
+export const CHIP_COST_GROWTH = 1.8 // each generation costs this much more
+export const CHIP_MAX_LEVEL = 4
+// what a generation of your own silicon is worth
+export const CHIP_POWER_PER_LEVEL = 0.3 // more users served and faster training
+export const CHIP_EFFICIENCY_PER_LEVEL = 0.12 // less power drawn per card
+// a fab line, and what it turns out
+export const FAB_COST = 25_000_000
+export const FAB_UPKEEP = 120_000
+export const FAB_CARDS_PER_WEEK = 3
+export const FAB_COST_PER_CARD = 1_400 // against $5,000 on the open market
+export const MAX_FABS = 6
 
 // ------------------------------------------------------------ the data chain
 // Data is not a thing you buy per model any more, it is a stock you build up.

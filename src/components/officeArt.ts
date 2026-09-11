@@ -405,6 +405,59 @@ function drawLamp(ctx: CanvasRenderingContext2D, x: number, y: number) {
   px(ctx, x + 3, y + 7, 6, 1, 'rgba(255,229,150,0.75)') // bulb
 }
 
+function drawScope(ctx: CanvasRenderingContext2D, x: number, y: number, now: number) {
+  px(ctx, x, y, 12, 14, '#2b3141') // case
+  px(ctx, x, y, 12, 1, '#4a5268')
+  px(ctx, x + 1, y + 1, 10, 9, '#0b1a12') // screen
+  // a trace that actually moves
+  for (let i = 0; i < 9; i++) {
+    const t = now / 220 + i * 0.8
+    const h = 4 + Math.round(Math.sin(t) * 3)
+    px(ctx, x + 1 + i, y + 1 + h, 1, 1, '#3ddc84')
+  }
+  px(ctx, x + 1, y + 11, 3, 2, '#1a1c25') // dials
+  px(ctx, x + 5, y + 11, 2, 2, '#8e94a8')
+  px(ctx, x + 8, y + 11, 3, 2, '#1a1c25')
+}
+
+function drawChipTray(ctx: CanvasRenderingContext2D, x: number, y: number) {
+  px(ctx, x, y, 12, 9, '#20242f') // anti-static tray
+  px(ctx, x, y, 12, 1, '#333a4d')
+  for (let r = 0; r < 2; r++) {
+    for (let c = 0; c < 3; c++) {
+      const cx = x + 1 + c * 4
+      const cy = y + 1 + r * 4
+      px(ctx, cx, cy, 3, 3, '#12141c') // a die
+      px(ctx, cx, cy, 3, 1, '#2f6f9e')
+      px(ctx, cx + 1, cy + 1, 1, 1, '#4aa3ff')
+    }
+  }
+}
+
+function drawSolderIron(ctx: CanvasRenderingContext2D, x: number, y: number) {
+  px(ctx, x, y + 8, 10, 3, '#2b3141') // stand
+  px(ctx, x + 1, y + 6, 8, 2, '#454b5e')
+  px(ctx, x + 2, y + 1, 2, 6, '#8a6038') // handle
+  px(ctx, x + 2, y, 2, 1, '#454b5e')
+  px(ctx, x + 4, y + 5, 3, 1, '#b5544a') // hot tip
+  px(ctx, x + 7, y + 5, 1, 1, '#ffd166')
+}
+
+/** A chip floorplan on screen: blocks and routing, slowly lighting up. */
+function layoutScreen(ctx: CanvasRenderingContext2D, now: number): ScreenFn {
+  return (sx, sy, sw, sh) => {
+    px(ctx, sx, sy, sw, sh, '#0d1220')
+    for (let i = 0; i < 6; i++) {
+      const bx = sx + 1 + (i % 3) * 8
+      const by = sy + 1 + Math.floor(i / 3) * 5
+      const on = Math.sin(now / 400 + i) > 0
+      px(ctx, bx, by, 7, 4, on ? '#1f4260' : '#16304a')
+      px(ctx, bx, by, 7, 1, on ? '#4aa3ff' : '#24507a')
+    }
+    for (let i = 0; i < sw; i += 3) px(ctx, sx + i, sy + 5, 1, 1, '#2f6f9e')
+  }
+}
+
 // ---------------------------------------------------------------- desk sets
 
 export function drawDeskProp(
@@ -448,6 +501,17 @@ export function drawDeskProp(
     drawLaptop(ctx, sx, oy + 2, chartScreen(ctx, now))
     drawMug(ctx, rx + 1, oy + 3, '#b5544a', now)
     drawPlant(ctx, rx + 1, oy + 14)
+    return
+  }
+
+  if (role === 'hardware') {
+    // a bench: a scope tracing a waveform, chip trays and an iron on a stand
+    drawScope(ctx, lx, oy + 2, now)
+    drawChipTray(ctx, lx, oy + 18)
+    drawMonitor(ctx, sx, oy + 2, layoutScreen(ctx, now), '#ffd166')
+    drawKeyboard(ctx, sx + 1, oy + 22)
+    drawSolderIron(ctx, rx + 1, oy + 4)
+    drawChipTray(ctx, rx, oy + 18)
     return
   }
 

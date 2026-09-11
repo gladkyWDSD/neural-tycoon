@@ -12,13 +12,34 @@ import {
   activeCards,
 } from '../game/gpu'
 import {
+  CHIP_MAX_LEVEL,
+  CHIP_UNLOCK_VALUATION,
   DATA_PER_CARD,
+  FAB_CARDS_PER_WEEK,
+  FAB_COST,
+  FAB_COST_PER_CARD,
+  FAB_UPKEEP,
+  MAX_FABS,
   OPS_CAPACITY_MAX,
   OPS_CAPACITY_PER_HEAD,
   REGULATION_BASE_DATACENTER_SHUTDOWN_CHANCE,
   USERS_PER_CARD,
 } from '../game/constants'
-import { assignedCount, cardsFree, cardsTraining, serviceLoad, servedUsers, servingCapacity } from '../game/state'
+import {
+  assignedCount,
+  cardsFree,
+  cardsTraining,
+  chipDesignCost,
+  chipDesignWeeks,
+  chipEfficiency,
+  chipPower,
+  chipsUnlocked,
+  companyValuation,
+  serviceLoad,
+  servedUsers,
+  servingCapacity,
+} from '../game/state'
+import { formatMoney } from '../game/format'
 import { DATA_SOURCES, curationFactor, dataInflow, dataQualityOf, dataUpkeep } from '../game/data'
 import {
   regulationDatacenterShutdownChance,
@@ -30,6 +51,8 @@ import './Game.css'
 interface Props {
   state: GameState
   onBuyDataSource: (id: string) => void
+  onDesignChip: () => void
+  onBuildFab: () => void
   onBuyGpu: (count: number) => void
   onBuyRam: (count: number) => void
   onBuySsd: (count: number) => void
@@ -38,7 +61,7 @@ interface Props {
   onClose: () => void
 }
 
-export function DatacentersPanel({ state, onBuyGpu, onBuyRam, onBuySsd, onBuildDatacenter, onRentDatacenter, onClose, onBuyDataSource }: Props) {
+export function DatacentersPanel({ state, onBuyGpu, onBuyRam, onBuySsd, onBuildDatacenter, onRentDatacenter, onClose, onBuyDataSource, onDesignChip, onBuildFab }: Props) {
   const cards = activeCards(state)
   const capacity = (state.datacenters + state.rentedDatacenters) * DATACENTER_CAPACITY
   const idle = Math.max(0, state.gpuCards - capacity)
@@ -46,6 +69,7 @@ export function DatacentersPanel({ state, onBuyGpu, onBuyRam, onBuySsd, onBuildD
   const opsHeads = assignedCount(state, 'ops')
   const opsBonus = Math.min(OPS_CAPACITY_MAX, opsHeads * OPS_CAPACITY_PER_HEAD)
   const curators = assignedCount(state, 'data')
+  const chipHeads = state.staff.filter((p) => p.assignment === 'chips' && p.role === 'hardware').length
   const load = serviceLoad(state)
   const capacityPct = Number.isFinite(load) ? Math.round(load * 100) : 999
   const building = state.datacenterBuilds.length
@@ -114,6 +138,68 @@ export function DatacentersPanel({ state, onBuyGpu, onBuyRam, onBuySsd, onBuildD
           ⚠ {idle} card{idle > 1 ? 's' : ''} idle — add a datacenter to power them.
         </p>
       )}
+
+      <div className="smear-section">
+        <h4 className="model-list-title">Your own silicon</h4>
+        {!chipsUnlocked(state) ? (
+          <p className="placeholder">
+            Designing a chip is a thing only a serious company does. Come back when you are worth{' '}
+            {formatMoney(CHIP_UNLOCK_VALUATION)} — you are at {formatMoney(companyValuation(state))}.
+          </p>
+        ) : (
+          <>
+            <p className="placeholder">
+              {state.chipLevel === 0
+                ? 'Stop buying whatever the market sells. Your own chips make every card you own worth more, draw less power, and cost a fraction to make once a fab is running.'
+                : `Generation ${state.chipLevel} silicon: every card is worth ${Math.round(chipPower(state) * 100 - 100)}% more and draws ${Math.round(100 - chipEfficiency(state) * 100)}% less power.`}
+            </p>
+            <div className="amenity-row">
+              <span className="amenity-what">
+                {state.chipDesign
+                  ? `Designing generation ${state.chipDesign.toLevel}`
+                  : state.chipLevel >= CHIP_MAX_LEVEL
+                    ? 'Nothing left to design'
+                    : `Design generation ${state.chipLevel + 1}`}
+                <span className="comp-sub">
+                  {state.chipDesign
+                    ? `${Math.ceil(state.chipDesign.weeksRemaining)}wk left`
+                    : `${chipDesignWeeks(state)}wk with your ${chipHeads} hardware ${chipHeads === 1 ? 'engineer' : 'engineers'} on it · $${chipDesignCost(state).toLocaleString()}`}
+                </span>
+              </span>
+              <button
+                className="hire-btn"
+                disabled={
+                  Boolean(state.chipDesign) ||
+                  state.chipLevel >= CHIP_MAX_LEVEL ||
+                  chipHeads < 1 ||
+                  state.money < chipDesignCost(state)
+                }
+                title={chipHeads < 1 ? 'Hire a hardware engineer and put them on chips' : undefined}
+                onClick={onDesignChip}
+              >
+                {state.chipDesign ? 'Running' : 'Start'}
+              </button>
+            </div>
+            <div className="amenity-row">
+              <span className="amenity-what">
+                Fabrication lines: {state.fabs} of {MAX_FABS}
+                <span className="comp-sub">
+                  Each turns out {FAB_CARDS_PER_WEEK} cards a week at ${FAB_COST_PER_CARD.toLocaleString()} each,
+                  against ${GPU_CARD_COST.toLocaleString()} on the market. ${FAB_UPKEEP.toLocaleString()}/wk to run.
+                </span>
+              </span>
+              <button
+                className="hire-btn"
+                disabled={state.chipLevel < 1 || state.fabs >= MAX_FABS || state.money < FAB_COST}
+                title={state.chipLevel < 1 ? 'Design a chip first' : undefined}
+                onClick={onBuildFab}
+              >
+                Build (${(FAB_COST / 1e6).toFixed(0)}M)
+              </button>
+            </div>
+          </>
+        )}
+      </div>
 
       <div className="smear-section">
         <h4 className="model-list-title">The data pipeline</h4>

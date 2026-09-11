@@ -21,7 +21,7 @@ import {
   distillTrainWeeks,
   isDistillUnlocked,
 } from '../game/distill'
-import { assigned, cardsFree, globalWeek } from '../game/state'
+import { assigned, cardsFree, chipPower, effectiveCards, globalWeek } from '../game/state'
 import { dataInflow, dataQualityOf } from '../game/data'
 import { stateOfTheArt } from '../game/competitors'
 import './Game.css'
@@ -260,7 +260,8 @@ export function BuildPanel({ state, onStartModel, onPublish, onStartPromo, onBuy
     : (unlockedTypes[0]?.id ?? '')
   const modelType = MODEL_TYPES.find((t) => t.id === activeTypeId)
 
-  const baseWeeks = trainDuration(effGpus, engineerCount, state.ram)
+  // your own chips make every card count for more while it trains
+  const baseWeeks = trainDuration(effectiveCards(state, effGpus), engineerCount, state.ram)
   const weeks = teacher ? distillTrainWeeks(baseWeeks) : baseWeeks
   const totalCost = teacher ? distillCost(teacher.quality) : 0
   const canAfford = state.money >= totalCost
@@ -379,7 +380,8 @@ export function BuildPanel({ state, onStartModel, onPublish, onStartPromo, onBuy
                 +
               </button>
               <span className="gpu-info">
-                {weeks}wk{teacher ? ` (was ${baseWeeks}wk)` : ''} · ×{gpuQualityFactor(effGpus).toFixed(2)} quality
+                {weeks}wk{teacher ? ` (was ${baseWeeks}wk)` : ''} · ×{gpuQualityFactor(effectiveCards(state, effGpus)).toFixed(2)} quality
+                {state.chipLevel > 0 ? ` · your silicon ×${chipPower(state).toFixed(2)}` : ''}
               </span>
             </div>
           )}

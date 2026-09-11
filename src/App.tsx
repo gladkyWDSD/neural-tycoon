@@ -324,6 +324,8 @@ export default function App() {
           onResolveBid={(matched) => dispatch({ type: 'RESOLVE_BID', matched })}
           onBuyAmenity={(id) => dispatch({ type: 'BUY_AMENITY', id })}
           onBuyDataSource={(id) => dispatch({ type: 'BUY_DATA_SOURCE', id })}
+          onDesignChip={() => dispatch({ type: 'START_CHIP_DESIGN' })}
+          onBuildFab={() => dispatch({ type: 'BUILD_FAB' })}
           onAssignStaff={(staffId, assignment) => dispatch({ type: 'ASSIGN_STAFF', staffId, assignment })}
           onRunAudit={() => dispatch({ type: 'RUN_SAFETY_AUDIT' })}
           onHangUp={() => dispatch({ type: 'HANG_UP' })}
