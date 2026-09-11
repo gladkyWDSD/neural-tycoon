@@ -186,18 +186,26 @@ over `initialState()` and backfills fields added after older saves were written.
 is added to `GameState`/`AIModel`/`ResearchProgress`, add a corresponding fallback in
 `migrateState` so existing saves don't break.
 
-**The phone layout is `src/mobile.css`, and nothing else.** There is no second
-interface and no phone-only component: the same markup rearranges under
-`@media (max-width: 900px)` — the rail turns horizontal along the bottom, the top
-bar folds at the two empty `.topbar-break` spans, a panel goes `position: fixed`
-over everything, and the staff menu becomes a bottom sheet. Every selector in
-that file is prefixed with `body` on purpose: component stylesheets land in the
-bundle in module-evaluation order, so a bare `.sidenav` there would lose to the
-one in `Game.css` half the time, and `.campus-canvas` has to be two classes deep
-to beat `.office-wrap canvas`. The only behaviour that changes with the screen
-goes through `src/game/device.ts` (`useNarrow`, `useTouch`, `usePortrait`): the
-office room turns upright, the wire starts closed, and the music key loses its
-second word. Put a new layout rule in `mobile.css`, not in a component.
+**Two layouts, one stylesheet, and the player picks.** `src/game/device.ts` owns
+the choice: `useTall()` is the answer, `setLayoutChoice('auto' | 'tall' | 'wide')`
+changes it, and it is remembered in `localStorage`. `useApplyLayout()` — called
+once in `App` — hangs `.app-tall` or `.app-wide` on the root element, and
+everything in `src/mobile.css` keys off `.app-tall` rather than a media query,
+which is what lets a phone play wide and a monitor play tall. Two classes deep is
+also the specificity the file needs: component stylesheets land in the bundle in
+module-evaluation order, so a bare `.sidenav` would lose to the one in `Game.css`
+half the time, and `.campus-canvas` has to beat `.office-wrap canvas`. Media
+queries are left for what is genuinely about the screen and not the choice —
+orientation, and the 380px squeeze.
+
+There is no second interface and no phone-only component: the same markup
+rearranges. The rail turns horizontal along the bottom, the top bar folds at the
+two empty `.topbar-break` spans, a panel goes `position: fixed` over everything,
+and the staff menu becomes a bottom sheet. Three pieces of behaviour follow the
+layout rather than the stylesheet — the office room turns upright
+(`useUprightRoom`, which also wants the screen to be portrait), the wire starts
+closed, and the music key loses its second word. Put a new layout rule in
+`mobile.css`, not in a component.
 
 **Screens vs. panels.** Top-level navigation is a tiny state machine (`Screen`: `title` →
 `naming` → `main`, with `title` → `lobby` → `main` for multiplayer), driven by `state.screen` and

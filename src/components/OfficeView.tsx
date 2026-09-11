@@ -3,7 +3,7 @@ import type { GameState, Staff } from '../game/types'
 import { playWorkSfx } from '../game/audio'
 import { SPRITE_H, SPRITE_W, drawCharacter, hash } from './sprites'
 import { Chatter, drawBubble } from './bubbles'
-import { usePortrait } from '../game/device'
+import { useUprightRoom } from '../game/device'
 import type { WorkKind } from './officeArt'
 import { SCALE, TILE, drawBurst, drawDesk, drawDeskProp, drawToilet, drawWorkIcon, drawWorkToken } from './officeArt'
 import {
@@ -229,7 +229,7 @@ export function OfficeView({ staff, state, desks, jobs, amenities, week, load, o
   const said = useRef<{ id: string; text: string; from: number }[]>([])
   // a phone holds the room the other way up: three desks to a row, and a
   // roughly square floor instead of a letterbox
-  const portrait = usePortrait()
+  const portrait = useUprightRoom()
   const layout = useMemo(
     () => (portrait ? layoutFor(desks, 3, 0.8) : layoutFor(desks)),
     [desks, portrait],

@@ -6,6 +6,7 @@ import { LobbyScreen } from './components/LobbyScreen'
 import { parseCommand } from './game/commands'
 import { clearSave, loadState, saveState } from './game/save'
 import { isMusicEnabled, playUi, setMusicEnabled, setMusicMood, startMusic, stopMusic } from './game/audio'
+import { useApplyLayout } from './game/device'
 import { TitleScreen } from './components/TitleScreen'
 import { NamingScreen } from './components/NamingScreen'
 import { GameScreen } from './components/GameScreen'
@@ -30,6 +31,8 @@ export default function App() {
   const [savedState] = useState(() => loadState())
   const [state, dispatch] = useReducer(reducer, undefined, initialState)
   const [musicOn, setMusicOn] = useState(() => isMusicEnabled())
+  // tall or wide, hung on the root element for the stylesheet to read
+  useApplyLayout()
 
   // One lobby session for the tab. It is idle unless the player opens the
   // multiplayer screen, so a solo game never touches the network.

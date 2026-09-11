@@ -5,7 +5,7 @@ import { weeklyRevenue } from '../game/research'
 import { companyValuation, weeklyCosts, weeklyIncome } from '../game/state'
 import { IPO_VALUATION, WIN_VALUATION } from '../game/constants'
 import type { PanelId } from './SideNav'
-import { useNarrow } from '../game/device'
+import { setLayoutChoice, useTall } from '../game/device'
 import './Game.css'
 
 interface Props {
@@ -38,8 +38,8 @@ export function TopBar({
 
   // the readouts are the buttons: press what you want to know more about
   const toggle = (id: Exclude<PanelId, null>) => onOpenPanel(panel === id ? null : id)
-  // a phone has no room for a sentence on a key
-  const narrow = useNarrow()
+  // a narrow screen has no room for a sentence on a key
+  const tall = useTall()
 
   // how long the cash lasts at the current burn, because zero ends the run
   const costs = weeklyCosts(state)
@@ -94,8 +94,19 @@ export function TopBar({
           one; these are where it folds. They are not there on a wide screen. */}
       <span className="topbar-break" aria-hidden="true" />
       <span className="topbar-break" aria-hidden="true" />
+      <button
+        className="pause-btn layout-btn"
+        onClick={() => setLayoutChoice(tall ? 'wide' : 'tall')}
+        title={
+          tall
+            ? 'Tall layout: the rail is along the bottom and panels fill the screen. Press for the wide one.'
+            : 'Wide layout: the rail is a column and panels sit beside the room. Press for the tall one.'
+        }
+      >
+        {tall ? 'Tall' : 'Wide'}
+      </button>
       <button className="pause-btn" onClick={onToggleMusic} title={musicOn ? 'Mute music' : 'Play music'}>
-        {narrow ? (musicOn ? 'Music' : 'Muted') : musicOn ? 'Music on' : 'Music off'}
+        {tall ? (musicOn ? 'Music' : 'Muted') : musicOn ? 'Music on' : 'Music off'}
       </button>
       <button
         className="pause-btn"

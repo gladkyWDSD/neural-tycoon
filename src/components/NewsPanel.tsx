@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { GameState } from '../game/types'
 import { companyValuation, marketMood } from '../game/state'
 import { formatMoney } from '../game/format'
-import { useNarrow } from '../game/device'
+import { useTall } from '../game/device'
 import './Game.css'
 
 /**
@@ -14,9 +14,9 @@ export function NewsPanel({ state }: { state: GameState }) {
   // On a phone the wire is a single line you open when you want it, because
   // three lines of headlines is a third of the screen. Null means you have not
   // said either way, so it follows the screen.
-  const narrow = useNarrow()
+  const tall = useTall()
   const [choice, setChoice] = useState<boolean | null>(null)
-  const open = choice ?? !narrow
+  const open = choice ?? !tall
   const list = useRef<HTMLDivElement>(null)
   const items = state.events
   const newest = items[0]?.id

@@ -437,15 +437,32 @@ hears about itself reads like a spreadsheet.
 - **Milestones**, once each: ten thousand users, a hundred thousand, a million, and so on up to a
   hundred million, and the same ladder for followers.
 
-### On a phone
+### Tall or wide
 
-The game plays on a phone in portrait, and it is the same game rather than a
-cut-down one — the layout stands up rather than being rebuilt.
+There are two layouts, and **the key in the top bar switches between them** at
+any time: it says **Tall** or **Wide** and shows you which one you are in. The
+choice is remembered.
+
+- **Wide** is the layout for a monitor: the rail of readouts is a column down
+  the left, a panel opens beside the room, the wire runs along the bottom.
+- **Tall** is the layout for a phone held upright: the rail lies down along the
+  bottom where a thumb reaches it, a panel is the whole screen, the wire is one
+  line under the top bar.
+
+A narrow screen starts in Tall and a wide one starts in Wide, but that is only
+the default — press the key and the screen stops having a say. A phone can play
+in Wide and a monitor can play in Tall.
+
+### The tall layout
+
+It is the same game rather than a cut-down one — the layout stands up rather
+than being rebuilt.
 
 - **The rail lies down along the bottom**, where a thumb reaches it: the same
   live readouts, in a strip you swipe sideways.
-- **The top bar folds into three short lines**: the company and the date, the
-  cash and the users, then the valuation and the two keys.
+- **The top bar folds into three short lines**: the company, the date and the
+  layout key; the cash and the users; then the valuation, the music and the
+  pause.
 - **The wire becomes one line** under the top bar, showing the latest headline.
   Press Show to open it.
 - **A panel is the whole screen**, with its header and close button pinned to the
