@@ -1613,3 +1613,9 @@
   font-size: 9px;
   padding: 9px 14px;
 }
+
+.campus-hint {
+  color: var(--accent);
+  font-size: 15px;
+  margin-top: 3px;
+}

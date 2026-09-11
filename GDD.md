@@ -447,13 +447,35 @@ outside, to a field with everything the company owns standing in it.
   sign over the door.
 - **A datacenter for every hall you own**, cooling units turning on the roof and a status light by
   the door. Rented halls are greyer and fly somebody else's pennant.
+- **The research lab**, a long low building with a glass front and a lit sign, standing between the
+  office and the halls.
 - **A fab line for each one you have built**, with lit cleanrooms and a stack breathing steam.
 - **A dish for every data source** feeding the pipeline, tilting slowly on its mast.
 - Trees, a road along the bottom with traffic on it, and the field itself going through the same
   four seasons as the office.
 
 A readout in the corner says what you are looking at, and the sign by the door takes you back in.
-Nothing out there is a control. It is the balance sheet, as a place.
+Most of it is the balance sheet as a place — but two of the buildings open.
+
+### The research lab
+
+Click the lab and you go in. **Only researchers work in here**: hire a researcher and they leave the
+office floor for the lab, and the office shows everybody else. Inside there is a test rig down the
+middle of the room with something climbing through it in bands of light, a whiteboard wall of working
+that gets rewritten as you watch, a wall of screens showing a loss curve, a spectrogram and a grid
+lighting up, benches with terminals, and a sample fridge humming in the corner. Whatever is nearest
+to finishing floats over the rig with the weeks left on it. The readout says how many researchers are
+on the payroll, how many techniques are unlocked and how many projects are running.
+
+### The datacenter floor
+
+Click any hall and you walk in between the racks. **Every card you own is in there**: the racks fill
+from the front, a filled slot is a server with a green board, chips, a spinning fan and a cable off
+the back into the spine, and an empty slot gets a blanking plate. Cable trays run overhead with a
+light chasing along them, cooling walls at the end of each row breathe cold into the aisle, a wall
+panel traces the service load in green, amber or red, and a technician walks the cold aisle. The
+readout says how many cards are racked, how many of those are training, how many have nowhere to go,
+what generation of silicon you are running and how many halls you own.
 
 ### Things that make the office feel lived in
 

@@ -3,6 +3,8 @@ import type { AIModel, GameState, PostType, PricingModel, PromoKind, Staff } fro
 import { TopBar } from './TopBar'
 import { MAX_BARS, OfficeView } from './OfficeView'
 import { CampusView } from './CampusView'
+import { LabView } from './LabView'
+import { DatacenterView } from './DatacenterView'
 import type { Job } from './OfficeView'
 import { StaffMenu } from './StaffMenu'
 import { RunReport } from './RunReport'
@@ -152,13 +154,15 @@ export function GameScreen({
   const [winSeen, setWinSeen] = useState(false)
   // the report can also be opened on purpose, from the Company panel
   const [reportOpen, setReportOpen] = useState(false)
-  // inside at a desk, or outside looking at what the company owns
-  const [outside, setOutside] = useState(false)
+  // where you are standing: your desk, the field, the lab or a server hall
+  const [place, setPlace] = useState<'office' | 'campus' | 'lab' | 'hall'>('office')
   const myRaceName = race?.players.find((p) => (race.isHost ? p.isHost : p.id === race.selfId))?.name
   const menuStaff = staffMenu ? state.staff.find((s) => s.id === staffMenu.id) : undefined
 
   // one desk per person the office can hold, all the way up to the top upgrade
   const deskCount = maxStaff(state)
+  // researchers have a lab of their own, so they are not also at a desk in here
+  const deskStaff = state.staff.filter((s) => s.role !== 'researcher')
 
   // Everything running right now gets its own bar over the office, oldest
   // first so a bar keeps its place while it fills. Only the first few fit.
@@ -205,18 +209,27 @@ export function GameScreen({
         <SideNav state={state} panel={panel} racing={Boolean(race)} onOpen={setPanel} />
 
         <div className="office-wrap">
-          {outside ? (
-            <CampusView state={state} onEnter={() => setOutside(false)} />
+          {place === 'campus' ? (
+            <CampusView
+              state={state}
+              onEnter={() => setPlace('office')}
+              onEnterLab={() => setPlace('lab')}
+              onEnterHall={() => setPlace('hall')}
+            />
+          ) : place === 'lab' ? (
+            <LabView state={state} onLeave={() => setPlace('campus')} />
+          ) : place === 'hall' ? (
+            <DatacenterView state={state} onLeave={() => setPlace('campus')} />
           ) : (
           <OfficeView
-            staff={state.staff}
+            staff={deskStaff}
             desks={deskCount}
             jobs={jobs}
             amenities={state.amenities}
             week={globalWeek(state)}
             load={Number.isFinite(serviceLoad(state)) ? serviceLoad(state) : 9}
             onStaffMenu={(id, x, y) => setStaffMenu({ id, x, y })}
-            onLeave={() => setOutside(true)}
+            onLeave={() => setPlace('campus')}
           />
           )}
           {race && <Standings players={race.players} selfId={race.selfId} isHost={race.isHost} />}

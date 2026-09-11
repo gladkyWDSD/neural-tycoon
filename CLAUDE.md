@@ -91,10 +91,14 @@ return early once it is set, so a finished run is genuinely stopped. `weeklyCost
 `weeklyIncome` are the shared readouts behind the warnings in the top bar, the Company panel and the
 news feed; any new recurring cost belongs in `weeklyCosts` or the warnings will lie.
 
-**Two views, one office.** `GameScreen` swaps between `OfficeView` and `CampusView` on a local
-flag; the door hotspot in the office and the sign outside are the only ways across. Both canvases
-draw in art pixels on the same 16px world grid (`campusArt.ts` mirrors `officeArt.ts`), so anything
-new outside is placed in tiles like anything inside.
+**Four rooms, one grid.** `GameScreen` holds a local `place` flag (`office` | `campus` | `lab` |
+`hall`) and swaps between `OfficeView`, `CampusView`, `LabView` and `DatacenterView`. The door
+hotspot in the office leads outside; outside, `CampusView` maps a canvas click back to tiles and
+routes `LAB_TILE`/`HALL_TILE` to the interiors, everything else back inside. Every canvas draws in
+art pixels on the same 16px world grid (`campusArt.ts`, `labArt.ts` and `serverArt.ts` all mirror
+`officeArt.ts`), so anything new is placed in tiles wherever it goes. Researchers are drawn in the
+lab and nowhere else — `GameScreen` filters them out of the staff list it hands `OfficeView` — so a
+new role that belongs in a room of its own is filtered the same way, not special-cased in the view.
 
 **Sound is synthesised, never loaded.** `audio.ts` builds everything from oscillators and noise at
 runtime: a look-ahead sequencer for the music and one-shot voices for the rest. Nothing may create

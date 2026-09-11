@@ -228,6 +228,47 @@ export function drawDish(ctx: CanvasRenderingContext2D, tx: number, ty: number, 
   px(ctx, x + 6, y + 6 + tilt, 22, 2, '#eef1f8')
 }
 
+/**
+ * The research lab: low, glassy and expensive-looking, with the rig visible
+ * through the front and a skylight on the roof.
+ */
+export function drawLab(ctx: CanvasRenderingContext2D, tx: number, ty: number, now: number): void {
+  const x = tx * FT
+  const y = ty * FT
+  const w = FT * 7
+  const h = FT * 4
+
+  px(ctx, x + 6, y + h - 8, w, 10, 'rgba(0,0,0,0.35)')
+  px(ctx, x, y, w, h, '#d4d8e4') // white cladding
+  px(ctx, x, y, w, 6, '#f0f3fa')
+  px(ctx, x + w - 6, y, 6, h, '#a8adbd')
+  px(ctx, x, y + h - 10, w, 10, '#8e94a8')
+
+  // a long band of glass, with the rig glowing behind it
+  px(ctx, x + 10, y + 22, w - 20, 44, '#16304a')
+  px(ctx, x + 10, y + 22, w - 20, 3, '#2f6f9e')
+  for (let i = 0; i < 6; i++) {
+    const gx = x + 16 + i * 34
+    const lit = Math.sin(now / 800 + i) > -0.4
+    px(ctx, gx, y + 28, 26, 32, lit ? '#1c3c5c' : '#16304a')
+    px(ctx, gx + 8, y + 34, 10, 20, lit ? '#4aa3ff' : '#24507a')
+  }
+  const pulse = (Math.sin(now / 500) + 1) / 2
+  px(ctx, x + w / 2 - 8, y + 26, 16, 36, `rgba(74,163,255,${(0.35 + pulse * 0.5).toFixed(2)})`)
+
+  // the door, and a sign
+  px(ctx, x + w / 2 - 14, y + h - 34, 28, 26, '#20242f')
+  px(ctx, x + w / 2 - 12, y + h - 32, 24, 24, '#2f6f9e')
+  px(ctx, x + w / 2 - 1, y + h - 32, 2, 24, '#16304a')
+  px(ctx, x + 12, y + 8, 46, 8, '#2b3141')
+  px(ctx, x + 14, y + 10, 42, 4, '#3ddc84')
+
+  // a skylight, and the vents beside it
+  px(ctx, x + w - 60, y - 10, 40, 12, '#bfe6ff')
+  px(ctx, x + w - 60, y - 10, 40, 3, '#eef1f8')
+  px(ctx, x + 20, y - 8, 14, 10, '#8e94a8')
+}
+
 export function drawTree(ctx: CanvasRenderingContext2D, x: number, y: number, seed: number): void {
   px(ctx, x + 14, y + 58, 20, 5, 'rgba(0,0,0,0.3)')
   px(ctx, x + 19, y + 32, 9, 28, '#4a3626')

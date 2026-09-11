@@ -11,6 +11,7 @@ import {
   drawDish,
   drawFab,
   drawGround,
+  drawLab,
   drawOffice,
   drawPath,
   drawRoad,
@@ -20,9 +21,15 @@ import {
 interface Props {
   state: GameState
   onEnter: () => void
+  onEnterLab: () => void
+  onEnterHall: () => void
 }
 
 const OFFICE_TILE = { x: 4, y: 9 }
+const LAB_TILE = { x: 16, y: 8 }
+const HALL_TILE = { x: 30, y: 1 }
+const LAB_SIZE = { cols: 7, rows: 4 }
+const HALL_SIZE = { cols: 6, rows: 3 }
 const CAR_COLOURS = ['#b5544a', '#3d6fa5', '#c9a43a', '#4a8a5c', '#8a5fa8']
 
 /**
@@ -31,7 +38,7 @@ const CAR_COLOURS = ['#b5544a', '#3d6fa5', '#c9a43a', '#4a8a5c', '#8a5fa8']
  * Nothing here is a control except the sign by the door, which takes you back
  * in. It is a view of the balance sheet you can look at.
  */
-export function CampusView({ state, onEnter }: Props) {
+export function CampusView({ state, onEnter, onEnterLab, onEnterHall }: Props) {
   const ref = useRef<HTMLCanvasElement>(null)
   const W = CAMPUS_COLS * TILE
   const H = CAMPUS_ROWS * TILE
@@ -77,6 +84,8 @@ export function CampusView({ state, onEnter }: Props) {
 
       // fabs along the top, clear of the readout in the corner
       for (let i = 0; i < fabs; i++) drawFab(ctx, 14 + i * 6, 2, now)
+
+      drawLab(ctx, LAB_TILE.x, LAB_TILE.y, now)
 
       for (const [tx, ty, seed] of [
         [17, 13, 1],
@@ -143,8 +152,22 @@ export function CampusView({ state, onEnter }: Props) {
         className="campus-canvas"
         width={W * SCALE}
         height={H * SCALE}
-        onClick={onEnter}
-        title="Back inside"
+        onClick={(e) => {
+          const canvas = ref.current
+          if (!canvas) return
+          const rect = canvas.getBoundingClientRect()
+          const zoom = Math.min(rect.width / canvas.width, rect.height / canvas.height)
+          if (zoom <= 0) return
+          // undo the letterboxing, then work in tiles
+          const tx = (e.clientX - rect.left - (rect.width - canvas.width * zoom) / 2) / zoom / (TILE * SCALE)
+          const ty = (e.clientY - rect.top - (rect.height - canvas.height * zoom) / 2) / zoom / (TILE * SCALE)
+          const inside = (t: { x: number; y: number }, size: { cols: number; rows: number }) =>
+            tx >= t.x && tx <= t.x + size.cols && ty >= t.y && ty <= t.y + size.rows
+          if (inside(LAB_TILE, LAB_SIZE)) onEnterLab()
+          else if (state.datacenters + state.rentedDatacenters > 0 && inside(HALL_TILE, HALL_SIZE)) onEnterHall()
+          else onEnter()
+        }}
+        title="Click a building to go in"
       />
       <div className="campus-legend">
         <span className="campus-name">{state.companyName}</span>
@@ -160,6 +183,7 @@ export function CampusView({ state, onEnter }: Props) {
           {state.chipLevel > 0 ? ` · generation ${state.chipLevel} silicon` : ' · no silicon of your own'}
         </span>
         <span>{sources.length > 0 ? `Feeds: ${sources.join(', ')}` : 'No data sources'}</span>
+        <span className="campus-hint">Click the lab or a datacenter to go in</span>
       </div>
       <button className="campus-back" onClick={onEnter}>
         Go inside
