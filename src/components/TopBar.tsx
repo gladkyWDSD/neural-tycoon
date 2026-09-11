@@ -6,6 +6,7 @@ import { companyValuation, weeklyCosts, weeklyIncome } from '../game/state'
 import { IPO_VALUATION, WIN_VALUATION } from '../game/constants'
 import type { PanelId } from './SideNav'
 import { setLayoutChoice, useTall } from '../game/device'
+import { useFullscreen } from '../game/fullscreen'
 import './Game.css'
 
 interface Props {
@@ -40,6 +41,8 @@ export function TopBar({
   const toggle = (id: Exclude<PanelId, null>) => onOpenPanel(panel === id ? null : id)
   // a narrow screen has no room for a sentence on a key
   const tall = useTall()
+  // and a phone browser's own bars are a third of it
+  const screen = useFullscreen()
 
   // how long the cash lasts at the current burn, because zero ends the run
   const costs = weeklyCosts(state)
@@ -105,8 +108,21 @@ export function TopBar({
       >
         {tall ? 'Tall' : 'Wide'}
       </button>
+      {screen.supported && (
+        <button
+          className="pause-btn layout-btn"
+          onClick={screen.toggle}
+          title={
+            screen.full
+              ? 'Give the browser its bars back.'
+              : 'Take the whole screen. The browser keeps a third of it otherwise.'
+          }
+        >
+          {screen.full ? 'Exit' : 'Full'}
+        </button>
+      )}
       <button className="pause-btn" onClick={onToggleMusic} title={musicOn ? 'Mute music' : 'Play music'}>
-        {tall ? (musicOn ? 'Music' : 'Muted') : musicOn ? 'Music on' : 'Music off'}
+        {musicOn ? 'Music' : 'Muted'}
       </button>
       <button
         className="pause-btn"

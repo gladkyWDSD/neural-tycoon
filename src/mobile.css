@@ -58,8 +58,9 @@
   order: 2;
 }
 
-/* the layout key rides on the first line, where there is room for it; it is a
-   .pause-btn too, so it has to out-rank the rule that sends those to the end */
+/* the layout keys ride on the first line, where there is room for them; they
+   are .pause-btns too, so they have to out-rank the rule that sends those to
+   the end of the bar */
 .app-tall .pause-btn.layout-btn {
   order: 2;
 }
@@ -443,21 +444,51 @@
     margin-right: 0;
   }
 
-  .app-tall .nav-tile {
-    min-width: 92px;
-    padding: 4px 8px;
+  .app-tall .news-bar-list {
+    max-height: 40vh;
+  }
+}
+
+/* A short window — a phone on its side, a small desktop one — has to give the
+   room every pixel the chrome can spare. This is about the height of the
+   screen, not which layout is in use, so it applies to both. */
+@media (max-height: 560px) {
+  .app-tall .sidenav,
+  .app-wide .sidenav {
+    gap: 6px;
+    padding: 4px 8px calc(4px + env(safe-area-inset-bottom, 0px));
   }
 
-  .app-tall .nav-note {
+  .app-tall .nav-tile,
+  .app-wide .nav-tile {
+    min-width: 96px;
+    padding: 3px 8px;
+  }
+
+  .app-tall .nav-note,
+  .app-wide .nav-note {
     display: none;
   }
 
-  .app-tall .sidenav {
-    padding: 5px 8px calc(5px + env(safe-area-inset-bottom, 0px));
+  .app-tall .nav-label,
+  .app-wide .nav-label {
+    font-size: 8px;
   }
 
-  .app-tall .news-bar-list {
-    max-height: 40vh;
+  .app-tall .nav-value,
+  .app-wide .nav-value {
+    font-size: 14px;
+  }
+
+  .app-tall .news-bar-head,
+  .app-wide .news-bar-head {
+    padding: 3px 10px;
+  }
+
+  .app-tall .news-bar-toggle,
+  .app-wide .news-bar-toggle {
+    padding: 5px 8px;
+    min-height: 0;
   }
 }
 

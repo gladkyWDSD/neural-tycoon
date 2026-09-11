@@ -437,17 +437,33 @@ hears about itself reads like a spreadsheet.
 - **Milestones**, once each: ten thousand users, a hundred thousand, a million, and so on up to a
   hundred million, and the same ladder for followers.
 
+### The room takes the screen
+
+The room you are looking at — the office, the field outside, the lab, the
+datacenter floor — gets everything the interface can spare, and it is **cut to
+the shape of the space it is given** rather than sitting in a letterbox: three
+desks to a row in a tall room on a phone held upright, six spread wide on a
+monitor. It fills better than 94% of its box on every screen.
+
+Everything else is a thin strip around it. The rail of readouts lies along the
+bottom next to the wire instead of taking a column out of the middle, and a
+panel **lies over** the room rather than pushing it aside, so opening the hiring
+list never re-draws the floor plan.
+
+**Full screen** is a key in the top bar. A phone browser keeps about a third of
+the screen for its own bars; pressing it takes that back. (Not every browser
+allows it — where it is not allowed the key is not there.)
+
 ### Tall or wide
 
 There are two layouts, and **the key in the top bar switches between them** at
 any time: it says **Tall** or **Wide** and shows you which one you are in. The
 choice is remembered.
 
-- **Wide** is the layout for a monitor: the rail of readouts is a column down
-  the left, a panel opens beside the room, the wire runs along the bottom.
-- **Tall** is the layout for a phone held upright: the rail lies down along the
-  bottom where a thumb reaches it, a panel is the whole screen, the wire is one
-  line under the top bar.
+- **Wide** is the layout for a monitor: a panel opens beside the room, the top
+  bar is a single line.
+- **Tall** is the layout for a phone held upright: a panel is the whole screen,
+  the top bar folds into three short lines, the wire is one line under it.
 
 A narrow screen starts in Tall and a wide one starts in Wide, but that is only
 the default — press the key and the screen stops having a say. A phone can play
@@ -458,8 +474,6 @@ in Wide and a monitor can play in Tall.
 It is the same game rather than a cut-down one — the layout stands up rather
 than being rebuilt.
 
-- **The rail lies down along the bottom**, where a thumb reaches it: the same
-  live readouts, in a strip you swipe sideways.
 - **The top bar folds into three short lines**: the company, the date and the
   layout key; the cash and the users; then the valuation, the music and the
   pause.

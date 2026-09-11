@@ -210,8 +210,7 @@ export function GameScreen({
       />
 
       <div className="game-body">
-        <SideNav state={state} panel={panel} racing={Boolean(race)} onOpen={setPanel} />
-
+        <div className="game-stage">
         <div className="office-wrap">
           {place === 'campus' ? (
             <CampusView
@@ -345,6 +344,9 @@ export function GameScreen({
             onClose={() => setPanel(null)}
           />
         )}
+        </div>
+
+        <SideNav state={state} panel={panel} racing={Boolean(race)} onOpen={setPanel} />
       </div>
 
       <NewsPanel state={state} />

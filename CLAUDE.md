@@ -198,6 +198,15 @@ half the time, and `.campus-canvas` has to beat `.office-wrap canvas`. Media
 queries are left for what is genuinely about the screen and not the choice —
 orientation, and the 380px squeeze.
 
+**The room is sized to its box, not to a constant.** `.game-body` is a column of
+`.game-stage` (the room plus whatever panel is open, which is why the panel is
+`position: absolute` inside it) and the rail underneath, so the rail costs the
+room no width and a panel costs it no shape. `useRoomShape` in `OfficeView`
+measures `.game-stage` with a `ResizeObserver`, rounds the aspect to a tenth and
+feeds it to `layoutFor(desks, cols, aspect)` — that is what makes the office
+three desks wide on a phone and six on a monitor. Measure the stage and not the
+room's own box, or opening a panel would redraw the floor plan.
+
 There is no second interface and no phone-only component: the same markup
 rearranges. The rail turns horizontal along the bottom, the top bar folds at the
 two empty `.topbar-break` spans, a panel goes `position: fixed` over everything,

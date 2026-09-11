@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import type { RefObject } from 'react'
 import type { GameState, Staff } from '../game/types'
 import { playWorkSfx } from '../game/audio'
 import { SPRITE_H, SPRITE_W, drawCharacter, hash } from './sprites'
 import { Chatter, drawBubble } from './bubbles'
-import { useUprightRoom } from '../game/device'
 import type { WorkKind } from './officeArt'
 import { SCALE, TILE, drawBurst, drawDesk, drawDeskProp, drawToilet, drawWorkIcon, drawWorkToken } from './officeArt'
 import {
@@ -203,6 +203,34 @@ const COURIER: Staff = {
   lastBreakWeek: 0,
 }
 
+/**
+ * How wide the room should be for the space it has.
+ *
+ * Measured off the stage rather than the room's own box, because the room's box
+ * shrinks when a panel opens and the floor plan should not be redrawn every
+ * time somebody looks at the hiring list.
+ */
+function useRoomShape(ref: RefObject<HTMLCanvasElement | null>): { cols: number; aspect: number } {
+  const [aspect, setAspect] = useState(2)
+  useEffect(() => {
+    const stage = ref.current?.closest('.game-stage')
+    if (!stage) return
+    const measure = (w: number, h: number) => {
+      if (w <= 0 || h <= 0) return
+      // a tenth is as fine as this needs to be; anything finer relays out the
+      // room while the window is still being dragged
+      const next = Math.round(Math.max(0.8, Math.min(3.4, w / h)) * 10) / 10
+      setAspect((was: number) => (was === next ? was : next))
+    }
+    const box = stage.getBoundingClientRect()
+    measure(box.width, box.height)
+    const ro = new ResizeObserver(([entry]) => measure(entry.contentRect.width, entry.contentRect.height))
+    ro.observe(stage)
+    return () => ro.disconnect()
+  }, [ref])
+  return { cols: aspect < 1.25 ? 3 : aspect < 1.8 ? 5 : MAX_DESK_COLS, aspect }
+}
+
 interface Props {
   staff: Staff[]
   /** the whole company, so the people in it have something to talk about */
@@ -227,13 +255,11 @@ export function OfficeView({ staff, state, desks, jobs, amenities, week, load, o
   // who is talking, and the thing they said
   const chatter = useRef(new Chatter(2))
   const said = useRef<{ id: string; text: string; from: number }[]>([])
-  // a phone holds the room the other way up: three desks to a row, and a
-  // roughly square floor instead of a letterbox
-  const portrait = useUprightRoom()
-  const layout = useMemo(
-    () => (portrait ? layoutFor(desks, 3, 0.8) : layoutFor(desks)),
-    [desks, portrait],
-  )
+  // The room is cut to the shape of the space it is given, so it fills the
+  // screen instead of sitting in a letterbox: three desks to a row on a tall
+  // phone, six spread wide on a monitor.
+  const shape = useRoomShape(ref)
+  const layout = useMemo(() => layoutFor(desks, shape.cols, shape.aspect), [desks, shape])
   const deskList = useMemo(() => generateDesks(desks, layout), [desks, layout])
   const W = layout.roomCols * TILE
   const H = layout.roomRows * TILE
