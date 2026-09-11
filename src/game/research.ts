@@ -70,12 +70,12 @@ export interface Book {
 }
 
 export const BOOKS: Book[] = [
-  { id: 'deeplearning', name: 'Intro to Deep Learning', icon: '📘', cost: 30000, quality: 2, description: 'The fundamentals.' },
-  { id: 'attention', name: 'Attention Is All You Need', icon: '📗', cost: 50000, quality: 3, description: 'Transformers 101.' },
-  { id: 'alignment', name: 'The Alignment Handbook', icon: '📕', cost: 100000, quality: 5, description: 'Safe & helpful AI.' },
-  { id: 'scaling', name: 'Scaling Laws Compendium', icon: '📙', cost: 200000, quality: 8, description: 'Bigger is better.' },
-  { id: 'rlhf', name: 'The Art of RLHF', icon: '📔', cost: 400000, quality: 12, description: 'Human feedback mastery.' },
-  { id: 'agi', name: 'AGI: A Complete Guide', icon: '📚', cost: 800000, quality: 18, description: 'The final frontier.' },
+  { id: 'deeplearning', name: 'Intro to Deep Learning', icon: '📘', cost: 1500, quality: 2, description: 'The fundamentals.' },
+  { id: 'attention', name: 'Attention Is All You Need', icon: '📗', cost: 3000, quality: 3, description: 'Transformers 101.' },
+  { id: 'alignment', name: 'The Alignment Handbook', icon: '📕', cost: 6000, quality: 5, description: 'Safe & helpful AI.' },
+  { id: 'scaling', name: 'Scaling Laws Compendium', icon: '📙', cost: 10000, quality: 8, description: 'Bigger is better.' },
+  { id: 'rlhf', name: 'The Art of RLHF', icon: '📔', cost: 18000, quality: 12, description: 'Human feedback mastery.' },
+  { id: 'agi', name: 'AGI: A Complete Guide', icon: '📚', cost: 30000, quality: 18, description: 'The final frontier.' },
 ]
 
 export const BOOK_MAP: Record<string, Book> = Object.fromEntries(

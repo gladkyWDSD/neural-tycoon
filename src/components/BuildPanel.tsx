@@ -452,7 +452,7 @@ export function BuildPanel({ state, onStartModel, onPublish, onStartPromo, onBuy
                       disabled={state.money < b.cost}
                       onClick={() => onBuyBook(b.id)}
                     >
-                      Buy ${(b.cost / 1000).toFixed(0)}k
+                      Buy {b.cost >= 10_000 ? `$${(b.cost / 1000).toFixed(0)}k` : `$${b.cost.toLocaleString()}`}
                     </button>
                   )}
                 </div>
