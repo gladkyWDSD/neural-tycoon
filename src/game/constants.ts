@@ -479,6 +479,13 @@ export const HYPE_SHOCK_SIZE = 0.22
 // growth only feels part of the mood; valuations feel all of it
 export const HYPE_GROWTH_SHARE = 0.5
 
+// ------------------------------------------------------------------- news
+// The feed carries the world as well as the company. None of it changes a
+// number; it is there so the game reads like somewhere that exists.
+export const NEWS_KEPT = 40
+export const WORLD_NEWS_CHANCE = 0.45
+export const RIVAL_GOSSIP_CHANCE = 0.12
+
 // -------------------------------------------------------------- own silicon
 // Past a certain size a lab stops buying whatever the market sells and builds
 // its own chips. It is a big, slow investment that makes every card you own

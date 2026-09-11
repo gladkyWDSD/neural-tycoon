@@ -21,12 +21,12 @@ import { GovernmentPanel } from './GovernmentPanel'
 import { TradingPanel } from './TradingPanel'
 import { TradeModal } from './TradeModal'
 import { PresidentCall } from './PresidentCall'
-import { NewsFeed } from './NewsFeed'
+import { NewsPanel } from './NewsPanel'
 import { SideNav } from './SideNav'
 import type { PanelId } from './SideNav'
 import { CAMPAIGN_DURATION } from '../game/constants'
 import { RESEARCH_MAP } from '../game/research'
-import { maxStaff } from '../game/state'
+import { globalWeek, maxStaff, serviceLoad } from '../game/state'
 import './Game.css'
 
 
@@ -207,10 +207,11 @@ export function GameScreen({
             desks={deskCount}
             jobs={jobs}
             amenities={state.amenities}
+            week={globalWeek(state)}
+            load={Number.isFinite(serviceLoad(state)) ? serviceLoad(state) : 9}
             onStaffMenu={(id, x, y) => setStaffMenu({ id, x, y })}
           />
           {race && <Standings players={race.players} selfId={race.selfId} isHost={race.isHost} />}
-          <NewsFeed state={state} />
         </div>
 
         {panel === 'hire' && (
@@ -306,6 +307,8 @@ export function GameScreen({
           />
         )}
       </div>
+
+      <NewsPanel state={state} />
 
       {!state.lost && state.pendingBid && <BidModal state={state} onResolve={onResolveBid} />}
       {!state.lost && state.pendingTrade && <TradeModal state={state} onResolve={onResolveTrade} />}

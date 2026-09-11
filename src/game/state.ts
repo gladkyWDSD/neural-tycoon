@@ -126,6 +126,9 @@ import {
   RISK_PER_RESEARCHER,
   RISK_RUSHED,
   RISK_RUSHED_WEEKS,
+  NEWS_KEPT,
+  RIVAL_GOSSIP_CHANCE,
+  WORLD_NEWS_CHANCE,
   CHIP_COST_GROWTH,
   CHIP_DESIGN_COST,
   CHIP_DESIGN_WEEKS,
@@ -145,6 +148,13 @@ import {
   WEEKS_PER_YEAR,
 } from './constants'
 import { advanceWeek } from './date'
+import {
+  FOLLOWER_MILESTONES,
+  USER_MILESTONES,
+  milestoneLine,
+  pickRivalGossip,
+  pickWorldNews,
+} from './worldnews'
 import { DATA_SOURCE_MAP, dataInflow, dataQualityOf, dataUpkeep } from './data'
 import {
   AMENITY_MAP,
@@ -252,6 +262,8 @@ export function initialState(): GameState {
     lastCampaignWeek: -CAMPAIGN_COOLDOWN,
     books: [],
     amenities: [],
+    saidUserMark: 0,
+    saidFollowerMark: 0,
     chipLevel: 0,
     chipDesign: null,
     fabs: 0,
@@ -335,6 +347,8 @@ export type Action =
   | { type: 'BUY_DATA_SOURCE'; id: string }
   | { type: 'START_CHIP_DESIGN' }
   | { type: 'BUILD_FAB' }
+  | { type: 'FORCE_IPO' }
+  | { type: 'SET_VALUATION'; valuation: number }
   | { type: 'ASSIGN_STAFF'; staffId: string; assignment: Staff['assignment'] }
   | { type: 'RUN_SAFETY_AUDIT' }
   | { type: 'ACQUIRE_COMPETITOR'; id: string }
@@ -505,6 +519,8 @@ export function migrateState(raw: Partial<GameState>): GameState {
     lastCampaignWeek: raw.lastCampaignWeek ?? -CAMPAIGN_COOLDOWN,
     books: raw.books ?? [],
     amenities: raw.amenities ?? [],
+    saidUserMark: raw.saidUserMark ?? 0,
+    saidFollowerMark: raw.saidFollowerMark ?? 0,
     chipLevel: raw.chipLevel ?? 0,
     chipDesign: raw.chipDesign ?? null,
     fabs: raw.fabs ?? 0,
@@ -784,7 +800,7 @@ function ecoProtest(state: GameState, chance: number, message: string): GameStat
       week: globalWeek(state),
     },
     ...state.events,
-  ].slice(0, 20)
+  ].slice(0, NEWS_KEPT)
   return { ...state, models, events }
 }
 
@@ -923,7 +939,7 @@ function advanceJobs(state: GameState, delta: number): GameState {
     chipLevel: chipAfter.level,
     chipDesign: chipAfter.design,
     pacts: pactsAfter(state, delta, announce),
-    events: newEvents.length > 0 ? [...newEvents, ...state.events].slice(0, 20) : state.events,
+    events: newEvents.length > 0 ? [...newEvents, ...state.events].slice(0, NEWS_KEPT) : state.events,
   }
 }
 
@@ -1475,7 +1491,9 @@ function advanceOneWeek(state: GameState): GameState {
     newEvents.push({
       id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       text:
-        `Your service is over capacity at ${Math.round(overload.load * 100)}% of what your cards can serve. ` +
+        (Number.isFinite(overload.load)
+          ? `Your service is over capacity at ${Math.round(overload.load * 100)}% of what your cards can serve. `
+          : 'You have nobody serving your users: every card is idle or tied up in training. ') +
         `${overload.lost.toLocaleString()} users hit errors and left` +
         (overload.followersLost > 0 ? `, and ${overload.followersLost.toLocaleString()} followers went with them.` : '.') +
         ' Buy GPUs and somewhere to put them.',
@@ -1582,7 +1600,7 @@ function advanceOneWeek(state: GameState): GameState {
   }
 
   if (newEvents.length > 0) {
-    events = [...newEvents, ...state.events].slice(0, 20)
+    events = [...newEvents, ...state.events].slice(0, NEWS_KEPT)
   }
 
   let next = {
@@ -1607,6 +1625,38 @@ function advanceOneWeek(state: GameState): GameState {
     staff,
     activeRegulations,
   }
+
+  // The world outside, which does not care what you are building. None of it
+  // changes the simulation; it is here so the feed reads like a place.
+  const extra: GameEvent[] = []
+  const say = (text: string) => extra.push({ id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}-w${extra.length}`, text, week })
+  if (Math.random() < WORLD_NEWS_CHANCE) {
+    const line = pickWorldNews(next, week)
+    if (line) say(line)
+  }
+  if (Math.random() < RIVAL_GOSSIP_CHANCE) {
+    const line = pickRivalGossip(next.competitors.map((c) => c.name))
+    if (line) say(line)
+  }
+  {
+    const users = next.models.reduce(
+      (sum, m) => sum + (m.status === 'published' ? m.customers + m.freeCustomers : 0),
+      0,
+    )
+    // the highest one passed, so a company that arrives big does not climb the
+    // ladder one rung a week telling you about each
+    const userMark = [...USER_MILESTONES].reverse().find((m) => m > next.saidUserMark && users >= m)
+    if (userMark) {
+      next.saidUserMark = userMark
+      say(milestoneLine('users', userMark, next.companyName))
+    }
+    const followerMark = [...FOLLOWER_MILESTONES].reverse().find((m) => m > next.saidFollowerMark && next.followers >= m)
+    if (followerMark) {
+      next.saidFollowerMark = followerMark
+      say(milestoneLine('followers', followerMark, next.companyName))
+    }
+  }
+  if (extra.length > 0) next.events = [...extra, ...next.events].slice(0, NEWS_KEPT)
 
   // The White House rings about things that happened this week, not on a timer.
   if (incident) {
@@ -1647,7 +1697,7 @@ function advanceOneWeek(state: GameState): GameState {
         week,
       },
       ...next.events,
-    ].slice(0, 20)
+    ].slice(0, NEWS_KEPT)
     return next
   }
   if (!next.lost && next.money < weeklyCosts(next) && next.money >= 0) {
@@ -1660,7 +1710,7 @@ function advanceOneWeek(state: GameState): GameState {
           week,
         },
         ...next.events,
-      ].slice(0, 20)
+      ].slice(0, NEWS_KEPT)
     }
   }
 
@@ -1678,7 +1728,7 @@ function advanceOneWeek(state: GameState): GameState {
           week,
         },
         ...next.events,
-      ].slice(0, 20)
+      ].slice(0, NEWS_KEPT)
       return next
     }
   }
@@ -1726,7 +1776,7 @@ export function reducer(state: GameState, action: Action): GameState {
               money,
               followers: Math.max(0, state.followers - lost),
               lastBotAttackWeek: week,
-              events: [...news, ...state.events].slice(0, 20),
+              events: [...news, ...state.events].slice(0, NEWS_KEPT),
             },
             'traced',
             `your bot army being traced back to you`,
@@ -1738,7 +1788,7 @@ export function reducer(state: GameState, action: Action): GameState {
           money,
           lastBotAttackWeek: week,
           outbox: { t: 'attack', id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, targetId: action.targetId, targetName: action.targetName, kind: 'bots' },
-          events: [...news, ...state.events].slice(0, 20),
+          events: [...news, ...state.events].slice(0, NEWS_KEPT),
         }
       }
 
@@ -1754,7 +1804,7 @@ export function reducer(state: GameState, action: Action): GameState {
           money,
           followers: Math.max(0, state.followers - lostFollowers),
           lastHackerWeek: week,
-          events: [...news, ...state.events].slice(0, 20),
+          events: [...news, ...state.events].slice(0, NEWS_KEPT),
         }
       }
       add(`💻 Your hackers slipped into ${action.targetName}.`)
@@ -1763,7 +1813,7 @@ export function reducer(state: GameState, action: Action): GameState {
         money,
         lastHackerWeek: week,
         outbox: { t: 'attack', id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, targetId: action.targetId, targetName: action.targetName, kind: 'hackers' },
-        events: [...news, ...state.events].slice(0, 20),
+        events: [...news, ...state.events].slice(0, NEWS_KEPT),
       }
     }
     case 'BID_FOR_STAFF': {
@@ -1794,7 +1844,7 @@ export function reducer(state: GameState, action: Action): GameState {
             week,
           },
           ...state.events,
-        ].slice(0, 20),
+        ].slice(0, NEWS_KEPT),
       }
     }
     case 'INCOMING_BID': {
@@ -1849,7 +1899,7 @@ export function reducer(state: GameState, action: Action): GameState {
               week,
             },
             ...state.events,
-          ].slice(0, 20),
+          ].slice(0, NEWS_KEPT),
         }
       }
       return {
@@ -1870,7 +1920,7 @@ export function reducer(state: GameState, action: Action): GameState {
             week,
           },
           ...state.events,
-        ].slice(0, 20),
+        ].slice(0, NEWS_KEPT),
       }
     }
     case 'BID_RESULT': {
@@ -1883,7 +1933,7 @@ export function reducer(state: GameState, action: Action): GameState {
 
       if (action.matched || !action.staff) {
         add(`🛡️ ${sent.targetName} matched your offer. ${sent.staffName} is staying put.`)
-        return { ...state, sentBid: undefined, events: [...news, ...state.events].slice(0, 20) }
+        return { ...state, sentBid: undefined, events: [...news, ...state.events].slice(0, NEWS_KEPT) }
       }
 
       const hire = action.staff
@@ -1905,7 +1955,7 @@ export function reducer(state: GameState, action: Action): GameState {
         staff: [...staff, hire],
         sentBid: undefined,
         stats: { ...state.stats, hires: state.stats.hires + 1, poachedIn: state.stats.poachedIn + 1 },
-        events: [...news, ...state.events].slice(0, 20),
+        events: [...news, ...state.events].slice(0, NEWS_KEPT),
       }
     }
     case 'OFFER_TRADE': {
@@ -1918,7 +1968,7 @@ export function reducer(state: GameState, action: Action): GameState {
       const offer: TradeOffer = { tradeId, fromId: action.fromId, fromName: action.fromName, kind: action.kind, price }
       const sent = { offer, targetId: action.targetId, targetName: action.targetName }
       const note = (text: string): GameEvent[] =>
-        [{ id: `${tradeId}-n`, text, week }, ...state.events].slice(0, 20)
+        [{ id: `${tradeId}-n`, text, week }, ...state.events].slice(0, NEWS_KEPT)
 
       if (action.kind === 'compute') {
         const gpus = Math.floor(action.gpus ?? 0)
@@ -2016,7 +2066,7 @@ export function reducer(state: GameState, action: Action): GameState {
         ...state,
         pendingTrade: undefined,
         outbox: { t: 'tradeResult', id: offer.tradeId, targetId: offer.fromId, tradeId: offer.tradeId, accepted: false },
-        events: [{ id: `${offer.tradeId}-d`, text, week }, ...state.events].slice(0, 20),
+        events: [{ id: `${offer.tradeId}-d`, text, week }, ...state.events].slice(0, NEWS_KEPT),
       })
       if (!action.accepted) return decline(`You turned down ${offer.fromName}'s offer.`)
       if (state.money < offer.price) return decline(`You could not afford ${offer.fromName}'s offer.`)
@@ -2034,7 +2084,7 @@ export function reducer(state: GameState, action: Action): GameState {
         },
       }
       const note = (text: string): GameEvent[] =>
-        [{ id: `${offer.tradeId}-a`, text, week }, ...state.events].slice(0, 20)
+        [{ id: `${offer.tradeId}-a`, text, week }, ...state.events].slice(0, NEWS_KEPT)
 
       if (offer.kind === 'compute') {
         const gpus = offer.gpus ?? 0
@@ -2098,7 +2148,7 @@ export function reducer(state: GameState, action: Action): GameState {
       const offer = sent.offer
       const week = globalWeek(state)
       const note = (text: string): GameEvent[] =>
-        [{ id: `${offer.tradeId}-r`, text, week }, ...state.events].slice(0, 20)
+        [{ id: `${offer.tradeId}-r`, text, week }, ...state.events].slice(0, NEWS_KEPT)
 
       if (!action.accepted) {
         return {
@@ -2161,7 +2211,7 @@ export function reducer(state: GameState, action: Action): GameState {
             week: globalWeek(state),
           },
           ...state.events,
-        ].slice(0, 20),
+        ].slice(0, NEWS_KEPT),
       }
       return ringPresident(broken, 'pact', `tearing up your word to ${pact.name}`)
     }
@@ -2179,7 +2229,7 @@ export function reducer(state: GameState, action: Action): GameState {
             week: globalWeek(state),
           },
           ...state.events,
-        ].slice(0, 20),
+        ].slice(0, NEWS_KEPT),
       }
     }
     case 'SET_IN_RACE':
@@ -2192,7 +2242,7 @@ export function reducer(state: GameState, action: Action): GameState {
         events: [
           { id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, text: action.text, week: globalWeek(state) },
           ...state.events,
-        ].slice(0, 20),
+        ].slice(0, NEWS_KEPT),
       }
     case 'CLEAR_OUTBOX':
       return state.outbox ? { ...state, outbox: undefined } : state
@@ -2216,7 +2266,7 @@ export function reducer(state: GameState, action: Action): GameState {
           ...state,
           models,
           followers: Math.max(0, state.followers - followersLost),
-          events: [...news, ...state.events].slice(0, 20),
+          events: [...news, ...state.events].slice(0, NEWS_KEPT),
         }
       }
 
@@ -2232,7 +2282,7 @@ export function reducer(state: GameState, action: Action): GameState {
           ? `💻 ${action.from} hacked your labs! ${hit} of your models lost ${HACKER_QUALITY_DAMAGE} quality.`
           : `💻 ${action.from} tried to hack your labs, but you had nothing published to steal.`,
       )
-      return { ...state, models, events: [...news, ...state.events].slice(0, 20) }
+      return { ...state, models, events: [...news, ...state.events].slice(0, NEWS_KEPT) }
     }
     case 'SET_SCREEN':
       return { ...state, screen: action.screen }
@@ -2259,7 +2309,7 @@ export function reducer(state: GameState, action: Action): GameState {
             week: globalWeek(state),
           },
           ...state.events,
-        ].slice(0, 20),
+        ].slice(0, NEWS_KEPT),
       }
     }
     case 'ACQUIRE_COMPETITOR': {
@@ -2295,7 +2345,7 @@ export function reducer(state: GameState, action: Action): GameState {
             week,
           },
           ...state.events,
-        ].slice(0, 20),
+        ].slice(0, NEWS_KEPT),
         },
         'acquisition',
         `buying ${target.name}`,
@@ -2319,7 +2369,7 @@ export function reducer(state: GameState, action: Action): GameState {
               week: globalWeek(state),
             },
             ...state.events,
-          ].slice(0, 20),
+          ].slice(0, NEWS_KEPT),
         },
         'contract',
         `the ${contract.client} deal`,
@@ -2347,8 +2397,35 @@ export function reducer(state: GameState, action: Action): GameState {
             week: globalWeek(state),
           },
           ...state.events,
-        ].slice(0, 20),
+        ].slice(0, NEWS_KEPT),
       }
+    }
+    case 'FORCE_IPO': {
+      // the console's own IPO: float whatever the company is actually worth
+      if (state.isPublic) return state
+      const valuation = companyValuation(state)
+      const payout = Math.round(valuation * IPO_RAISE_SHARE)
+      return {
+        ...state,
+        isPublic: true,
+        money: state.money + payout,
+        followers: state.followers + 50000,
+        events: [
+          {
+            id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            text: `📈 ${state.companyName} went public at a $${(valuation / 1e9).toFixed(2)}B valuation! You raised $${payout.toLocaleString()}.`,
+            week: globalWeek(state),
+          },
+          ...state.events,
+        ].slice(0, NEWS_KEPT),
+      }
+    }
+    case 'SET_VALUATION': {
+      // Valuation is worked out from what the company has, so the only honest
+      // way to set it is to move the one part that counts one for one: cash.
+      const target = Math.max(0, action.valuation)
+      const withoutCash = companyValuation({ ...state, money: 0 })
+      return { ...state, money: Math.max(0, target - withoutCash) }
     }
     case 'BUILD_FAB': {
       if (state.chipLevel < 1 || state.fabs >= MAX_FABS || state.money < FAB_COST) return state
@@ -2363,7 +2440,7 @@ export function reducer(state: GameState, action: Action): GameState {
             week: globalWeek(state),
           },
           ...state.events,
-        ].slice(0, 20),
+        ].slice(0, NEWS_KEPT),
       }
     }
     case 'BUY_DATA_SOURCE': {
@@ -2380,7 +2457,7 @@ export function reducer(state: GameState, action: Action): GameState {
             week: globalWeek(state),
           },
           ...state.events,
-        ].slice(0, 20),
+        ].slice(0, NEWS_KEPT),
       }
     }
     case 'ASSIGN_STAFF': {
@@ -2409,7 +2486,7 @@ export function reducer(state: GameState, action: Action): GameState {
             week,
           },
           ...state.events,
-        ].slice(0, 20),
+        ].slice(0, NEWS_KEPT),
       }
     }
     case 'HANG_UP':
@@ -2488,7 +2565,7 @@ export function reducer(state: GameState, action: Action): GameState {
             week: globalWeek(state),
           },
           ...state.events,
-        ].slice(0, 20),
+        ].slice(0, NEWS_KEPT),
       }
     }
     case 'BUY_GPU': {
@@ -2537,7 +2614,7 @@ export function reducer(state: GameState, action: Action): GameState {
           week: globalWeek(state),
         },
         ...state.events,
-      ].slice(0, 20)
+      ].slice(0, NEWS_KEPT)
       return {
         ...state,
         money: state.money - cost,
@@ -2577,7 +2654,7 @@ export function reducer(state: GameState, action: Action): GameState {
           week: globalWeek(state),
         },
         ...state.events,
-      ].slice(0, 20)
+      ].slice(0, NEWS_KEPT)
       return ringPresident(
         {
           ...state,
@@ -2603,7 +2680,7 @@ export function reducer(state: GameState, action: Action): GameState {
           week,
         },
         ...state.events,
-      ].slice(0, 20)
+      ].slice(0, NEWS_KEPT)
       return {
         ...state,
         money: state.money - CAMPAIGN_COST,
@@ -2637,7 +2714,7 @@ export function reducer(state: GameState, action: Action): GameState {
       const events = [
         { id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, text, week },
         ...state.events,
-      ].slice(0, 20)
+      ].slice(0, NEWS_KEPT)
       return { ...state, money: state.money - HYPE_BOTS_COST, followers, lastHypeBotsWeek: week, events }
     }
     case 'BOT_ATTACK': {
@@ -2657,7 +2734,7 @@ export function reducer(state: GameState, action: Action): GameState {
             week,
           },
           ...state.events,
-        ].slice(0, 20)
+        ].slice(0, NEWS_KEPT)
         return ringPresident(
           { ...state, money, followers: Math.max(0, state.followers - lost), lastBotAttackWeek: week, events },
           'traced',
@@ -2687,7 +2764,7 @@ export function reducer(state: GameState, action: Action): GameState {
           week,
         },
         ...state.events,
-      ].slice(0, 20)
+      ].slice(0, NEWS_KEPT)
       return { ...state, money, competitors, lastBotAttackWeek: week, events }
     }
     case 'HIRE_HACKERS': {
@@ -2715,7 +2792,7 @@ export function reducer(state: GameState, action: Action): GameState {
             week,
           },
           ...state.events,
-        ].slice(0, 20)
+        ].slice(0, NEWS_KEPT)
         return ringPresident(
           {
           ...state,
@@ -2750,7 +2827,7 @@ export function reducer(state: GameState, action: Action): GameState {
           week,
         },
         ...state.events,
-      ].slice(0, 20)
+      ].slice(0, NEWS_KEPT)
       return { ...state, money, competitors, lastHackerWeek: week, events }
     }
     case 'HIRE_JOURNALISTS': {
@@ -2773,7 +2850,7 @@ export function reducer(state: GameState, action: Action): GameState {
           week,
         },
         ...state.events,
-      ].slice(0, 20)
+      ].slice(0, NEWS_KEPT)
       return {
         ...state,
         money: state.money - JOURNALIST_COST,
@@ -2818,7 +2895,7 @@ export function reducer(state: GameState, action: Action): GameState {
         // any course they were part-way through goes with them
         staffTraining: state.staffTraining.filter((t) => t.staffId !== action.staffId),
         stats: { ...state.stats, departures: state.stats.departures + 1 },
-        events: [news, ...state.events].slice(0, 20),
+        events: [news, ...state.events].slice(0, NEWS_KEPT),
       }
     }
     case 'GIVE_RAISE': {
@@ -2835,7 +2912,7 @@ export function reducer(state: GameState, action: Action): GameState {
       return {
         ...state,
         staff: state.staff.map((x) => (x.id === action.staffId ? { ...x, salary: market } : x)),
-        events: [news, ...state.events].slice(0, 20),
+        events: [news, ...state.events].slice(0, NEWS_KEPT),
       }
     }
     case 'RAISE_INVESTMENT': {
@@ -2849,7 +2926,7 @@ export function reducer(state: GameState, action: Action): GameState {
           week,
         },
         ...state.events,
-      ].slice(0, 20)
+      ].slice(0, NEWS_KEPT)
       return { ...state, money: state.money + raise, lastInvestmentWeek: week, events }
     }
     case 'START_PROMO': {
@@ -2869,7 +2946,7 @@ export function reducer(state: GameState, action: Action): GameState {
           week: globalWeek(state),
         },
         ...state.events,
-      ].slice(0, 20)
+      ].slice(0, NEWS_KEPT)
       return { ...state, money: state.money - cost, models, events }
     }
     case 'EDIT_MODEL': {
@@ -2900,7 +2977,7 @@ export function reducer(state: GameState, action: Action): GameState {
       const events = [
         { id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, text, week },
         ...state.events,
-      ].slice(0, 20)
+      ].slice(0, NEWS_KEPT)
       return {
         ...state,
         money: state.money - LOBBY_COST,
@@ -3030,7 +3107,7 @@ export function reducer(state: GameState, action: Action): GameState {
       }
 
       const newEvents = [...scandalEvents, ...launchEvents]
-      const events = newEvents.length > 0 ? [...newEvents, ...state.events].slice(0, 20) : state.events
+      const events = newEvents.length > 0 ? [...newEvents, ...state.events].slice(0, NEWS_KEPT) : state.events
       const shippedState: GameState = {
         ...state,
         models: published,
@@ -3100,7 +3177,7 @@ export function reducer(state: GameState, action: Action): GameState {
         viral,
         trending,
       }
-      const events = newEvents.length > 0 ? [...newEvents, ...state.events].slice(0, 20) : state.events
+      const events = newEvents.length > 0 ? [...newEvents, ...state.events].slice(0, NEWS_KEPT) : state.events
       return {
         ...state,
         followers: state.followers + gained,
@@ -3163,7 +3240,7 @@ export function reducer(state: GameState, action: Action): GameState {
           ? [{ id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}-cb`, text: clapbackText, week: currentWeek }]
           : []),
         ...state.events,
-      ].slice(0, 20)
+      ].slice(0, NEWS_KEPT)
       return ringPresident(
         {
           ...state,
@@ -3266,7 +3343,7 @@ export function reducer(state: GameState, action: Action): GameState {
           departures: state.stats.departures + departures,
           poachedOut: state.stats.poachedOut + poachedOut,
         },
-        events: [newsEvent, ...state.events].slice(0, 20),
+        events: [newsEvent, ...state.events].slice(0, NEWS_KEPT),
       }
     }
     case 'TICK': {

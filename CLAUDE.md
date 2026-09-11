@@ -22,7 +22,7 @@ npm run preview   # preview a production build
 There is no test suite/framework configured in this repo.
 
 In the running game, press `` ` `` (backtick) to open the dev console for cheats (`/setweek`,
-`/setmoney`, `/finish`, `/researchall`, etc. — see `src/game/commands.ts` for the full list).
+`/setmoney`, `/finish`, `/researchall`, `/ipo`, `/call`, etc. — see `src/game/commands.ts` for the full list).
 This is the fastest way to manually verify changes to late-game systems without waiting through
 real-time ticks.
 
@@ -90,6 +90,11 @@ is set in `advanceOneWeek` the first week cash goes below zero, and both `TICK` 
 return early once it is set, so a finished run is genuinely stopped. `weeklyCosts` and
 `weeklyIncome` are the shared readouts behind the warnings in the top bar, the Company panel and the
 news feed; any new recurring cost belongs in `weeklyCosts` or the warnings will lie.
+
+**Flavour is content, not logic.** `worldnews.ts` holds the headlines that cross The Wire, and
+nothing in it touches a number: `advanceOneWeek` picks a line and pushes it into `state.events`,
+which the bottom bar renders. Add flavour there, not in the reducer. The feed keeps `NEWS_KEPT`
+items, and the reducer fuzzer asserts that cap, so change it in one place.
 
 **Adding a staff role** means five places, not one: `Role` in `types.ts`, `ROLES` in `constants.ts`
 (which drives the hiring tabs), `ROLE_SALARY_BASE` and `roleBias` and `defaultAssignment` in

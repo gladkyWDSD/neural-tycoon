@@ -38,6 +38,8 @@ export function parseCommand(input: string, state: GameState): CommandResult {
           '  /finish       - complete all research & training now',
           '  /researchall  - unlock all research',
           '  /call [mood]  - fake a call from the White House for testing',
+          '  /ipo          - go public now, whatever you are worth',
+          '  /ipo N        - set the company valuation to $N',
           '  /week         - show current week',
           '  /money        - show current money',
         ].join('\n'),
@@ -74,6 +76,15 @@ export function parseCommand(input: string, state: GameState): CommandResult {
     case 'datacenter': {
       if (arg === null) return { response: 'Usage: /datacenter N' }
       return { action: { type: 'SET_DATACENTERS', count: arg }, response: `Datacenters set to ${arg}.` }
+    }
+    case 'ipo': {
+      if (arg === null) {
+        return { action: { type: 'FORCE_IPO' }, response: 'Ringing the bell...' }
+      }
+      return {
+        action: { type: 'SET_VALUATION', valuation: arg },
+        response: `Company valuation set to $${arg.toLocaleString()}.`,
+      }
     }
     case 'call': {
       const mood = (rest[0] ?? 'happy').toLowerCase()

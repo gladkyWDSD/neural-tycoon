@@ -113,13 +113,21 @@ export function drawRackLights(
   tx: number,
   ty: number,
   now: number,
+  load: number,
 ) {
   const x = tx * FT + 4
   const y = ty * FT + 2
+  // the rack is the one place in the room that shows how the service is doing:
+  // green when there is room, amber when it is tight, red when it is falling over
+  const hot = load > 1
+  const tight = load > 0.85
+  const lit = hot ? '#ff5c5c' : tight ? '#ffd166' : '#3ddc84'
+  const dim = hot ? '#3a1418' : tight ? '#3a2f14' : '#14361f'
+  const blink = hot ? 110 : tight ? 200 : 260
   for (let i = 0; i < 6; i++) {
     const sy = y + 4 + i * 8
-    const t = now / (260 + i * 90)
-    px(ctx, x + 17, sy + 2, 2, 2, Math.sin(t) > 0 ? '#3ddc84' : '#14361f')
+    const t = now / (blink + i * 90)
+    px(ctx, x + 17, sy + 2, 2, 2, Math.sin(t) > 0 ? lit : dim)
     px(ctx, x + 17, sy + 4, 2, 1, Math.sin(t * 1.7 + i) > 0.3 ? '#ffd166' : '#3a2f14')
   }
 }

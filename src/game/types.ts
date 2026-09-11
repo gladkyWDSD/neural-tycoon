@@ -344,6 +344,9 @@ export interface GameState {
   /** the data pipeline: what feeds it, and how much is piled up in terabytes */
   dataSources: string[]
   dataStock: number
+  /** the biggest user and follower marks already announced, so they are said once */
+  saidUserMark: number
+  saidFollowerMark: number
   /** how the world feels about AI: a multiplier on valuations and on growth */
   hype: number
   /** unaddressed safety debt, 0 to 100, and when you last paid it down */

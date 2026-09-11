@@ -415,6 +415,36 @@ Rivals get the same weapons the player does. Besides buying hype bots and poachi
 
 The current risk is shown in the Ads panel, which is also where you launch your own swarms.
 
+### The Wire
+
+A news bar runs along the bottom of the screen, carrying everything: your own week, the rivals, and
+the world outside. The header is a ticker showing the market mood and what the company is worth. The
+feed keeps the last forty items and the newest is on the left.
+
+Most of what crosses it changes nothing at all, and that is the point. A company that only ever
+hears about itself reads like a spreadsheet.
+
+- **The world**, about 45% of weeks: rockets aimed at Mars, a man in Estonia who ate a hard drive,
+  a fish taught to use a keyboard, chip shortages, benchmark scandals, vibes-based capex, a
+  committee spending six hours asking what a token is. The famous names are parodies, like the labs
+  are, so nothing puts words in a real person's mouth.
+- **Rival gossip**, about 12% of weeks: labs accusing each other of copying, poaching three people
+  in an afternoon, arguing about benchmarks nobody will publish.
+- **Your own people**, by name: someone quoted in a trade magazine, someone who rewrote something
+  over the weekend that nobody asked for.
+- **The season**: conference season in the autumn, promises of something enormous in January, the
+  summer lull where nothing ships anywhere.
+- **Milestones**, once each: ten thousand users, a hundred thousand, a million, and so on up to a
+  hundred million, and the same ladder for followers.
+
+### Things that make the office feel lived in
+
+- **Four seasons of light.** The room's floor and walls shift through winter, spring, summer and
+  autumn. It is the only thing in the office that tells you a year has gone by.
+- **A courier walks through** every few minutes, crossing the room with a box and leaving.
+- **The server rack shows the service**: its lights run green when there is room, amber when it is
+  tight, and blink red and fast when you are over capacity.
+
 ### Money, and running out of it
 
 You start with **$10,000,000** and the run ends the moment your cash goes below zero. There is no

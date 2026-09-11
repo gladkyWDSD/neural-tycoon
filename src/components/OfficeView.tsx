@@ -6,11 +6,15 @@ import type { WorkKind } from './officeArt'
 import { SCALE, TILE, drawBurst, drawDesk, drawDeskProp, drawToilet, drawWorkIcon, drawWorkToken } from './officeArt'
 import { breakSpots, drawAmenities, drawDecor, drawRackLights, drawWallClock, rackTile, tripFor } from './officeDecor'
 
-const FLOOR_A = '#232634'
-const FLOOR_B = '#262a38'
+// winter, spring, summer, autumn: floor, alternate floor, wall
+const SEASON_LIGHT: [string, string, string][] = [
+  ['#212633', '#242a38', '#171c28'],
+  ['#233428', '#26392c', '#172218'],
+  ['#2a2a30', '#2e2e35', '#1d1b22'],
+  ['#2b2620', '#2f2a24', '#1e1a16'],
+]
 // The walls used to be the same near-black as the page behind the canvas, which
 // left the office looking like a floor floating in space.
-const WALL = '#171b26'
 const WALL_TOP = '#202634'
 const SKIRTING = '#0f1218'
 
@@ -161,6 +165,21 @@ interface HitBox {
 
 const HIT_PAD = 2
 
+// how long a visitor takes to cross the room
+const VISIT_MS = 14_000
+
+/** Not on the payroll, and never in the hit list: nobody can right-click them. */
+const COURIER: Staff = {
+  id: 'courier',
+  name: 'Courier',
+  nationality: 'europe',
+  role: 'marketer',
+  examScore: 100,
+  level: 1,
+  salary: 0,
+  assignment: 'ops',
+}
+
 interface Props {
   staff: Staff[]
   desks: number
@@ -168,11 +187,15 @@ interface Props {
   jobs: Job[]
   /** office extras that have been paid for, drawn along the back of the room */
   amenities: string[]
+  /** the week, so the room can know what time of year it is */
+  week: number
+  /** how hard the service is working, which the server rack shows */
+  load: number
   /** right-clicking a person opens their menu at the pointer */
   onStaffMenu?: (staffId: string, clientX: number, clientY: number) => void
 }
 
-export function OfficeView({ staff, desks, jobs, amenities, onStaffMenu }: Props) {
+export function OfficeView({ staff, desks, jobs, amenities, week, load, onStaffMenu }: Props) {
   const ref = useRef<HTMLCanvasElement>(null)
   const layout = useMemo(() => layoutFor(desks), [desks])
   const deskList = useMemo(() => generateDesks(desks, layout), [desks, layout])
@@ -186,6 +209,9 @@ export function OfficeView({ staff, desks, jobs, amenities, onStaffMenu }: Props
   const nextSpawn = useRef<Record<string, number>>({})
   // Floor, walls and empty desks never change between frames, so they are
   // rasterised once and blitted underneath the animated layers.
+  // Four seasons of light. It is the same room, lit differently, and it is the
+  // only thing in the office that tells you a year has gone by.
+  const season = Math.floor(((week % 52) + 52) % 52 / 13)
   const background = useMemo(() => {
     const bg = document.createElement('canvas')
     const w = layout.roomCols * TILE
@@ -196,13 +222,14 @@ export function OfficeView({ staff, desks, jobs, amenities, onStaffMenu }: Props
     if (!bgx) return bg
     bgx.imageSmoothingEnabled = false
     bgx.setTransform(SCALE, 0, 0, SCALE, 0, 0)
+    const [floorA, floorB, wall] = SEASON_LIGHT[season]
     for (let row = 1; row < layout.roomRows - 1; row++) {
       for (let col = 1; col < layout.roomCols - 1; col++) {
-        bgx.fillStyle = (row + col) % 2 === 0 ? FLOOR_A : FLOOR_B
+        bgx.fillStyle = (row + col) % 2 === 0 ? floorA : floorB
         bgx.fillRect(col * TILE, row * TILE, TILE, TILE)
       }
     }
-    bgx.fillStyle = WALL
+    bgx.fillStyle = wall
     bgx.fillRect(0, 0, w, TILE)
     bgx.fillRect(0, h - TILE, w, TILE)
     bgx.fillRect(0, 0, TILE, h)
@@ -221,7 +248,7 @@ export function OfficeView({ staff, desks, jobs, amenities, onStaffMenu }: Props
     drawAmenities(bgx, layout, amenities)
     for (const d of deskList) drawDesk(bgx, d.dx, d.dy)
     return bg
-  }, [deskList, layout, amenities])
+  }, [deskList, layout, amenities, season])
   // drawn fill and next spawn time, per job id, so a bar keeps its place
   const vis = useRef<Record<string, number>>({})
 
@@ -319,13 +346,34 @@ export function OfficeView({ staff, desks, jobs, amenities, onStaffMenu }: Props
         }
       })
 
+      // Somebody from outside walks through every few minutes: a courier with a
+      // box, crossing the room and leaving. Nothing depends on them. They are
+      // there because an office with only its own staff in it feels sealed.
+      const visitPeriod = 190_000
+      const visitT = now % visitPeriod
+      if (visitT < VISIT_MS) {
+        const k = visitT / VISIT_MS
+        const vx = Math.round(TILE + k * (W - TILE * 2))
+        const vy = (layout.roomRows - 2) * TILE
+        drawCharacter(ctx, COURIER, vx, vy, now, false, true)
+        // the box they are carrying
+        const bx = vx * SCALE + 18
+        const by = vy * SCALE + 14
+        ctx.fillStyle = '#8a6038'
+        ctx.fillRect(bx, by, 12, 10)
+        ctx.fillStyle = '#a8763f'
+        ctx.fillRect(bx, by, 12, 2)
+        ctx.fillStyle = '#c9cddb'
+        ctx.fillRect(bx + 5, by, 2, 10)
+      }
+
       art()
       for (let i = 0; i < deskList.length; i++) {
         const s = staff[i]
         if (s) drawDeskProp(ctx, deskList[i].dx, deskList[i].dy, s.role, now)
       }
       // the parts of the furniture that move
-      if (rack) drawRackLights(ctx, rack.tx, rack.ty, now)
+      if (rack) drawRackLights(ctx, rack.tx, rack.ty, now, load)
       drawWallClock(ctx, 1, 0, now)
 
       // The tokens and the impact they make are drawn in art pixels, so a brain
@@ -445,7 +493,7 @@ export function OfficeView({ staff, desks, jobs, amenities, onStaffMenu }: Props
 
     raf = requestAnimationFrame(loop)
     return () => cancelAnimationFrame(raf)
-  }, [background, staff, deskList, layout, barX, barW, jobs, amenities])
+  }, [background, staff, deskList, layout, barX, barW, W, jobs, amenities, load])
 
   /** Which person, if any, is under a client-space point. */
   function staffAt(clientX: number, clientY: number): string | null {
