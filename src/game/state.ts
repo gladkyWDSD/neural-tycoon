@@ -117,6 +117,7 @@ import {
   SOTA_DRIFT_PER_POINT,
   SOTA_LEAD_BONUS,
   SUCCESSOR_MIGRATION,
+  DATA_PER_CARD,
   RISK_CHEAP_DATA,
   RISK_DECAY_PER_WEEK,
   RISK_DISTILLED,
@@ -125,10 +126,14 @@ import {
   RISK_PER_RESEARCHER,
   RISK_RUSHED,
   RISK_RUSHED_WEEKS,
+  OPS_CAPACITY_MAX,
+  OPS_CAPACITY_PER_HEAD,
+  OPS_INCIDENT_SHIELD,
   USERS_PER_CARD,
   WEEKS_PER_YEAR,
 } from './constants'
 import { advanceWeek } from './date'
+import { DATA_SOURCE_MAP, dataInflow, dataQualityOf, dataUpkeep } from './data'
 import {
   AMENITY_MAP,
   amenityElectricityMultiplier,
@@ -160,6 +165,7 @@ import {
   staffPower,
   trainingCostFor,
   trainingWeeksFor,
+  defaultAssignment,
 } from './hiring'
 import {
   distillCaughtChance,
@@ -233,6 +239,9 @@ export function initialState(): GameState {
     lastCampaignWeek: -CAMPAIGN_COOLDOWN,
     books: [],
     amenities: [],
+    // everyone starts with the free crawler and nothing in the bank of data
+    dataSources: ['scraped'],
+    dataStock: 40,
     hype: HYPE_START,
     hypeTrend: HYPE_DRIFT,
     risk: 0,
@@ -307,6 +316,8 @@ export type Action =
   | { type: 'LAUNCH_CAMPAIGN' }
   | { type: 'BUY_BOOK'; id: string }
   | { type: 'BUY_AMENITY'; id: string }
+  | { type: 'BUY_DATA_SOURCE'; id: string }
+  | { type: 'ASSIGN_STAFF'; staffId: string; assignment: Staff['assignment'] }
   | { type: 'RUN_SAFETY_AUDIT' }
   | { type: 'ACQUIRE_COMPETITOR'; id: string }
   | { type: 'HANG_UP' }
@@ -342,6 +353,11 @@ export function isResearchAvailable(id: string, researched: string[], researchin
 
 /** Average effective score for a role: exam score times level, so levels really do multiply output. */
 export function avgScoreByRole(staff: Staff[], role: Staff['role']): number {
+  return avgScoreOf(staff, role)
+}
+
+/** The average weight of the people of a role inside a given group. */
+export function avgScoreOf(staff: Staff[], role: Staff['role']): number {
   const list = staff.filter((s) => s.role === role)
   if (list.length === 0) return 0
   return list.reduce((sum, s) => sum + staffPower(s), 0) / list.length
@@ -403,7 +419,12 @@ export function migrateState(raw: Partial<GameState>): GameState {
     ...raw,
     date: raw.date ?? base.date,
     // levels arrived after launch: everyone in an older save starts at 1
-    staff: (raw.staff ?? base.staff).map((s) => ({ ...s, level: s.level ?? 1 })),
+    staff: (raw.staff ?? base.staff).map((s) => ({
+      ...s,
+      level: s.level ?? 1,
+      // saves from before the office had jobs in it put everyone on their role's
+      assignment: s.assignment ?? defaultAssignment(s.role),
+    })),
     models,
     researching,
     staffTraining: (raw.staffTraining ?? []).map((t) => ({
@@ -465,6 +486,8 @@ export function migrateState(raw: Partial<GameState>): GameState {
     lastCampaignWeek: raw.lastCampaignWeek ?? -CAMPAIGN_COOLDOWN,
     books: raw.books ?? [],
     amenities: raw.amenities ?? [],
+    dataSources: raw.dataSources ?? ['scraped'],
+    dataStock: raw.dataStock ?? 40,
     hype: raw.hype ?? HYPE_START,
     hypeTrend: raw.hypeTrend ?? HYPE_DRIFT,
     risk: raw.risk ?? 0,
@@ -482,11 +505,13 @@ export function migrateState(raw: Partial<GameState>): GameState {
 }
 
 function computeQuality(state: GameState, gpus: number, dataTier?: string, distillQuality?: number): number {
-  const avgResearcher = avgScoreByRole(state.staff, 'researcher')
-  const avgEngineer = avgScoreByRole(state.staff, 'engineer')
+  // only the people actually on the work count towards it
+  const avgResearcher = avgScoreOf(assigned(state, 'research'), 'researcher')
+  const avgEngineer = avgScoreOf(assigned(state, 'training'), 'engineer')
   const factor = gpuQualityFactor(gpus)
   const techBonus = state.researched.reduce((sum, id) => sum + (RESEARCH_MAP[id]?.qualityBonus ?? 0), 0)
-  const dataQuality = dataTier ? (DATA_TIER_MAP[dataTier]?.quality ?? 0) : 0
+  // what your pipeline is made of, not a tier bought for this one run
+  const dataQuality = dataTier ? (DATA_TIER_MAP[dataTier]?.quality ?? 0) : dataQualityOf(state.dataSources)
   const booksBonus = state.books.reduce((sum, id) => sum + (BOOK_MAP[id]?.quality ?? 0), 0)
   const ceiling = QUALITY_CEILING_BASE + avgResearcher * QUALITY_CEILING_PER_SCORE
   const realization = QUALITY_REALIZATION_BASE + avgEngineer * QUALITY_REALIZATION_PER_SCORE
@@ -567,9 +592,35 @@ export function marketMood(hype: number): string {
   return 'AI winter'
 }
 
-/** How many people your hardware can serve at once. */
+/** People on a given job, and the weight they pull, which is what levels buy. */
+export function assigned(state: GameState, job: Staff['assignment']): Staff[] {
+  return state.staff.filter((s) => s.assignment === job)
+}
+
+export function assignedCount(state: GameState, job: Staff['assignment']): number {
+  return assigned(state, job).length
+}
+
+/**
+ * Cards are not free at the moment you need them: anything committed to a
+ * training run is busy until that run finishes, and cannot serve anybody.
+ */
+export function cardsTraining(state: GameState): number {
+  return state.models.reduce((sum, m) => sum + (m.status === 'training' ? m.gpus : 0), 0)
+}
+
+export function cardsFree(state: GameState): number {
+  return Math.max(0, activeCards(state) - cardsTraining(state))
+}
+
+/**
+ * How many people your hardware can serve at once. Only the cards not tied up
+ * in a training run count, and the people you put on reliability stretch what
+ * each one can carry.
+ */
 export function servingCapacity(state: GameState): number {
-  return activeCards(state) * USERS_PER_CARD
+  const opsBonus = Math.min(OPS_CAPACITY_MAX, assignedCount(state, 'ops') * OPS_CAPACITY_PER_HEAD)
+  return Math.round(cardsFree(state) * USERS_PER_CARD * (1 + opsBonus))
 }
 
 /** Everyone using your service: the public product plus enterprise seats. */
@@ -797,6 +848,11 @@ function advanceOneWeek(state: GameState): GameState {
   // salaries (paid weekly)
   money -= state.staff.reduce((sum, s) => sum + s.salary, 0)
 
+  // the data pipeline: what the sources produce, and what they cost to run
+  const inflow = dataInflow(state)
+  const dataStock = state.dataStock + inflow
+  money -= dataUpkeep(state)
+
   // electricity for active GPU cards
   money -= Math.round(
     activeCards(state) *
@@ -992,7 +1048,9 @@ function advanceOneWeek(state: GameState): GameState {
     if (Math.random() < chance) {
       const lawyers = state.staff.filter((p) => p.role === 'lawyer').length
       // lawyers do not stop it happening, they stop it costing everything
-      const shield = Math.min(0.7, lawyers * 0.22)
+      // lawyers keep it out of court; the people on reliability keep it smaller
+      const opsHeads = state.staff.filter((p) => p.assignment === 'ops').length
+      const shield = Math.min(0.8, lawyers * 0.22 + opsHeads * OPS_INCIDENT_SHIELD)
       const severity = (0.35 + Math.random() * 0.65) * (risk / RISK_MAX) * (1 - shield)
       const kind = Math.floor(Math.random() * 3)
       const fine = Math.round(severity * 2_000_000)
@@ -1429,6 +1487,7 @@ function advanceOneWeek(state: GameState): GameState {
     rentedDatacenters,
     competitors,
     followers,
+    dataStock,
     hype,
     hypeTrend,
     risk,
@@ -2132,6 +2191,31 @@ export function reducer(state: GameState, action: Action): GameState {
       return state.contractOffers.some((o) => o.id === action.id)
         ? { ...state, contractOffers: state.contractOffers.filter((o) => o.id !== action.id) }
         : state
+    case 'BUY_DATA_SOURCE': {
+      const src = DATA_SOURCE_MAP[action.id]
+      if (!src || state.dataSources.includes(src.id) || state.money < src.cost) return state
+      return {
+        ...state,
+        money: state.money - src.cost,
+        dataSources: [...state.dataSources, src.id],
+        events: [
+          {
+            id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            text: `${src.name} is feeding your pipeline: +${src.yield} TB a week at $${src.upkeep.toLocaleString()}/wk.`,
+            week: globalWeek(state),
+          },
+          ...state.events,
+        ].slice(0, 20),
+      }
+    }
+    case 'ASSIGN_STAFF': {
+      const person = state.staff.find((s) => s.id === action.staffId)
+      if (!person || person.assignment === action.assignment) return state
+      return {
+        ...state,
+        staff: state.staff.map((s) => (s.id === action.staffId ? { ...s, assignment: action.assignment } : s)),
+      }
+    }
     case 'RUN_SAFETY_AUDIT': {
       const week = globalWeek(state)
       if (week - state.lastAuditWeek < AUDIT_COOLDOWN) return state
@@ -2190,7 +2274,8 @@ export function reducer(state: GameState, action: Action): GameState {
       // it the same research could be bought over and over, and every copy counted
       // its quality bonus and its slice of the valuation again.
       if (!isResearchAvailable(item.id, state.researched, state.researching.map((r) => r.id))) return state
-      const researchers = state.staff.filter((s) => s.role === 'researcher').length
+      // only the people you have put on research move it along
+      const researchers = assigned(state, 'research').filter((s) => s.role === 'researcher').length
       if (researchers < 1) return state
       // The office bonus is applied after the rounding, not before it, or a 20%
       // cut would vanish on any job short enough to round back up. Job timers are
@@ -2203,6 +2288,11 @@ export function reducer(state: GameState, action: Action): GameState {
       }
     }
     case 'START_MODEL': {
+      // A run takes cards that are not serving anyone and eats the data pile.
+      const needCards = action.model.gpus
+      if (needCards > cardsFree(state)) return state
+      const needData = Math.round(needCards * DATA_PER_CARD)
+      if (state.dataStock < needData) return state
       const dataCost = action.model.dataTier ? (DATA_TIER_MAP[action.model.dataTier]?.cost ?? 0) : 0
       let teacherCost = 0
       if (action.model.distilledFrom) {
@@ -2211,7 +2301,20 @@ export function reducer(state: GameState, action: Action): GameState {
       }
       const cost = dataCost + teacherCost
       if (cost > 0 && state.money < cost) return state
-      return { ...state, models: [...state.models, action.model], money: state.money - cost }
+      return {
+        ...state,
+        models: [...state.models, action.model],
+        money: state.money - cost,
+        dataStock: state.dataStock - needData,
+        events: [
+          {
+            id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            text: `${action.model.name} is training on ${needCards} card${needCards > 1 ? 's' : ''} and ${needData} TB of data. Those cards are not serving anyone until it lands.`,
+            week: globalWeek(state),
+          },
+          ...state.events,
+        ].slice(0, 20),
+      }
     }
     case 'BUY_GPU': {
       const count = Math.max(1, action.count)

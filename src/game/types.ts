@@ -2,6 +2,9 @@ export type Nationality = 'china' | 'europe' | 'usa'
 
 export type Role = 'researcher' | 'engineer' | 'marketer' | 'lawyer'
 
+/** What someone in the office actually spends their week on. */
+export type Assignment = 'research' | 'training' | 'data' | 'ops'
+
 export interface Staff {
   id: string
   name: string
@@ -12,6 +15,8 @@ export interface Staff {
    *  level 10 is worth ten of themselves at level 1. Raised by training. */
   level: number
   salary: number // weekly $
+  /** where their week goes; defaults from their role when they are hired */
+  assignment: Assignment
 }
 
 export interface GameDate {
@@ -327,6 +332,9 @@ export interface GameState {
   books: string[]
   /** office extras you have paid for, by id */
   amenities: string[]
+  /** the data pipeline: what feeds it, and how much is piled up in terabytes */
+  dataSources: string[]
+  dataStock: number
   /** how the world feels about AI: a multiplier on valuations and on growth */
   hype: number
   /** unaddressed safety debt, 0 to 100, and when you last paid it down */

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { AIModel, GameState, PricingModel, PromoKind } from '../game/types'
-import { MODEL_TYPES, PRICING_MODELS, DATA_TIERS, BOOKS, weeklyRevenue } from '../game/research'
-import { activeCards, gpuQualityFactor, trainDuration, ssdQualityBonus } from '../game/gpu'
+import { MODEL_TYPES, PRICING_MODELS, BOOKS, weeklyRevenue } from '../game/research'
+import { gpuQualityFactor, trainDuration, ssdQualityBonus } from '../game/gpu'
 import {
   DEFAULT_AI_NAMES,
   DISCOUNT_CONVERSION,
@@ -10,6 +10,7 @@ import {
   FREE_TRIAL_CONVERSION,
   FREE_TRIAL_COST,
   FREE_TRIAL_DURATION,
+  DATA_PER_CARD,
   SUCCESSOR_MIGRATION,
 } from '../game/constants'
 import { validateCompanyName } from '../game/profanity'
@@ -20,7 +21,8 @@ import {
   distillTrainWeeks,
   isDistillUnlocked,
 } from '../game/distill'
-import { globalWeek } from '../game/state'
+import { assigned, cardsFree, globalWeek } from '../game/state'
+import { dataInflow, dataQualityOf } from '../game/data'
 import { stateOfTheArt } from '../game/competitors'
 import './Game.css'
 
@@ -231,11 +233,11 @@ function ModelRow({
 
 export function BuildPanel({ state, onStartModel, onPublish, onStartPromo, onBuyBook, onEditModel, onClose }: Props) {
   const unlockedTypes = MODEL_TYPES.filter((t) => isTypeUnlocked(t.id, state.researched))
-  const maxGpus = activeCards(state)
+  // only cards that are not already tied up in a run can be committed to a new one
+  const maxGpus = cardsFree(state)
   const [typeId, setTypeId] = useState(unlockedTypes[0]?.id ?? '')
   const [name, setName] = useState('')
   const [gpus, setGpus] = useState(() => Math.max(1, maxGpus))
-  const [dataTier, setDataTier] = useState('scraped')
   const [teacherId, setTeacherId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -246,8 +248,8 @@ export function BuildPanel({ state, onStartModel, onPublish, onStartPromo, onBuy
   const teacher = teachers.find((t) => t.modelId === teacherId) ?? null
   const caughtChance = distillCaughtChance(state)
 
-  const hasResearcher = state.staff.some((s) => s.role === 'researcher')
-  const engineerCount = state.staff.filter((s) => s.role === 'engineer').length
+  const hasResearcher = assigned(state, 'research').some((s) => s.role === 'researcher')
+  const engineerCount = assigned(state, 'training').filter((s) => s.role === 'engineer').length
   const hasEngineer = engineerCount >= 1
   const hasGpu = maxGpus >= 1
 
@@ -260,9 +262,10 @@ export function BuildPanel({ state, onStartModel, onPublish, onStartPromo, onBuy
 
   const baseWeeks = trainDuration(effGpus, engineerCount, state.ram)
   const weeks = teacher ? distillTrainWeeks(baseWeeks) : baseWeeks
-  const dataCost = DATA_TIERS.find((t) => t.id === dataTier)?.cost ?? 0
-  const totalCost = dataCost + (teacher ? distillCost(teacher.quality) : 0)
+  const totalCost = teacher ? distillCost(teacher.quality) : 0
   const canAfford = state.money >= totalCost
+  const dataNeeded = Math.round(effGpus * DATA_PER_CARD)
+  const hasData = state.dataStock >= dataNeeded
 
   // anything live of the same kind hands its users on when this one ships
   const predecessors = modelType
@@ -270,7 +273,7 @@ export function BuildPanel({ state, onStartModel, onPublish, onStartPromo, onBuy
     : []
 
   const canStart =
-    Boolean(modelType) && name.trim().length > 0 && hasEngineer && hasGpu && canAfford
+    Boolean(modelType) && name.trim().length > 0 && hasEngineer && hasGpu && canAfford && hasData
 
   function start() {
     if (!modelType) return
@@ -290,7 +293,7 @@ export function BuildPanel({ state, onStartModel, onPublish, onStartPromo, onBuy
       gpus: effGpus,
       customers: 0,
       freeCustomers: 0,
-      dataTier,
+      dataTier: undefined,
       ...(teacher
         ? {
             distilledFrom: teacher.modelId,
@@ -383,19 +386,14 @@ export function BuildPanel({ state, onStartModel, onPublish, onStartPromo, onBuy
         </div>
 
         <div className="filter-group">
-          <label>Training data quality (+{DATA_TIERS.find((t) => t.id === dataTier)?.quality ?? 0} quality)</label>
-          <div className="filter-buttons">
-            {DATA_TIERS.map((t) => (
-              <button
-                key={t.id}
-                className={`filter-btn ${dataTier === t.id ? 'active' : ''}`}
-                onClick={() => setDataTier(t.id)}
-                title={t.description}
-              >
-                {t.label} {t.cost > 0 ? `($${(t.cost / 1000).toFixed(0)}k)` : ''}
-              </button>
-            ))}
-          </div>
+          <label>
+            Training data (+{Math.round(dataQualityOf(state.dataSources))} quality from your pipeline)
+          </label>
+          <p className="hint">
+            This run eats {dataNeeded} TB. You have {Math.round(state.dataStock)} TB piled up and{' '}
+            {dataInflow(state).toFixed(1)} TB coming in a week. Buy better sources and put people on
+            curation in the Compute panel.
+          </p>
         </div>
 
         {distillUnlocked && (
@@ -501,8 +499,10 @@ export function BuildPanel({ state, onStartModel, onPublish, onStartPromo, onBuy
                 : !hasEngineer
                   ? 'Hire an engineer to build the model.'
                   : !hasGpu
-                    ? 'Buy GPUs and build a datacenter.'
-                    : `Not enough money — this run costs $${totalCost.toLocaleString()}.`}
+                    ? 'Every card you own is already serving or training. Buy more, or wait for a run to land.'
+                    : !hasData
+                      ? `You need ${dataNeeded} TB and have ${Math.round(state.dataStock)}. Wait for the pipeline, or buy a better source.`
+                      : `Not enough money — this run costs $${totalCost.toLocaleString()}.`}
           </p>
         )}
       </div>

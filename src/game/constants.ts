@@ -121,7 +121,7 @@ export const DIFFICULTIES: DifficultySetting[] = [
     label: 'Easy',
     blurb: 'About an hour. Fast weeks, gentle rivals.',
     tickMs: 11000,
-    playerGrowth: 0.5,
+    playerGrowth: 0.6,
     competitorGrowth: 1.05,
   },
   {
@@ -129,7 +129,7 @@ export const DIFFICULTIES: DifficultySetting[] = [
     label: 'Medium',
     blurb: 'About two hours. A fair fight.',
     tickMs: 18000,
-    playerGrowth: 0.3,
+    playerGrowth: 0.36,
     competitorGrowth: 1.4,
   },
   {
@@ -477,6 +477,20 @@ export const HYPE_SHOCK_CHANCE = 0.05
 export const HYPE_SHOCK_SIZE = 0.22
 // growth only feels part of the mood; valuations feel all of it
 export const HYPE_GROWTH_SHARE = 0.5
+
+// ------------------------------------------------------------ the data chain
+// Data is not a thing you buy per model any more, it is a stock you build up.
+// Sources produce a few terabytes a week, the people you put on curation clean
+// them faster, and a training run eats the pile.
+export const DATA_PER_CARD = 6 // terabytes a training run needs, per card on it
+export const CURATION_PER_HEAD = 0.16 // how much faster a curator makes the pipeline
+export const CURATION_MAX = 2.6
+
+// Ops keep the lights on: every head on reliability stretches what a card can
+// serve, and softens what an incident does.
+export const OPS_CAPACITY_PER_HEAD = 0.05
+export const OPS_CAPACITY_MAX = 0.55
+export const OPS_INCIDENT_SHIELD = 0.06
 
 // ------------------------------------------------------------- serving load
 // Published models are used, not just trained. Every active card serves this

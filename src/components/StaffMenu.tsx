@@ -17,6 +17,7 @@ interface Props {
   x: number
   y: number
   onTrain: (staffId: string) => void
+  onAssign: (staffId: string, assignment: Staff['assignment']) => void
   onRaise: (staffId: string) => void
   onFire: (staffId: string) => void
   onClose: () => void
@@ -30,7 +31,7 @@ interface Item {
   run?: () => void
 }
 
-export function StaffMenu({ staff, state, x, y, onTrain, onRaise, onFire, onClose }: Props) {
+export function StaffMenu({ staff, state, x, y, onTrain, onAssign, onRaise, onFire, onClose }: Props) {
   const ref = useRef<HTMLDivElement>(null)
   const [pos, setPos] = useState({ x, y })
 
@@ -69,7 +70,20 @@ export function StaffMenu({ staff, state, x, y, onTrain, onRaise, onFire, onClos
     onClose()
   }
 
+  const jobs: { id: Staff['assignment']; label: string; hint: string }[] = [
+    { id: 'research', label: 'Research', hint: 'Researchers here unlock techniques and raise the ceiling on quality.' },
+    { id: 'training', label: 'Training runs', hint: 'Engineers here build models faster and better.' },
+    { id: 'data', label: 'Data curation', hint: 'Anyone here fills the data pipeline faster.' },
+    { id: 'ops', label: 'Reliability', hint: 'Anyone here stretches what a card can serve and softens incidents.' },
+  ]
+
   const items: Item[] = [
+    ...jobs.map((j) => ({
+      label: staff.assignment === j.id ? `On ${j.label.toLowerCase()}` : `Put on ${j.label.toLowerCase()}`,
+      hint: j.hint,
+      disabled: staff.assignment === j.id,
+      run: act(() => onAssign(staff.id, j.id)),
+    })),
     training
       ? {
           label: `Training to level ${training.toLevel}`,

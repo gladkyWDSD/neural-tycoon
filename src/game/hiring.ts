@@ -95,6 +95,14 @@ function newStaffId(): string {
   return `${Date.now().toString(36)}-${idSeq.toString(36)}-${Math.random().toString(36).slice(2, 8)}`
 }
 
+/** Where a new hire starts: doing the obvious thing for their role. */
+export function defaultAssignment(role: Role): Staff['assignment'] {
+  if (role === 'researcher') return 'research'
+  if (role === 'engineer') return 'training'
+  if (role === 'marketer') return 'data'
+  return 'ops'
+}
+
 export function generateCandidate(nationality: Nationality, role: Role, minScore: number, maxScore: number): Staff {
   const bias = roleBias(nationality, role)
   const raw = rand(minScore, maxScore)
@@ -104,6 +112,7 @@ export function generateCandidate(nationality: Nationality, role: Role, minScore
     id: newStaffId(),
     name,
     nationality,
+    assignment: defaultAssignment(role),
     role,
     examScore: score,
     level: 1,

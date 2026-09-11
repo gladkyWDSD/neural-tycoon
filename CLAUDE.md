@@ -85,6 +85,15 @@ what that lab could build today. Adding a rival behaviour belongs in `runRivalWe
 reducer, and anything added to `Competitor` needs a fallback in `migrateState` because saves carry
 the rival list.
 
+**The production chain.** Three scarce things drive the strategy and they all read from the same
+state. Compute: `cardsTraining` is the sum of `gpus` on models in training, `cardsFree` is what is
+left, and `servingCapacity` only counts free cards. Data: `data.ts` owns the sources, the stock
+(`state.dataStock`) and `dataInflow`/`dataQualityOf`; `START_MODEL` refuses a run without enough
+free cards and enough terabytes, and consumes both. People: every `Staff` has an `assignment`, and
+research speed, training quality, curation and serving capacity each read only the people assigned
+to that job (`assigned`/`assignedCount`). A change to any of the three moves the whole balance, so
+re-run the balance simulation, and teach it the new lever first if a competent player would use one.
+
 **Weekly pressure systems.** `advanceOneWeek` now runs four things in a fixed order that all read
 from the same week's numbers: enterprise contracts (paid, or lost on quality or reliability),
 serving capacity (users over `activeCards * USERS_PER_CARD` churn), safety debt (decays, then rolls

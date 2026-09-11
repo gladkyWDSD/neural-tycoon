@@ -63,6 +63,8 @@ interface Props {
   onBidForStaff: (targetId: string, targetName: string, staff: StaffCard, amount: number) => void
   onResolveBid: (matched: boolean) => void
   onBuyAmenity: (id: string) => void
+  onBuyDataSource: (id: string) => void
+  onAssignStaff: (staffId: string, assignment: Staff['assignment']) => void
   onRunAudit: () => void
   onHangUp: () => void
   onAcquireCompetitor: (id: string, name: string) => void
@@ -118,6 +120,8 @@ export function GameScreen({
   onBidForStaff,
   onResolveBid,
   onBuyAmenity,
+  onBuyDataSource,
+  onAssignStaff,
   onRunAudit,
   onHangUp,
   onAcquireCompetitor,
@@ -245,6 +249,7 @@ export function GameScreen({
             onBuyGpu={onBuyGpu}
             onBuyRam={onBuyRam}
             onBuySsd={onBuySsd}
+            onBuyDataSource={onBuyDataSource}
             onBuildDatacenter={onBuildDatacenter}
             onRentDatacenter={onRentDatacenter}
             onClose={() => setPanel(null)}
@@ -334,6 +339,7 @@ export function GameScreen({
           x={staffMenu.x}
           y={staffMenu.y}
           onTrain={onStartTraining}
+          onAssign={onAssignStaff}
           onRaise={onGiveRaise}
           onFire={onFireStaff}
           onClose={() => setStaffMenu(null)}

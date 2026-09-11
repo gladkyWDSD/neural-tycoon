@@ -11,8 +11,15 @@ import {
   SSD_COST,
   activeCards,
 } from '../game/gpu'
-import { REGULATION_BASE_DATACENTER_SHUTDOWN_CHANCE, USERS_PER_CARD } from '../game/constants'
-import { serviceLoad, servedUsers, servingCapacity } from '../game/state'
+import {
+  DATA_PER_CARD,
+  OPS_CAPACITY_MAX,
+  OPS_CAPACITY_PER_HEAD,
+  REGULATION_BASE_DATACENTER_SHUTDOWN_CHANCE,
+  USERS_PER_CARD,
+} from '../game/constants'
+import { assignedCount, cardsFree, cardsTraining, serviceLoad, servedUsers, servingCapacity } from '../game/state'
+import { DATA_SOURCES, curationFactor, dataInflow, dataQualityOf, dataUpkeep } from '../game/data'
 import {
   regulationDatacenterShutdownChance,
   regulationElectricityMultiplier,
@@ -22,6 +29,7 @@ import './Game.css'
 
 interface Props {
   state: GameState
+  onBuyDataSource: (id: string) => void
   onBuyGpu: (count: number) => void
   onBuyRam: (count: number) => void
   onBuySsd: (count: number) => void
@@ -30,11 +38,14 @@ interface Props {
   onClose: () => void
 }
 
-export function DatacentersPanel({ state, onBuyGpu, onBuyRam, onBuySsd, onBuildDatacenter, onRentDatacenter, onClose }: Props) {
+export function DatacentersPanel({ state, onBuyGpu, onBuyRam, onBuySsd, onBuildDatacenter, onRentDatacenter, onClose, onBuyDataSource }: Props) {
   const cards = activeCards(state)
   const capacity = (state.datacenters + state.rentedDatacenters) * DATACENTER_CAPACITY
   const idle = Math.max(0, state.gpuCards - capacity)
   const served = servedUsers(state)
+  const opsHeads = assignedCount(state, 'ops')
+  const opsBonus = Math.min(OPS_CAPACITY_MAX, opsHeads * OPS_CAPACITY_PER_HEAD)
+  const curators = assignedCount(state, 'data')
   const load = serviceLoad(state)
   const capacityPct = Number.isFinite(load) ? Math.round(load * 100) : 999
   const building = state.datacenterBuilds.length
@@ -47,7 +58,7 @@ export function DatacentersPanel({ state, onBuyGpu, onBuyRam, onBuySsd, onBuildD
   return (
     <div className="panel">
       <div className="panel-header">
-        <h3 className="panel-title">Datacenters</h3>
+        <h3 className="panel-title">Compute &amp; Data</h3>
         <button className="close-btn" onClick={onClose}>
           ✕
         </button>
@@ -79,8 +90,11 @@ export function DatacentersPanel({ state, onBuyGpu, onBuyRam, onBuySsd, onBuildD
 
       <div className="load-block">
         <p className="dc-note">
-          Serving {served.toLocaleString()} of {servingCapacity(state).toLocaleString()} people your cards can
-          handle ({capacityPct}%). Every card serves {USERS_PER_CARD.toLocaleString()}.
+          {cardsFree(state)} card{cardsFree(state) === 1 ? '' : 's'} serving,{' '}
+          {cardsTraining(state)} tied up in training. Serving {served.toLocaleString()} of{' '}
+          {servingCapacity(state).toLocaleString()} ({capacityPct}%). Each free card carries{' '}
+          {USERS_PER_CARD.toLocaleString()} people
+          {opsHeads > 0 ? `, plus ${Math.round(opsBonus * 100)}% from your ${opsHeads} on reliability` : ''}.
         </p>
         <span className="load-track">
           <span
@@ -100,6 +114,40 @@ export function DatacentersPanel({ state, onBuyGpu, onBuyRam, onBuySsd, onBuildD
           ⚠ {idle} card{idle > 1 ? 's' : ''} idle — add a datacenter to power them.
         </p>
       )}
+
+      <div className="smear-section">
+        <h4 className="model-list-title">The data pipeline</h4>
+        <p className="placeholder">
+          {Math.round(state.dataStock)} TB piled up · {dataInflow(state).toFixed(1)} TB a week in ·
+          quality +{Math.round(dataQualityOf(state.dataSources))} on everything you train · $
+          {dataUpkeep(state).toLocaleString()}/wk to run · {curators} on curation (×
+          {curationFactor(state).toFixed(2)})
+        </p>
+        <p className="placeholder">
+          A training run eats {DATA_PER_CARD} TB per card. Put people on curation from the office to
+          fill the pile faster.
+        </p>
+        {DATA_SOURCES.map((d) => {
+          const owned = state.dataSources.includes(d.id)
+          return (
+            <div className={`amenity-row ${owned ? 'owned' : ''}`} key={d.id}>
+              <span className="amenity-what">
+                {d.name}
+                <span className="comp-sub">
+                  {d.yield} TB/wk · +{d.quality} quality · ${d.upkeep.toLocaleString()}/wk · {d.description}
+                </span>
+              </span>
+              <button
+                className="hire-btn"
+                disabled={owned || state.money < d.cost}
+                onClick={() => onBuyDataSource(d.id)}
+              >
+                {owned ? 'Running' : d.cost === 0 ? 'Switch on' : `$${d.cost.toLocaleString()}`}
+              </button>
+            </div>
+          )
+        })}
+      </div>
 
       {state.datacenters > 0 && (
         <p className="dc-note">

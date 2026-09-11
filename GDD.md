@@ -415,6 +415,37 @@ Rivals get the same weapons the player does. Besides buying hype bots and poachi
 
 The current risk is shown in the Ads panel, which is also where you launch your own swarms.
 
+### The chain
+
+The company is a production chain, and the point of the game is keeping it balanced. Money buys
+cards and data sources; cards and data and people make models; models make users; users make money.
+Three things are deliberately scarce, and all three are contested.
+
+**Compute is committed, not borrowed.** Cards assigned to a training run are busy for the whole run
+and cannot serve anybody. Serving capacity is only the cards that are free, so starting a big run is
+a decision to let the service get slower for a while. You need enough cards for both, not for
+whichever is larger.
+
+**Data is a stock, not a purchase.** You run data sources, each with a setup cost, a weekly bill and
+a weekly yield in terabytes. The pile builds up between runs and a training run eats **6 TB per
+card**, so a sixteen-card run needs ninety-six terabytes in the bank before it can start. The
+average quality of your sources, weighted by what they produce, is what lifts everything you train.
+
+| Source | Setup | Weekly | Yield | Quality |
+| --- | --- | --- | --- | --- |
+| Web crawler | free | $2k | 8 TB | +0 |
+| Public datasets | $60k | $6k | 12 TB | +5 |
+| Licensed archives | $400k | $30k | 17 TB | +12 |
+| Human annotators | $1.2M | $90k | 9 TB | +22 |
+| Synthetic pipeline | $2.5M | $60k | 34 TB | +9 |
+
+**People work where you put them.** Everyone has a job: research, training runs, data curation or
+reliability. Only researchers on research move research along, only engineers on training build
+models, curators multiply what the pipeline produces (up to 2.6x), and reliability stretches what a
+card can serve (up to +55%) and softens incidents. Right-click anyone in the office to move them.
+Pulling two researchers onto curation to unblock a training run is the kind of decision the game is
+made of, because it costs you research to do it.
+
 ### Serving capacity and outages
 
 Published models are used, not just trained. Every active GPU card serves **25,000** people, and

@@ -1,7 +1,7 @@
 import type { GameState } from '../game/types'
-import { maxStaff } from '../game/state'
+import { assignedCount, maxStaff } from '../game/state'
 import { activeCards } from '../game/gpu'
-import { serviceLoad } from '../game/state'
+import { cardsFree, cardsTraining, serviceLoad } from '../game/state'
 import { RESEARCH_MAP } from '../game/research'
 import { CAMPAIGN_DURATION } from '../game/constants'
 import './Game.css'
@@ -54,7 +54,10 @@ function tilesFor(state: GameState, racing: boolean): Tile[] {
       id: 'hire',
       label: 'Staff',
       value: `${state.staff.length}/${maxStaff(state)}`,
-      note: learning > 0 ? `${learning} in training` : undefined,
+      note:
+        learning > 0
+          ? `${learning} in training`
+          : `${assignedCount(state, 'research')}R ${assignedCount(state, 'training')}T ${assignedCount(state, 'data')}D ${assignedCount(state, 'ops')}O`,
       busy: learning > 0,
       title: 'Hire and train people',
     },
@@ -87,8 +90,10 @@ function tilesFor(state: GameState, racing: boolean): Tile[] {
     {
       id: 'datacenters',
       label: 'Compute',
-      value: `${activeCards(state)} GPU`,
-      note: load > 1
+      value: `${cardsFree(state)}/${activeCards(state)} GPU`,
+      note: cardsTraining(state) > 0
+        ? `${cardsTraining(state)} training · ${Math.round(load * 100)}% load`
+        : load > 1
         ? `over capacity, ${Math.round(load * 100)}%`
         : state.datacenterBuilds.length > 0
           ? `${state.datacenterBuilds.length} building`
