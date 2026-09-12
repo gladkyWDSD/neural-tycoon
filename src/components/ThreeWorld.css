@@ -1,0 +1,26 @@
+.world3d { position: absolute; inset: 0; display: flex; flex-direction: column; overflow: hidden; background: #7697a6; font-family: system-ui, sans-serif; }
+.world3d-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 12px 18px; background: #142b38; color: #edf4ee; z-index: 2; border-bottom: 1px solid #628893; }
+.world3d-title { display: flex; align-items: center; gap: 9px; font-size: 14px; font-weight: 650; letter-spacing: .02em; }
+.world3d-title small { color: #82cbbd; font-size: 10px; border: 1px solid #49746e; border-radius: 4px; padding: 2px 5px; }
+.world3d-dot { width: 7px; height: 7px; border-radius: 50%; background: #79dfb2; box-shadow: 0 0 9px #79dfb266; }
+.world3d nav { display: flex; gap: 4px; }
+.world3d button { font: 600 12px system-ui, sans-serif; color: #dce9e9; border: 1px solid #587380; border-radius: 6px; padding: 7px 11px; background: #203d4b; box-shadow: none; cursor: pointer; }
+.world3d button:hover, .world3d button[aria-current] { background: #446c76; border-color: #8ddbc7; }
+.world3d button:focus-visible { outline: 2px solid #e7cc83; outline-offset: 2px; }
+.world3d-viewport { flex: 1; min-height: 0; position: relative; }
+.office-wrap .world3d-viewport canvas { display: block; width: 100%; height: 100%; max-width: none; max-height: none; image-rendering: auto; touch-action: none; cursor: grab; }
+.world3d-bottom { min-height: 40px; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 7px 16px; background: #142b38; color: #b9cfd1; font-size: 12px; }
+.world3d-jobs { position: absolute; left: 14px; top: 66px; display: grid; gap: 6px; pointer-events: none; width: min(240px, 40%); }
+.world3d-jobs > div { display: grid; gap: 5px; padding: 8px 12px; border: 1px solid #71939a; background: #142b38e8; border-radius: 7px; color: #e1eeea; font-size: 11px; }
+.world3d-jobs span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.world3d-jobs progress { width: 100%; height: 6px; accent-color: #70d2b5; }
+.world3d-error { position: absolute; inset: 25%; background: #142b38; color: #eef4ed; padding: 25px; border-radius: 12px; display: grid; place-content: center; text-align: center; z-index: 3; }
+@media (max-width: 650px) {
+  .world3d-toolbar { padding: 8px; gap: 7px; }
+  .world3d-title { font-size: 12px; }
+  .world3d nav { width: 100%; }
+  .world3d nav button { flex: 1; padding: 7px 5px; }
+  .world3d-bottom { padding: 6px 8px; font-size: 10px; }
+  .world3d-jobs { top: 90px; width: 42%; }
+  .world3d-error { inset: 20% 8%; }
+}

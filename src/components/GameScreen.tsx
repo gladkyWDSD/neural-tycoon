@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { lazy, Suspense, useState } from 'react'
 import type { AIModel, GameState, PostType, PricingModel, PromoKind, Staff } from '../game/types'
 import { TopBar } from './TopBar'
 import { MAX_BARS, OfficeView } from './OfficeView'
@@ -33,6 +33,8 @@ import { RESEARCH_MAP } from '../game/research'
 import { globalWeek, maxStaff, serviceLoad } from '../game/state'
 import './Game.css'
 
+
+const ThreeWorld = lazy(() => import('./ThreeWorld'))
 
 interface Props {
   state: GameState
@@ -151,6 +153,7 @@ export function GameScreen({
   onEditModel,
   onHireLobbyists,
 }: Props) {
+  const [use3D, setUse3D] = useState(true)
   const [panel, setPanel] = useState<PanelId>(null)
   // right-clicking someone in the office opens their menu at the pointer
   const [staffMenu, setStaffMenu] = useState<{ id: string; x: number; y: number } | null>(null)
@@ -212,7 +215,13 @@ export function GameScreen({
       <div className="game-body">
         <div className="game-stage">
         <div className="office-wrap">
-          {place === 'campus' ? (
+          {use3D ? (
+            <Suspense fallback={<p>Building your 3D world…</p>}>
+              <ThreeWorld state={state} jobs={jobs} place={place} onPlace={setPlace}
+                onStaffMenu={(id, x, y) => setStaffMenu({ id, x, y })}
+                onFallback={() => setUse3D(false)} />
+            </Suspense>
+          ) : place === 'campus' ? (
             <CampusView
               state={state}
               onEnter={() => setPlace('office')}
