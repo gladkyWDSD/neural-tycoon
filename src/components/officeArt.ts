@@ -1,3 +1,4 @@
+import { drawDepth } from './artDepth'
 import type { Staff } from '../game/types'
 
 // Furniture and desk hardware for the office view.
@@ -56,6 +57,8 @@ export function drawDesk(ctx: CanvasRenderingContext2D, dx: number, dy: number) 
 
   drawChair(ctx, ox, oy)
 
+  px(ctx, ox + 3, oy + 5, 64, 30, 'rgba(6,10,18,0.3)')
+  drawDepth(ctx, ox, oy + 2, 64, 30, 4, '#bf9869', '#4e3526', '#dfb780')
   px(ctx, ox, oy, 64, 32, '#3a2a1c') // carcass
   px(ctx, ox, oy + 2, 64, 24, '#8a6038') // table top
   px(ctx, ox, oy + 2, 64, 2, '#a87a4a') // back edge catches the ceiling light
@@ -66,6 +69,14 @@ export function drawDesk(ctx: CanvasRenderingContext2D, dx: number, dy: number) 
   px(ctx, ox, oy + 26, 64, 2, '#5c3f26') // front edge
   px(ctx, ox, oy + 28, 64, 2, '#6b4a2f')
   px(ctx, ox, oy + 30, 64, 2, '#2a1d13')
+  // Inset leather mat, rounded by one pixel, anchors the keyboard and monitor.
+  px(ctx, ox + 15, oy + 6, 34, 19, '#242d38')
+  px(ctx, ox + 16, oy + 5, 32, 21, '#293541')
+  px(ctx, ox + 16, oy + 5, 32, 1, '#43515a')
+  px(ctx, ox + 2, oy + 3, 1, 22, '#b48756')
+  px(ctx, ox + 3, oy + 28, 58, 1, '#99704b')
+  px(ctx, ox + 4, oy + 30, 4, 3, '#202631')
+  px(ctx, ox + 56, oy + 30, 4, 3, '#202631')
 }
 
 /** Corner washroom, placed by tile so it can follow the wall as the room grows. */
@@ -105,12 +116,16 @@ function drawMonitor(
   screen: ScreenFn,
   led = '#3ddc84',
 ) {
+  drawDepth(ctx, x, y, SCREEN_W, 16, 2, '#657589', '#090e18', '#91a4b5')
   px(ctx, x, y, SCREEN_W, 16, '#12141b') // shell
   px(ctx, x, y, SCREEN_W, 1, '#3a4155') // top bevel
   px(ctx, x, y, 1, 16, '#262c3a') // lit side
   px(ctx, x + SCREEN_W - 1, y, 1, 16, '#0a0c11') // shadowed side
   px(ctx, x + 2, y + 2, 28, 12, '#05070c') // panel well
   screen(x + 3, y + 3, 26, 10)
+  // A narrow glass reflection preserves the legibility of the live screen.
+  px(ctx, x + 3, y + 3, 1, 9, 'rgba(197,227,255,0.18)')
+  px(ctx, x + 4, y + 3, 10, 1, 'rgba(197,227,255,0.12)')
   px(ctx, x + 2, y + 2, 28, 1, '#000000') // inner bezel shadow
   px(ctx, x, y + 14, SCREEN_W, 2, '#171b24') // chin
   px(ctx, x + 14, y + 15, 4, 1, '#39405a') // brand mark

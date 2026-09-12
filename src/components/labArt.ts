@@ -1,3 +1,4 @@
+import { drawDepth } from './artDepth'
 import { px } from './officeArt'
 
 // The research lab. Nobody but researchers works in here, and it is meant to
@@ -68,6 +69,8 @@ export function drawTestRig(ctx: CanvasRenderingContext2D, tx: number, ty: numbe
   const h = FT * 5
 
   px(ctx, x - 10, y + h - 8, w + 20, 10, 'rgba(0,0,0,0.35)')
+  drawDepth(ctx, x, y + h - 26, w, 26, 12, '#65788c', '#182534', '#adc1d1')
+  drawDepth(ctx, x + 20, y, w - 40, h - 24, 12, '#819bae', '#0c233a', '#c7e8f6')
   // plinth
   px(ctx, x, y + h - 26, w, 26, '#2b3141')
   px(ctx, x, y + h - 26, w, 3, '#4a5268')
@@ -84,6 +87,11 @@ export function drawTestRig(ctx: CanvasRenderingContext2D, tx: number, ty: numbe
   }
   px(ctx, x + 20, y, w - 40, 4, '#8e94a8') // the collar at the top
   px(ctx, x + 20, y + h - 28, w - 40, 4, '#8e94a8')
+
+  // Glass highlights wrap around the chamber; the side falls into shadow.
+  px(ctx, x + 24, y + 6, 3, h - 38, 'rgba(211,244,255,0.42)')
+  px(ctx, x + 29, y + 6, 5, h - 38, 'rgba(152,220,255,0.13)')
+  px(ctx, x + w - 36, y + 4, 14, h - 32, 'rgba(3,14,30,0.38)')
 
   // instruments around the base
   for (let i = 0; i < 4; i++) {
@@ -176,6 +184,7 @@ export function drawLabBench(ctx: CanvasRenderingContext2D, tx: number, ty: numb
   px(ctx, x, y + 8, FT * 2, 22, '#c9cddb') // the white worktop
   px(ctx, x, y + 8, FT * 2, 3, '#eef1f8')
   px(ctx, x, y + 30, FT * 2, 4, '#8e94a8')
+  drawDepth(ctx, x + 14, y - 12, 34, 22, 4, '#657589', '#101b28', '#b0c2ce')
   // a terminal on it
   px(ctx, x + 14, y - 12, 34, 22, '#20242f')
   px(ctx, x + 16, y - 10, 30, 17, '#0b1a12')
@@ -195,6 +204,7 @@ export function drawLabBench(ctx: CanvasRenderingContext2D, tx: number, ty: numb
 export function drawLabFridge(ctx: CanvasRenderingContext2D, tx: number, ty: number, now: number): void {
   const x = tx * FT
   const y = ty * FT
+  drawDepth(ctx, x, y, FT, FT * 2, 8, '#e7f0f5', '#72839a', '#ffffff')
   px(ctx, x, y, FT, FT * 2, '#c9cddb')
   px(ctx, x, y, FT, 3, '#eef1f8')
   px(ctx, x + 3, y + 6, FT - 6, FT - 6, '#16304a')

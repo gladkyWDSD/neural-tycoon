@@ -334,6 +334,15 @@ function paintLit(
   oy: number,
   palette: Record<string, string>,
 ) {
+  // Shade connected surfaces as a whole; outlining each cell made clothing
+  // and hair look like beads instead of fabric and continuous locks.
+  const tones = Object.fromEntries(Object.entries(palette).map(([key, colour]) => [key, {
+    light: shade(colour, 1.18),
+    dark: shade(colour, 0.76),
+    mid: shade(colour, 0.86),
+    center: shade(colour, 1.08),
+    shadow: shade(colour, 0.66),
+  }]))
   const at = (x: number, y: number) => (x < 0 || y < 0 || x >= SPRITE_W || y >= SPRITE_H ? '.' : g[y][x])
   const px = (x: number, y: number, w: number, h: number, c: string) => {
     ctx.fillStyle = c
@@ -389,8 +398,20 @@ function paintLit(
           const diagEmpty = at(qx === 0 ? x - 1 : x + 1, qy === 0 ? y - 1 : y + 1) === '.'
           if (sideEmpty && endEmpty && diagEmpty) continue // rounded corner
           let colour = base
-          if ((qy === 0 && endEmpty) || (qx === 0 && sideEmpty)) colour = shade(base, 1.3)
-          if ((qy === 1 && endEmpty) || (qx === 1 && sideEmpty)) colour = shade(base, 0.66)
+          const tone = tones[ch]
+          if (tone) {
+            // Broad light and shade describe rounded heads, sleeves and torsos.
+            if (x >= 4 && x <= 5) colour = tone.center
+            if (x >= 7) colour = tone.mid
+            if (x >= 9) colour = tone.dark
+            if (ch === 'S' && at(x, y - 1) === 'H') colour = tone.mid
+            if (ch === 'P' && (x === 5 || x === 6)) colour = tone.shadow
+            if ((qy === 0 && endEmpty) || (qx === 0 && sideEmpty)) colour = tone.light
+            if ((qy === 1 && endEmpty) || (qx === 1 && sideEmpty)) colour = tone.dark
+            // Subtle strands and seams at art-pixel resolution.
+            if (ch === 'H' && qx === 0 && (x + y) % 3 === 0) colour = tone.light
+            if (ch === 'C' && qy === 1 && at(x, y + 1) === 'D') colour = tone.dark
+          }
           px(X + qx, Y + qy, 1, 1, colour)
           // the outline hugs whatever was actually painted
           if (endEmpty) px(X + qx, Y + qy + (qy === 0 ? -1 : 1), 1, 1, OUTLINE)

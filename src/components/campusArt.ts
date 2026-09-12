@@ -1,3 +1,4 @@
+import { drawDepth } from './artDepth'
 import { px } from './officeArt'
 
 // Outside. Everything you have bought, standing in a field: the office you work
@@ -86,10 +87,14 @@ function windows(
       const key = (c * 3 + r * 7 + seed) % 11
       const lit = key !== 4 && (key !== 7 || Math.sin(now / 1400 + key) > -0.3)
       px(ctx, wx - 1, wy - 1, 22, 22, '#20242f')
-      px(ctx, wx, wy, 20, 20, lit ? '#ffd166' : '#2b3141')
-      px(ctx, wx, wy, 20, 4, lit ? '#fff0c0' : '#333a4d')
+      px(ctx, wx, wy, 20, 20, lit ? '#d9b978' : '#294457')
+      px(ctx, wx, wy, 20, 4, lit ? '#f9e3af' : '#416176')
+      px(ctx, wx + 2, wy + 4, 2, 13, lit ? '#ead29c' : '#507186')
+      px(ctx, wx + 14, wy + 4, 4, 7, lit ? '#e5cb92' : '#36576b')
       px(ctx, wx + 9, wy, 2, 20, '#1a1c25') // the mullion
       if (lit) px(ctx, wx + 2, wy + 14, 6, 4, '#d8a13a') // somebody at a desk
+      px(ctx, wx - 2, wy + 20, 24, 2, '#69717e') // projecting stone sill
+      px(ctx, wx - 1, wy + 22, 23, 2, 'rgba(8,14,24,0.3)')
     }
   }
 }
@@ -112,13 +117,24 @@ export function drawOffice(
   const w = cols * FT
   const h = rows * FT
 
-  px(ctx, x + 6, y + h - 10, w, 10, 'rgba(0,0,0,0.35)') // shadow on the grass
+  drawDepth(ctx, x, y, w, h, 24, '#63768a', '#252f42', '#a0afbb')
+
+  px(ctx, x + 10, y + 12, w, h - 6, 'rgba(8,17,24,0.22)')
+  px(ctx, x + 6, y + h - 10, w, 16, 'rgba(0,0,0,0.35)') // shadow on the grass
   px(ctx, x, y, w, h, '#3a4257') // body
   px(ctx, x, y, w, 6, '#59627a') // lit roof edge
   px(ctx, x + w - 6, y, 6, h, '#2b3141') // shaded side
   px(ctx, x, y + h - 8, w, 8, '#2b3141') // base
 
   px(ctx, x + 4, y + 6, w - 8, h - 18, '#333b4f') // the facade inside the frame
+  // Recessed roof deck and metal parapet give the block a readable top plane.
+  px(ctx, x + 8, y + 6, w - 20, 12, '#242f40')
+  px(ctx, x + 9, y + 7, w - 22, 2, '#182331')
+  px(ctx, x + 5, y + 17, w - 12, 3, '#77818d')
+  for (let rib = 42; rib < w - 12; rib += 44) {
+    px(ctx, x + rib, y + 22, 3, h - 32, '#4c596a')
+    px(ctx, x + rib + 3, y + 22, 2, h - 32, '#252f40')
+  }
   windows(ctx, x, y, w, Math.max(1, rows - 2), now, level)
 
   // the door, and a light over it
@@ -131,6 +147,22 @@ export function drawOffice(
   px(ctx, dx + 15, dy + 12, 3, 3, '#ffd166')
   px(ctx, dx + 4, dy - 8, 16, 4, '#ffd166')
   px(ctx, dx + 6, dy - 12, 12, 4, '#2b3141')
+  px(ctx, dx - 10, dy - 5, 44, 5, '#8296a5') // entrance canopy
+  px(ctx, dx - 10, dy, 44, 3, '#202b39')
+  px(ctx, dx + 2, dy + 4, 8, 15, '#39596b')
+  px(ctx, dx + 14, dy + 4, 8, 15, '#39596b')
+  px(ctx, dx + 3, dy + 5, 2, 10, '#85a7b2')
+  px(ctx, dx - 5, y + h - 7, 34, 4, '#92938b')
+  for (const offset of [-26, 38]) {
+    px(ctx, dx + offset, y + h - 16, 14, 10, '#726452')
+    px(ctx, dx + offset - 1, y + h - 18, 16, 3, '#a39377')
+    px(ctx, dx + offset + 1, y + h - 27, 12, 9, '#315e4d')
+    px(ctx, dx + offset + 3, y + h - 30, 8, 5, '#57896a')
+  }
+
+  drawDepth(ctx, x + w - 84, y - 10, 44, 9, 8, '#8d9daa', '#344355', '#c4d0d7')
+  px(ctx, x + w - 84, y - 10, 44, 9, '#4e6071')
+  for (let vent = 0; vent < 6; vent++) px(ctx, x + w - 80 + vent * 6, y - 8, 3, 5, '#283748')
 
   // aerials on the roof
   px(ctx, x + 20, y - 14, 2, 14, '#8e94a8')
@@ -154,11 +186,20 @@ export function drawDatacenter(
   const w = FT * 6
   const h = FT * 3
 
+  drawDepth(ctx, x, y, w, h, 20, '#607487', '#202e42', '#96afbf')
+
   px(ctx, x + 5, y + h - 8, w, 8, 'rgba(0,0,0,0.32)')
   px(ctx, x, y, w, h, leased ? '#454b5e' : '#33425e')
   px(ctx, x, y, w, 5, leased ? '#5d6376' : '#4b5d84')
   px(ctx, x, y + h - 7, w, 7, '#20242f')
   px(ctx, x + w - 5, y, 5, h, '#1d2029')
+  px(ctx, x + 6, y + 6, w - 16, 30, '#263449')
+  px(ctx, x + 6, y + 36, w - 16, 3, '#697b8c')
+  for (let panel = 34; panel < w - 12; panel += 22) {
+    px(ctx, x + panel, y + 43, 1, h - 52, '#56697b')
+    px(ctx, x + panel + 1, y + 43, 2, h - 52, '#263347')
+  }
+  px(ctx, x + 10, y + 46, w - 26, 3, leased ? '#bfa77b' : '#67b8c4')
 
   // roof units, fans turning
   for (let i = 0; i < 4; i++) {
@@ -187,11 +228,21 @@ export function drawFab(ctx: CanvasRenderingContext2D, tx: number, ty: number, n
   const w = FT * 5
   const h = FT * 4
 
+  drawDepth(ctx, x, y, w, h, 24, '#77758a', '#292937', '#aaa5b5')
+
   px(ctx, x + 5, y + h - 8, w, 8, 'rgba(0,0,0,0.32)')
   px(ctx, x, y, w, h, '#3d3a4d')
   px(ctx, x, y, w, 5, '#57536b')
   px(ctx, x + w - 5, y, 5, h, '#2a2836')
   px(ctx, x, y + h - 8, w, 8, '#23212e')
+
+  // Raised roof ducting and service panels.
+  for (let unit = 0; unit < 3; unit++) {
+    const ux = x + 18 + unit * 34
+    drawDepth(ctx, ux, y - 7, 24, 7, 6, '#b2adb9', '#484859', '#dad6dd')
+    px(ctx, ux, y - 7, 24, 7, '#656475')
+    px(ctx, ux + 3, y - 5, 18, 2, '#373d4d')
+  }
 
   // cleanroom glass, lit blue
   for (let i = 0; i < 3; i++) {
@@ -221,12 +272,22 @@ export function drawDish(ctx: CanvasRenderingContext2D, tx: number, ty: number, 
   px(ctx, x + 12, y + 44, 12, 4, 'rgba(0,0,0,0.3)')
   px(ctx, x + 16, y + 16, 4, 28, '#8e94a8') // mast
   px(ctx, x + 10, y + 42, 16, 4, '#5d6376') // footing
-  // the dish itself, tilting slowly
+  // The concave bowl has a bright rim and a shaded interior.
   const tilt = Math.round(Math.sin(now / 2600 + seed) * 3)
-  px(ctx, x + 6, y + 6 + tilt, 22, 14, '#c9cddb')
-  px(ctx, x + 8, y + 8 + tilt, 18, 10, '#8e94a8')
-  px(ctx, x + 15, y + 12 + tilt, 4, 4, '#2b3141')
-  px(ctx, x + 6, y + 6 + tilt, 22, 2, '#eef1f8')
+  ctx.fillStyle = '#64798d'
+  ctx.beginPath()
+  ctx.ellipse(x + 18, y + 14 + tilt, 14, 9, -0.3, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.fillStyle = '#d7e4ec'
+  ctx.beginPath()
+  ctx.ellipse(x + 17, y + 11 + tilt, 14, 8, -0.3, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.fillStyle = '#91a8bb'
+  ctx.beginPath()
+  ctx.ellipse(x + 18, y + 12 + tilt, 10, 5, -0.3, 0, Math.PI * 2)
+  ctx.fill()
+  px(ctx, x + 17, y + 1 + tilt, 2, 12, '#eff7fb')
+  px(ctx, x + 15, y + tilt, 6, 3, '#516a81')
 }
 
 /**
@@ -238,6 +299,8 @@ export function drawLab(ctx: CanvasRenderingContext2D, tx: number, ty: number, n
   const y = ty * FT
   const w = FT * 7
   const h = FT * 4
+
+  drawDepth(ctx, x, y, w, h, 24, '#dce6ed', '#7c8da4', '#f4faff')
 
   px(ctx, x + 6, y + h - 8, w, 10, 'rgba(0,0,0,0.35)')
   px(ctx, x, y, w, h, '#d4d8e4') // white cladding

@@ -1,3 +1,4 @@
+import { drawDepth } from './artDepth'
 import { px } from './officeArt'
 
 // Inside a datacenter: rows of racks, and in the racks the cards themselves.
@@ -71,11 +72,22 @@ export function drawRack(
   const h = FT * 5
   const SLOTS = 8
 
+  drawDepth(ctx, x, y, w, h, 12, '#566579', '#141e2b', '#8a9db0')
+
   px(ctx, x + 4, y + h, w, 8, 'rgba(0,0,0,0.45)') // shadow on the floor
   px(ctx, x, y, w, h, '#12141c') // cabinet
   px(ctx, x + 2, y + 2, w - 4, h - 4, '#1b1f29')
   px(ctx, x, y, w, 3, '#333a4d') // lit top edge
   px(ctx, x, y, 3, h, '#262c3a')
+  px(ctx, x + 4, y + 3, w - 10, 3, '#56677c')
+  px(ctx, x + w - 6, y + 6, 3, h - 10, '#090f18')
+  // Mounting rails, screw heads, and feet make the rack feel assembled.
+  for (let railY = 12; railY < h - 6; railY += 18) {
+    px(ctx, x + 2, y + railY, 2, 2, '#8a99a8')
+    px(ctx, x + w - 5, y + railY, 2, 2, '#647285')
+  }
+  px(ctx, x + 7, y + h - 2, 12, 4, '#090e17')
+  px(ctx, x + w - 19, y + h - 2, 12, 4, '#090e17')
 
   for (let i = 0; i < SLOTS; i++) {
     const sy = y + 8 + i * 18
@@ -94,6 +106,10 @@ export function drawRack(
     // the card: a green board with a fan on it
     px(ctx, x + 9, sy + 3, w - 26, 9, '#1f6b42')
     px(ctx, x + 9, sy + 3, w - 26, 1, '#2f9d5c')
+    for (let trace = 0; trace < 3; trace++) {
+      px(ctx, x + 12 + trace * 17, sy + 10, 12, 1, '#479b78')
+      px(ctx, x + 22 + trace * 17, sy + 7, 1, 3, '#479b78')
+    }
     for (let c = 0; c < 4; c++) px(ctx, x + 11 + c * 5, sy + 5, 2, 2, '#12141c') // the chips on it
     const spin = Math.floor(now / 70 + i + seed) % 2 === 0
     px(ctx, x + w - 17, sy + 4, 8, 8, '#12141c') // the fan housing
@@ -117,6 +133,8 @@ export function drawCooler(ctx: CanvasRenderingContext2D, tx: number, ty: number
   const y = ty * FT
   const w = FT * 2
   const h = FT * 5
+
+  drawDepth(ctx, x, y, w, h, 12, '#69788b', '#1a2635', '#a4b7c6')
 
   px(ctx, x + 4, y + h, w, 8, 'rgba(0,0,0,0.45)')
   px(ctx, x, y, w, h, '#242a36')
