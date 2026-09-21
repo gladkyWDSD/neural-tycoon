@@ -304,25 +304,39 @@ const AMENITY_ART: Record<string, { width: number; draw: (ctx: CanvasRenderingCo
   academy: { width: 2, draw: drawTrainingRoom },
 }
 
+export interface AmenitySlot {
+  id: string
+  tx: number
+  ty: number
+  width: number
+}
+
+/** The purchased fixtures and where they sit, shared by drawing and hit testing. */
+export function amenitySlots(room: RoomInfo, owned: string[]): AmenitySlot[] {
+  const pieces = owned
+    .map((id) => ({ id, art: AMENITY_ART[id] }))
+    .filter((piece): piece is { id: string; art: { width: number; draw: (ctx: CanvasRenderingContext2D, tx: number, ty: number) => void } } => Boolean(piece.art))
+  if (pieces.length === 0) return []
+  const span = room.roomCols - 2 // the floor between the two side walls
+  const used = pieces.reduce((sum, piece) => sum + piece.art.width, 0)
+  const gap = Math.max(1, Math.floor((span - used) / (pieces.length + 1)))
+  let col = 1 + Math.max(0, Math.floor((span - used - gap * (pieces.length + 1)) / 2)) + gap
+  const slots: AmenitySlot[] = []
+  for (const piece of pieces) {
+    if (col + piece.art.width > room.roomCols - 1) break
+    slots.push({ id: piece.id, tx: col, ty: room.roomRows - 2, width: piece.art.width })
+    col += piece.art.width + gap
+  }
+  return slots
+}
+
 /**
  * Everything the company has bought for the office, laid out left to right
  * along the free row at the bottom of the room. Anything that will not fit is
  * left out rather than drawn on top of a desk.
  */
 export function drawAmenities(ctx: CanvasRenderingContext2D, room: RoomInfo, owned: string[]) {
-  const row = room.roomRows - 2
-  const pieces = owned.map((id) => AMENITY_ART[id]).filter(Boolean)
-  if (pieces.length === 0) return
-  const span = room.roomCols - 2 // the floor between the two side walls
-  const used = pieces.reduce((sum, a) => sum + a.width, 0)
-  // spread them across the back of the room rather than bunching them on the left
-  const gap = Math.max(1, Math.floor((span - used) / (pieces.length + 1)))
-  let col = 1 + Math.max(0, Math.floor((span - used - gap * (pieces.length + 1)) / 2)) + gap
-  for (const art of pieces) {
-    if (col + art.width > room.roomCols - 1) break
-    art.draw(ctx, col, row)
-    col += art.width + gap
-  }
+  for (const slot of amenitySlots(room, owned)) AMENITY_ART[slot.id].draw(ctx, slot.tx, slot.ty)
 }
 
 /** The way out. It sits in the bottom-left corner of the room and it opens. */
@@ -427,20 +441,10 @@ export function tripFor(
 export function breakSpots(room: RoomInfo, owned: string[]): { x: number; y: number }[] {
   const TILE = 16
   const spots = [{ x: (room.roomCols - 3) * TILE + 8, y: 2 * TILE }]
-  const pieces = owned.map((id) => AMENITY_ART[id]).filter(Boolean)
-  if (pieces.length > 0) {
-    const span = room.roomCols - 2
-    const used = pieces.reduce((sum, a) => sum + a.width, 0)
-    const gap = Math.max(1, Math.floor((span - used) / (pieces.length + 1)))
-    let col = 1 + Math.max(0, Math.floor((span - used - gap * (pieces.length + 1)) / 2)) + gap
-    for (let i = 0; i < pieces.length; i++) {
-      const art = pieces[i]
-      if (col + art.width > room.roomCols - 1) break
-      // stand in front of it, not on it
-      if (owned[i] === 'coffee' || owned[i] === 'meeting' || owned[i] === 'gym') {
-        spots.push({ x: col * TILE + art.width * 8, y: (room.roomRows - 2) * TILE })
-      }
-      col += art.width + gap
+  for (const slot of amenitySlots(room, owned)) {
+    // stand in front of it, not on it
+    if (slot.id === 'coffee' || slot.id === 'meeting' || slot.id === 'gym') {
+      spots.push({ x: slot.tx * TILE + slot.width * 8, y: slot.ty * TILE })
     }
   }
   return spots

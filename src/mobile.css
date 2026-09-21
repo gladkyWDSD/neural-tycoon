@@ -134,6 +134,18 @@
   min-height: 0;
 }
 
+.app-tall .office-inspector {
+  top: 6px;
+  right: 6px;
+  width: min(280px, calc(100% - 12px));
+  padding: 8px 32px 9px 10px;
+}
+
+.app-tall .office-inspector-summary,
+.app-tall .office-inspector p {
+  font-size: 12px;
+}
+
 /* --- the rail, lying down along the bottom --------------------------- */
 .app-tall .sidenav {
   order: 2;

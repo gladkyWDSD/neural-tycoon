@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { RefObject } from 'react'
 import type { GameState, Staff } from '../game/types'
 import { playWorkSfx } from '../game/audio'
+import { AMENITY_MAP } from '../game/amenities'
+import { ROLES } from '../game/constants'
 import { SPRITE_H, SPRITE_W, drawCharacter, hash } from './sprites'
 import { Chatter, drawBubble } from './bubbles'
 import type { WorkKind } from './officeArt'
@@ -10,6 +12,7 @@ import {
   breakSpots,
   doorTile,
   drawAmenities,
+  amenitySlots,
   drawDecor,
   drawDoor,
   drawRackLights,
@@ -182,6 +185,20 @@ interface HitBox {
   y: number
 }
 
+interface OfficeDetail {
+  title: string
+  summary: string
+  description: string
+}
+
+const ASSIGNMENT_LABEL: Record<Staff['assignment'], string> = {
+  research: 'research',
+  training: 'training runs',
+  data: 'data curation',
+  ops: 'reliability',
+  chips: 'chip design',
+}
+
 const HIT_PAD = 2
 
 // how long a visitor takes to cross the room
@@ -252,6 +269,7 @@ interface Props {
 
 export function OfficeView({ staff, state, desks, jobs, amenities, week, load, onStaffMenu, onLeave }: Props) {
   const ref = useRef<HTMLCanvasElement>(null)
+  const [detail, setDetail] = useState<OfficeDetail | null>(null)
   // who is talking, and the thing they said
   const chatter = useRef(new Chatter(2))
   const said = useRef<{ id: string; text: string; from: number }[]>([])
@@ -606,34 +624,108 @@ export function OfficeView({ staff, state, desks, jobs, amenities, week, load, o
     return null
   }
 
+  function deskAt(at: { x: number; y: number }): number | null {
+    for (let i = deskList.length - 1; i >= 0; i--) {
+      const desk = deskList[i]
+      const x = desk.dx * TILE * SCALE
+      const y = desk.dy * TILE * SCALE
+      if (at.x >= x && at.x <= x + DESK_W * TILE * SCALE && at.y >= y && at.y <= y + TILE * SCALE * 2) return i
+    }
+    return null
+  }
+
+  function amenityAt(at: { x: number; y: number }): string | null {
+    for (const slot of amenitySlots(layout, amenities)) {
+      const x = slot.tx * TILE * SCALE
+      const y = slot.ty * TILE * SCALE
+      if (at.x >= x && at.x <= x + slot.width * TILE * SCALE && at.y >= y && at.y <= y + TILE * SCALE) return slot.id
+    }
+    return null
+  }
+
+  function inspect(at: { x: number; y: number }): OfficeDetail | null {
+    const deskIndex = deskAt(at)
+    if (deskIndex !== null) {
+      const worker = staff[deskIndex]
+      if (!worker) return { title: 'Open workstation', summary: 'Ready for a new hire', description: 'Hire someone from the Staff panel to put this desk to work.' }
+      const role = ROLES.find((item) => item.id === worker.role)?.label ?? worker.role
+      const course = state.staffTraining.find((item) => item.staffId === worker.id)
+      return {
+        title: `${worker.name}'s workstation`,
+        summary: `${role} · level ${worker.level}`,
+        description: course
+          ? `Training for level ${course.toLevel}: ${Math.ceil(course.weeksRemaining)} weeks left.`
+          : `Assigned to ${ASSIGNMENT_LABEL[worker.assignment]}. Click them to manage their work.`,
+      }
+    }
+
+    const amenityId = amenityAt(at)
+    if (amenityId) {
+      const amenity = AMENITY_MAP[amenityId]
+      if (amenity) return { title: amenity.name, summary: amenity.effect, description: amenity.blurb }
+    }
+
+    const rack = rackTile(layout)
+    if (rack) {
+      const x = rack.tx * TILE * SCALE
+      const y = rack.ty * TILE * SCALE
+      if (at.x >= x && at.x <= x + TILE * SCALE && at.y >= y && at.y <= y + TILE * SCALE * 2) {
+        const percent = Number.isFinite(load) ? Math.round(load * 100) : 999
+        return {
+          title: 'Service rack',
+          summary: `${state.gpuCards} cards · ${percent}% load`,
+          description: percent > 100 ? 'Demand is above capacity. Add cards or datacenter space before users leave.' : 'Cards are serving your live models from this office rack.',
+        }
+      }
+    }
+    return null
+  }
+
   return (
-    <canvas
-      ref={ref}
-      width={W * SCALE}
-      height={H * SCALE}
-      onClick={(e) => {
+    <div className="office-view">
+      <canvas
+        ref={ref}
+        width={W * SCALE}
+        height={H * SCALE}
+        onClick={(e) => {
         // Tapping somebody opens their menu. There is no right button on a
         // phone, and hunting for one on a desktop was never obvious either.
         const person = staffAt(e.clientX, e.clientY)
         if (person && onStaffMenu) {
+          setDetail(null)
           onStaffMenu(person, e.clientX, e.clientY)
           return
         }
-        // the door in the corner is the other thing in the room you can press
         const at = artPoint(e.clientX, e.clientY)
-        if (!at || !onLeave) return
+        if (!at) return
+        // the door in the corner is the other thing in the room you can press
         const door = doorTile(layout)
         const dx = door.tx * TILE * SCALE
         const dy = door.ty * TILE * SCALE
-        if (at.x >= dx && at.x <= dx + TILE * SCALE && at.y >= dy - 10 && at.y <= dy + TILE * SCALE) onLeave()
+        if (at.x >= dx && at.x <= dx + TILE * SCALE && at.y >= dy - 10 && at.y <= dy + TILE * SCALE) {
+          onLeave?.()
+          return
+        }
+        setDetail(inspect(at))
       }}
-      onContextMenu={(e) => {
+        onContextMenu={(e) => {
         // the browser menu is suppressed app-wide; this only decides whose menu opens
         e.preventDefault()
         const id = staffAt(e.clientX, e.clientY)
         if (id && onStaffMenu) onStaffMenu(id, e.clientX, e.clientY)
-      }}
-      style={{
+        }}
+        onPointerMove={(e) => {
+          const at = artPoint(e.clientX, e.clientY)
+          const canvas = ref.current
+          if (!at || !canvas) return
+          const door = doorTile(layout)
+          const doorX = door.tx * TILE * SCALE
+          const doorY = door.ty * TILE * SCALE
+          canvas.style.cursor = staffAt(e.clientX, e.clientY) || inspect(at) || (at.x >= doorX && at.x <= doorX + TILE * SCALE && at.y >= doorY - 10 && at.y <= doorY + TILE * SCALE)
+            ? 'pointer'
+            : 'default'
+        }}
+        style={{
         imageRendering: 'pixelated',
         width: '100%',
         height: '100%',
@@ -641,7 +733,16 @@ export function OfficeView({ staff, state, desks, jobs, amenities, week, load, o
         display: 'block',
         touchAction: 'manipulation',
       }}
-      title="Press somebody to manage them · press the door to go outside"
-    />
+        title="Press a workstation, amenity, or rack for details · press somebody to manage them · press the door to go outside"
+      />
+      {detail && (
+        <aside className="office-inspector" aria-live="polite">
+          <button className="office-inspector-close" onClick={() => setDetail(null)} aria-label="Close office details">×</button>
+          <div className="office-inspector-title">{detail.title}</div>
+          <div className="office-inspector-summary">{detail.summary}</div>
+          <p>{detail.description}</p>
+        </aside>
+      )}
+    </div>
   )
 }
