@@ -818,8 +818,13 @@
   }
 
   .app-wide .sidenav {
-    flex: 0 0 128px;
-    padding: 8px 6px;
+    flex: 0 0 auto;
+    padding: 5px 6px;
+  }
+
+  .app-wide .nav-tile {
+    min-height: 44px;
+    padding: 4px 8px;
   }
 
   .app-wide .nav-label {
