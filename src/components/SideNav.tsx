@@ -3,13 +3,11 @@ import { assignedCount, maxStaff } from '../game/state'
 import { activeCards } from '../game/gpu'
 import { cardsFree, cardsTraining, serviceLoad } from '../game/state'
 import { RESEARCH_MAP } from '../game/research'
-import { onLeave } from '../game/state'
 import { CAMPAIGN_DURATION } from '../game/constants'
 import './Game.css'
 
 export type PanelId =
   | 'hire'
-  | 'people'
   | 'build'
   | 'research'
   | 'datacenters'
@@ -50,7 +48,6 @@ function tilesFor(state: GameState, racing: boolean): Tile[] {
     ? [...state.researching].sort((a, b) => a.weeksRemaining - b.weeksRemaining)[0]
     : null
   const learning = state.staffTraining.length
-  const away = state.staff.filter((s) => onLeave(state, s.id)).length
   const rawLoad = serviceLoad(state)
   const load = Number.isFinite(rawLoad) ? rawLoad : 9.99
 
@@ -65,14 +62,6 @@ function tilesFor(state: GameState, racing: boolean): Tile[] {
           : `${assignedCount(state, 'research')}R ${assignedCount(state, 'training')}T ${assignedCount(state, 'data')}D ${assignedCount(state, 'ops')}O`,
       busy: learning > 0,
       title: 'Hire and train people',
-    },
-    {
-      id: 'people',
-      label: 'People',
-      value: away > 0 ? `${away} away` : 'Roster',
-      note: away > 0 ? 'on a break' : 'pay · jobs · breaks',
-      busy: away > 0,
-      title: 'Who works here, what they are paid, and who is on a break',
     },
     {
       id: 'build',
