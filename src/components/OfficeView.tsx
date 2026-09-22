@@ -6,7 +6,6 @@ import { AMENITY_MAP } from '../game/amenities'
 import { ROLES } from '../game/constants'
 import { SPRITE_H, SPRITE_W, drawCharacter, hash } from './sprites'
 import { drawRoomLight } from './artDepth'
-import { Chatter, drawBubble } from './bubbles'
 import type { WorkKind } from './officeArt'
 import { SCALE, TILE, drawBurst, drawDesk, drawDeskProp, drawToilet, drawWorkIcon, drawWorkToken } from './officeArt'
 import {
@@ -251,7 +250,7 @@ function useRoomShape(ref: RefObject<HTMLCanvasElement | null>): { cols: number;
 
 interface Props {
   staff: Staff[]
-  /** the whole company, so the people in it have something to talk about */
+  /** Company details shown when inspecting staff or equipment. */
   state: GameState
   desks: number
   /** everything running right now, one bar each, already capped at MAX_BARS */
@@ -271,9 +270,6 @@ interface Props {
 export function OfficeView({ staff, state, desks, jobs, amenities, week, load, onStaffMenu, onLeave }: Props) {
   const ref = useRef<HTMLCanvasElement>(null)
   const [detail, setDetail] = useState<OfficeDetail | null>(null)
-  // who is talking, and the thing they said
-  const chatter = useRef(new Chatter(2))
-  const said = useRef<{ id: string; text: string; from: number }[]>([])
   // The room is cut to the shape of the space it is given, so it fills the
   // screen instead of sitting in a letterbox: three desks to a row on a tall
   // phone, six spread wide on a monitor.
@@ -489,14 +485,6 @@ export function OfficeView({ staff, state, desks, jobs, amenities, week, load, o
         drawWorkToken(ctx, here.x, here.y, p.kind, now, p.seed)
       }
 
-      // The mood marks and the bubbles go on last of all: the desks are drawn
-      // over the people, and neither of these may be covered by a monitor.
-      art()
-      for (const b of said.current) {
-        const at = hits.current.find((h) => h.id === b.id)
-        if (!at) continue
-        drawBubble(ctx, at.x * SCALE, at.y * SCALE, b.text, now - b.from, W * SCALE)
-      }
     }
 
     drawScene(performance.now())
@@ -579,15 +567,13 @@ export function OfficeView({ staff, state, desks, jobs, amenities, week, load, o
       for (const f of flashes.current) f.t += dt
       flashes.current = flashes.current.filter((f) => f.t < FLASH_LIFE)
 
-      said.current = chatter.current.step(now, staff, state, week)
-
       drawScene(now)
       raf = requestAnimationFrame(loop)
     }
 
     raf = requestAnimationFrame(loop)
     return () => cancelAnimationFrame(raf)
-  }, [background, staff, state, week, deskList, layout, barX, barW, W, jobs, amenities, load])
+  }, [background, staff, deskList, layout, barX, barW, W, jobs, amenities, load])
 
   /** Where a click landed on the canvas, in art pixels. */
   function artPoint(clientX: number, clientY: number): { x: number; y: number } | null {

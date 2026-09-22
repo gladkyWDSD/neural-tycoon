@@ -2,7 +2,6 @@ import { useEffect, useRef } from 'react'
 import type { GameState, Staff } from '../game/types'
 import { SCALE, TILE, drawWorkIcon } from './officeArt'
 import { SPRITE_H, SPRITE_W, drawCharacter } from './sprites'
-import { Chatter, drawBubble } from './bubbles'
 import {
   LAB_COLS,
   LAB_ROWS,
@@ -13,7 +12,7 @@ import {
   drawTestRig,
   drawWhiteboardWall,
 } from './labArt'
-import { chipDesignWeeks, globalWeek } from '../game/state'
+import { chipDesignWeeks } from '../game/state'
 
 interface Props {
   state: GameState
@@ -47,12 +46,9 @@ export function LabView({ state, onLeave, onStaffMenu }: Props) {
   const ref = useRef<HTMLCanvasElement>(null)
   // where each person ended up this frame, so they can still be right-clicked
   const hits = useRef<{ id: string; x: number; y: number }[]>([])
-  const chatter = useRef(new Chatter(2))
-  const said = useRef<{ id: string; text: string; from: number }[]>([])
   const W = LAB_COLS * TILE
   const H = LAB_ROWS * TILE
   const hardware = state.staff.filter((s) => s.role === 'hardware')
-  const week = globalWeek(state)
   const designing = Boolean(state.chipDesign)
 
   useEffect(() => {
@@ -107,18 +103,11 @@ export function LabView({ state, onLeave, onStaffMenu }: Props) {
         )
       }
 
-      // the lab talks too
-      said.current = chatter.current.step(now, hardware, state, week)
-      for (const b of said.current) {
-        const at = hits.current.find((h) => h.id === b.id)
-        if (at) drawBubble(ctx, at.x * SCALE, at.y * SCALE, b.text, now - b.from, W * SCALE)
-      }
-
       raf = requestAnimationFrame(draw)
     }
     raf = requestAnimationFrame(draw)
     return () => cancelAnimationFrame(raf)
-  }, [hardware, designing, state, week, W])
+  }, [hardware, designing, state])
 
   /** Whoever is under a client-space point, the same way the office does it. */
   function personAt(clientX: number, clientY: number): string | null {
