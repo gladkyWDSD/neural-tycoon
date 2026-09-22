@@ -182,30 +182,6 @@ function codeScreen(ctx: CanvasRenderingContext2D, now: number): ScreenFn {
   }
 }
 
-/** A training run: loss curve dropping towards the axis, with a live head. */
-function lossScreen(ctx: CanvasRenderingContext2D, now: number): ScreenFn {
-  return (sx, sy, sw, sh) => {
-    px(ctx, sx, sy, sw, sh, '#0b1016')
-    windowChrome(ctx, sx, sy, sw, '#16202b')
-    const top = sy + 4
-    const bottom = sy + sh - 1
-    const rows = bottom - top
-    px(ctx, sx + 1, top, 1, rows + 1, '#22303f') // y axis
-    px(ctx, sx + 1, bottom, sw - 2, 1, '#22303f') // x axis
-    for (let gx = sx + 5; gx < sx + sw - 1; gx += 5) px(ctx, gx, top + 2, 1, 1, '#1a2431') // grid
-    let headY = top
-    for (let i = 0; i < sw - 3; i++) {
-      const t = i / (sw - 4)
-      const v = Math.exp(-t * 2.8) + 0.04 * Math.sin(t * 13 + now / 450)
-      const yy = top + Math.round(Math.max(0, Math.min(1, 1 - v)) * (rows - 1))
-      px(ctx, sx + 2 + i, yy + 1, 1, bottom - yy - 1, '#12402b') // area fill
-      px(ctx, sx + 2 + i, yy, 1, 1, '#3ddc84') // curve
-      headY = yy
-    }
-    px(ctx, sx + sw - 2, headY, 1, 1, Math.floor(now / 320) % 2 === 0 ? '#f4f6fb' : '#3ddc84')
-  }
-}
-
 /** A frontier-model research desk: matrices, gradients, and attention maps.
  *
  * This intentionally does not look like a friendly dashboard. Researchers see
@@ -578,10 +554,8 @@ export function drawDeskProp(
     // are not merely watching a loss chart: they are doing the hard maths.
     drawPenHolder(ctx, lx, oy + 2)
     drawMathNotes(ctx, lx, oy + 16, now)
-    // The occasional loss plot is useful context, but the screen spends most
-    // of its time on the derivation itself.
-    const screen = Math.floor(now / 7_000) % 4 === 3 ? lossScreen(ctx, now) : researchMathScreen(ctx, now)
-    drawMonitor(ctx, sx, oy + 2, screen, '#3ddc84')
+    // A researcher is solving derivations, not watching the training line.
+    drawMonitor(ctx, sx, oy + 2, researchMathScreen(ctx, now), '#3ddc84')
     drawKeyboard(ctx, sx + 1, oy + 22)
     drawMug(ctx, rx + 1, oy + 3, '#c9cddb', now)
     drawStickyNotes(ctx, rx, oy + 17)
