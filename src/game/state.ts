@@ -118,7 +118,6 @@ import {
   SOTA_DRIFT_PER_POINT,
   SOTA_LEAD_BONUS,
   SUCCESSOR_MIGRATION,
-  DATA_PER_CARD,
   RISK_CHEAP_DATA,
   RISK_DECAY_PER_WEEK,
   RISK_DISTILLED,
@@ -2607,11 +2606,10 @@ export function reducer(state: GameState, action: Action): GameState {
       }
     }
     case 'START_MODEL': {
-      // A run takes cards that are not serving anyone and eats the data pile.
+      // A run takes cards that are not serving anyone. Data sources affect
+      // quality, but there is no stored-data quota to begin or publish a model.
       const needCards = action.model.gpus
       if (needCards > cardsFree(state)) return state
-      const needData = Math.round(needCards * DATA_PER_CARD)
-      if (state.dataStock < needData) return state
       const dataCost = action.model.dataTier ? (DATA_TIER_MAP[action.model.dataTier]?.cost ?? 0) : 0
       let teacherCost = 0
       if (action.model.distilledFrom) {
@@ -2624,11 +2622,10 @@ export function reducer(state: GameState, action: Action): GameState {
         ...state,
         models: [...state.models, action.model],
         money: state.money - cost,
-        dataStock: state.dataStock - needData,
         events: [
           {
             id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-            text: `${action.model.name} is training on ${needCards} card${needCards > 1 ? 's' : ''} and ${needData} TB of data. Those cards are not serving anyone until it lands.`,
+            text: `${action.model.name} is training on ${needCards} card${needCards > 1 ? 's' : ''}. Those cards are not serving anyone until it lands.`,
             week: globalWeek(state),
           },
           ...state.events,

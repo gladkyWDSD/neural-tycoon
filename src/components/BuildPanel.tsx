@@ -10,7 +10,6 @@ import {
   FREE_TRIAL_CONVERSION,
   FREE_TRIAL_COST,
   FREE_TRIAL_DURATION,
-  DATA_PER_CARD,
   SUCCESSOR_MIGRATION,
 } from '../game/constants'
 import { validateCompanyName } from '../game/profanity'
@@ -22,7 +21,7 @@ import {
   isDistillUnlocked,
 } from '../game/distill'
 import { assigned, cardsFree, chipPower, effectiveCards, globalWeek } from '../game/state'
-import { dataInflow, dataQualityOf } from '../game/data'
+import { dataQualityOf } from '../game/data'
 import { stateOfTheArt } from '../game/competitors'
 import './Game.css'
 
@@ -265,8 +264,6 @@ export function BuildPanel({ state, onStartModel, onPublish, onStartPromo, onBuy
   const weeks = teacher ? distillTrainWeeks(baseWeeks) : baseWeeks
   const totalCost = teacher ? distillCost(teacher.quality) : 0
   const canAfford = state.money >= totalCost
-  const dataNeeded = Math.round(effGpus * DATA_PER_CARD)
-  const hasData = state.dataStock >= dataNeeded
 
   // anything live of the same kind hands its users on when this one ships
   const predecessors = modelType
@@ -274,7 +271,7 @@ export function BuildPanel({ state, onStartModel, onPublish, onStartPromo, onBuy
     : []
 
   const canStart =
-    Boolean(modelType) && name.trim().length > 0 && hasEngineer && hasGpu && canAfford && hasData
+    Boolean(modelType) && name.trim().length > 0 && hasEngineer && hasGpu && canAfford
 
   function start() {
     if (!modelType) return
@@ -392,9 +389,8 @@ export function BuildPanel({ state, onStartModel, onPublish, onStartPromo, onBuy
             Training data (+{Math.round(dataQualityOf(state.dataSources))} quality from your pipeline)
           </label>
           <p className="hint">
-            This run eats {dataNeeded} TB. You have {Math.round(state.dataStock)} TB piled up and{' '}
-            {dataInflow(state).toFixed(1)} TB coming in a week. Buy better sources and put people on
-            curation in the Compute panel.
+            Your data sources improve model quality, but training and publishing never require a stored
+            data quota.
           </p>
         </div>
 
@@ -502,9 +498,7 @@ export function BuildPanel({ state, onStartModel, onPublish, onStartPromo, onBuy
                   ? 'Hire an engineer to build the model.'
                   : !hasGpu
                     ? 'Every card you own is already serving or training. Buy more, or wait for a run to land.'
-                    : !hasData
-                      ? `You need ${dataNeeded} TB and have ${Math.round(state.dataStock)}. Wait for the pipeline, or buy a better source.`
-                      : `Not enough money — this run costs $${totalCost.toLocaleString()}.`}
+                    : `Not enough money — this run costs $${totalCost.toLocaleString()}.`}
           </p>
         )}
       </div>
