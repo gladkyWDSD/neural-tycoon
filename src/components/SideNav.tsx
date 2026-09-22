@@ -126,9 +126,9 @@ function tilesFor(state: GameState, racing: boolean): Tile[] {
             id: 'trading' as const,
             label: 'Trading',
             value: state.pacts.length > 0 ? `${state.pacts.length} pact${state.pacts.length > 1 ? 's' : ''}` : 'Deals',
-            note: state.sentTrade ? `offer with ${state.sentTrade.targetName}` : 'compute · research · pacts',
+            note: state.sentTrade ? `offer with ${state.sentTrade.targetName}` : 'GPUs · research · models',
             busy: Boolean(state.sentTrade),
-            title: 'Sell compute, license research and sign pacts with the other players',
+            title: 'Sell GPUs, datacenters or models, license research and sign pacts with the other players',
           },
         ]
       : []),
