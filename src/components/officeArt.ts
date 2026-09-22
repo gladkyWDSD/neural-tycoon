@@ -206,6 +206,55 @@ function lossScreen(ctx: CanvasRenderingContext2D, now: number): ScreenFn {
   }
 }
 
+/** A frontier-model research desk: matrices, gradients, and attention maps.
+ *
+ * This intentionally does not look like a friendly dashboard. Researchers see
+ * the loss curve sometimes, but most of their day is spent inside dense model
+ * maths, so the display is all notation and intermediate results.
+ */
+function researchMathScreen(ctx: CanvasRenderingContext2D, now: number): ScreenFn {
+  return (sx, sy, sw, sh) => {
+    px(ctx, sx, sy, sw, sh, '#080d14')
+    windowChrome(ctx, sx, sy, sw, '#162334')
+
+    // Q · Kᵀ / √d: four small tensors, bracketed so they read as real maths
+    // rather than a generic terminal. Their values shift as an optimization
+    // pass moves across the screen.
+    const pulse = Math.floor(now / 240) % 4
+    const matrix = (x: number, y: number, tint: string, shift: number) => {
+      px(ctx, x, y, 1, 5, '#9bb3c9')
+      px(ctx, x + 4, y, 1, 5, '#9bb3c9')
+      for (let r = 0; r < 3; r++) {
+        for (let c = 0; c < 3; c++) {
+          const live = (r + c + shift) % 4 === pulse
+          px(ctx, x + 1 + c, y + 1 + r, 1, 1, live ? '#e8f5ff' : tint)
+        }
+      }
+    }
+    matrix(sx + 1, sy + 4, '#4aa3ff', 0)
+    px(ctx, sx + 6, sy + 6, 1, 1, '#f2f4fb') // multiplication dot
+    matrix(sx + 8, sy + 4, '#c084fc', 1)
+    px(ctx, sx + 13, sy + 5, 1, 1, '#ffd166') // divide bar
+    px(ctx, sx + 13, sy + 7, 3, 1, '#ffd166')
+    px(ctx, sx + 14, sy + 6, 1, 1, '#ffd166')
+
+    // A narrow attention heatmap on the right, its bright cell travelling as
+    // the model compares tokens against one another.
+    for (let r = 0; r < 4; r++) {
+      for (let c = 0; c < 4; c++) {
+        const hot = (r * 3 + c + pulse) % 7 === 0
+        px(ctx, sx + 19 + c, sy + 4 + r, 1, 1, hot ? '#ffe6a8' : (r + c) % 2 ? '#24507a' : '#173552')
+      }
+    }
+
+    // Gradient descent equation along the bottom, with a blinking cursor on
+    // the parameter update: ∇θ ← ∇θ − η∂L.
+    const equation = ['#3ddc84', '#3ddc84', '#f2f4fb', '#4aa3ff', '#f2f4fb', '#ff7b72', '#ffd166', '#c084fc']
+    equation.forEach((colour, i) => px(ctx, sx + 1 + i * 2, sy + 9, i === 2 || i === 4 ? 2 : 1, 1, colour))
+    if (Math.floor(now / 380) % 2 === 0) px(ctx, sx + 18, sy + 9, 1, 1, '#f2f4fb')
+  }
+}
+
 /** A campaign dashboard: bars climbing to the right under a headline number. */
 function chartScreen(ctx: CanvasRenderingContext2D, now: number): ScreenFn {
   return (sx, sy, sw, sh) => {
@@ -306,6 +355,22 @@ function drawPapers(ctx: CanvasRenderingContext2D, x: number, y: number, text = 
     px(ctx, x + 3, y + 2, 9, 1, '#9aa0b4')
     px(ctx, x + 3, y + 3, 7, 1, '#9aa0b4')
   }
+}
+
+/** Handwritten derivations spilling out beside a researcher's keyboard. */
+function drawMathNotes(ctx: CanvasRenderingContext2D, x: number, y: number, now: number) {
+  drawPapers(ctx, x, y, false)
+  // ∇L, matrix brackets, a fraction, and a little attention grid. They are
+  // intentionally tiny but recognisable at the game's pixel-art scale.
+  px(ctx, x + 3, y + 1, 1, 1, '#355a8a')
+  px(ctx, x + 4, y + 1, 1, 2, '#355a8a')
+  px(ctx, x + 5, y + 2, 3, 1, '#355a8a')
+  px(ctx, x + 9, y + 1, 1, 3, '#7d5bb6')
+  px(ctx, x + 12, y + 1, 1, 3, '#7d5bb6')
+  px(ctx, x + 10, y + 2, 2, 1, Math.floor(now / 350) % 2 === 0 ? '#e35662' : '#8e94a8')
+  px(ctx, x + 3, y + 4, 8, 1, '#5d6478')
+  px(ctx, x + 6, y + 5, 3, 1, '#355a8a')
+  px(ctx, x + 9, y + 6, 3, 1, '#7d5bb6')
 }
 
 /** Mid-tower with a mesh front, drive bay, ports and a glowing RGB fan. */
@@ -509,10 +574,14 @@ export function drawDeskProp(
   }
 
   if (role === 'researcher') {
-    // notes and a live training curve, plus the obligatory cold coffee
+    // Dense derivations and a live attention/gradient workspace. Researchers
+    // are not merely watching a loss chart: they are doing the hard maths.
     drawPenHolder(ctx, lx, oy + 2)
-    drawPapers(ctx, lx, oy + 16)
-    drawMonitor(ctx, sx, oy + 2, lossScreen(ctx, now), '#3ddc84')
+    drawMathNotes(ctx, lx, oy + 16, now)
+    // The occasional loss plot is useful context, but the screen spends most
+    // of its time on the derivation itself.
+    const screen = Math.floor(now / 7_000) % 4 === 3 ? lossScreen(ctx, now) : researchMathScreen(ctx, now)
+    drawMonitor(ctx, sx, oy + 2, screen, '#3ddc84')
     drawKeyboard(ctx, sx + 1, oy + 22)
     drawMug(ctx, rx + 1, oy + 3, '#c9cddb', now)
     drawStickyNotes(ctx, rx, oy + 17)

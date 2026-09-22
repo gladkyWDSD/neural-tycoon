@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react'
 import type { GameState } from '../game/types'
 import { SCALE, TILE } from './officeArt'
+import { drawCharacter, hash } from './sprites'
 import { DATA_SOURCE_MAP } from '../game/data'
 import {
   CAMPUS_COLS,
@@ -133,6 +134,30 @@ export function CampusView({ state, onEnter, onEnterLab, onEnterHall }: Props) {
         }
       }
 
+      // A campus without people looks like a model village. A few employees
+      // walk between the road, office, lab and halls on quiet repeating routes.
+      // They are scenery only: the people you manage remain inside their rooms.
+      const walkers = state.staff.slice(0, 6)
+      walkers.forEach((person, i) => {
+        const phase = ((now / (13_000 + (hash(person.id) % 5_000)) + i * 0.31) % 1 + 1) % 1
+        let x: number
+        let y: number
+        if (i % 3 === 0) {
+          // road to the front door
+          x = (office.x + office.cols / 2) * TILE + Math.sin(phase * Math.PI) * 8
+          y = (ROAD_ROW - phase * (ROAD_ROW - office.y - office.rows + 1)) * TILE
+        } else if (i % 3 === 1) {
+          // office to hardware lab
+          x = (office.x + office.cols / 2 + (lab.x + 2 - office.x - office.cols / 2) * phase) * TILE
+          y = (office.y + office.rows + 1) * TILE
+        } else {
+          // a stroll along the datacenter side of the field
+          x = (lab.x + 3 + Math.sin(phase * Math.PI * 2) * 3) * TILE
+          y = (lab.y + lab.rows + 1) * TILE
+        }
+        drawCharacter(ctx, person, Math.round(x), Math.round(y), now, false, true)
+      })
+
       // a label under the sign, so nobody has to guess what it is
       ctx.font = '8px "Press Start 2P", monospace'
       ctx.textAlign = 'center'
@@ -170,7 +195,7 @@ export function CampusView({ state, onEnter, onEnterLab, onEnterHall }: Props) {
     }
     raf = requestAnimationFrame(draw)
     return () => cancelAnimationFrame(raf)
-  }, [layout, state.officeLevel, state.date.week, state.companyName, W])
+  }, [layout, state.officeLevel, state.date.week, state.companyName, state.staff, W])
 
   /** Canvas pixels back to tiles, undoing the letterboxing. */
   const tileAt = (clientX: number, clientY: number): { tx: number; ty: number } | null => {

@@ -6,6 +6,7 @@ import { AMENITY_MAP } from '../game/amenities'
 import { ROLES } from '../game/constants'
 import { SPRITE_H, SPRITE_W, drawCharacter, hash } from './sprites'
 import { drawRoomLight } from './artDepth'
+import { Chatter, drawBubble } from './bubbles'
 import type { WorkKind } from './officeArt'
 import { SCALE, TILE, drawBurst, drawDesk, drawDeskProp, drawToilet, drawWorkIcon, drawWorkToken } from './officeArt'
 import {
@@ -284,6 +285,9 @@ export function OfficeView({ staff, state, desks, jobs, amenities, week, load, o
   const flashes = useRef<Flash[]>([])
   const hits = useRef<HitBox[]>([])
   const nextSpawn = useRef<Record<string, number>>({})
+  // Conversations are deliberately visual rather than another notification.
+  // Seeing people react to the work is what makes the room read as a company.
+  const chatter = useRef(new Chatter(2))
   // Floor, walls and empty desks never change between frames, so they are
   // rasterised once and blitted underneath the animated layers.
   // Four seasons of light. It is the same room, lit differently, and it is the
@@ -423,6 +427,16 @@ export function OfficeView({ staff, state, desks, jobs, amenities, week, load, o
           hits.current.push({ id: s.id, x: wx, y: p.y })
         }
       })
+
+      // Let the office speak for itself.  These lines are aware of the current
+      // company state (training, risk, money, traits, and so on), so a room
+      // feels different when it is under pressure than when everything is calm.
+      const speakers = new Map(hits.current.map((hit) => [hit.id, hit]))
+      for (const bubble of chatter.current.step(now, staff, state, week)) {
+        const speaker = speakers.get(bubble.id)
+        if (!speaker) continue
+        drawBubble(ctx, speaker.x * SCALE, speaker.y * SCALE, bubble.text, now - bubble.from, W * SCALE)
+      }
 
       // Somebody from outside walks through every few minutes: a courier with a
       // box, crossing the room and leaving. Nothing depends on them. They are
@@ -573,7 +587,7 @@ export function OfficeView({ staff, state, desks, jobs, amenities, week, load, o
 
     raf = requestAnimationFrame(loop)
     return () => cancelAnimationFrame(raf)
-  }, [background, staff, deskList, layout, barX, barW, W, jobs, amenities, load])
+  }, [background, staff, state, week, deskList, layout, barX, barW, W, jobs, amenities, load])
 
   /** Where a click landed on the canvas, in art pixels. */
   function artPoint(clientX: number, clientY: number): { x: number; y: number } | null {
