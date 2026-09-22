@@ -383,7 +383,9 @@ export function drawDecor(ctx: CanvasRenderingContext2D, room: RoomInfo) {
   const floorTop = room.startRow
   const floorBottom = room.roomRows - 3
   const leftW = room.startCol - 1
-  const rightStart = room.startCol + room.gridW
+  // Desks have a shallow painted side face beyond their two-tile footprint.
+  // Keep a whole floor tile clear before any right-hand furniture starts.
+  const rightStart = room.startCol + room.gridW + 1
   const rightW = room.roomCols - 1 - rightStart
 
   if (leftW >= 3) {
@@ -462,7 +464,7 @@ export function breakSpots(room: RoomInfo, owned: string[]): { x: number; y: num
 
 /** Where the rack ended up, so its lights can be animated over the top. */
 export function rackTile(room: RoomInfo): { tx: number; ty: number } | null {
-  const rightStart = room.startCol + room.gridW
+  const rightStart = room.startCol + room.gridW + 1
   if (room.roomCols - 1 - rightStart < 1) return null
   return { tx: rightStart, ty: room.startRow }
 }
