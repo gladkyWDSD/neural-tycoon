@@ -4,11 +4,10 @@ import {
   NATIONALITIES,
   ROLES,
   MAX_SCORE,
-  MAX_STAFF_LEVEL,
   MIN_HIRE_SCORE,
   MIN_SCORE,
 } from '../game/constants'
-import { canTrain, generateCandidate, staffPower, trainingCostFor, trainingWeeksFor } from '../game/hiring'
+import { generateCandidate } from '../game/hiring'
 import { globalWeek, maxStaff } from '../game/state'
 import { traitsOf } from '../game/people'
 import './Game.css'
@@ -18,11 +17,10 @@ type Sort = 'score' | 'salary-asc' | 'salary-desc'
 interface Props {
   state: GameState
   onHire: (staff: Staff) => void
-  onStartTraining: (staffId: string) => void
   onClose: () => void
 }
 
-export function HirePanel({ state, onHire, onStartTraining, onClose }: Props) {
+export function HirePanel({ state, onHire, onClose }: Props) {
   const [role, setRole] = useState<Role>('researcher')
   const [nationality, setNationality] = useState<Nationality | 'all'>('all')
   const [minScore, setMinScore] = useState(180)
@@ -153,8 +151,6 @@ export function HirePanel({ state, onHire, onStartTraining, onClose }: Props) {
       </div>
 
       <div className="candidate-list">
-        {/* Both halves of this panel are rows of people who look alike, and on a
-            phone they run together in one scroll, so each half says which it is. */}
         <h4 className="model-list-title">Shortlist — Hire</h4>
         {candidates.length === 0 && (
           <p className="placeholder">You have hired everyone on this shortlist.</p>
@@ -192,48 +188,6 @@ export function HirePanel({ state, onHire, onStartTraining, onClose }: Props) {
         ))}
       </div>
 
-      {state.staff.length > 0 && (
-        <div className="model-list">
-          <h4 className="model-list-title">Your Staff — Train Up Levels</h4>
-          {state.staff.map((s) => {
-            const training = state.staffTraining.find((t) => t.staffId === s.id)
-            const maxed = !canTrain(s)
-            const trainCost = trainingCostFor(s.level)
-            const trainWeeks = trainingWeeksFor(s.level)
-            return (
-              <div className="candidate" key={s.id}>
-                <div className="candidate-name">
-                  {NATIONALITIES[s.nationality].flag} {s.name}
-                </div>
-                <div className="candidate-spec">
-                  {ROLES.find((r) => r.id === s.role)?.label} · {staffPower(s).toLocaleString()} pts
-                  <span className="candidate-traits">
-                    {traitsOf(s).map((t) => (
-                      <span className="candidate-trait" key={t.id} title={t.blurb}>
-                        {t.name}
-                      </span>
-                    ))}
-                  </span>
-                </div>
-                <div className={`candidate-score ${s.examScore >= 190 ? 'elite' : ''}`}>Lv {s.level}</div>
-                {training ? (
-                  <span className="candidate-salary">Lv {training.toLevel} in {Math.ceil(training.weeksRemaining)}wk</span>
-                ) : (
-                  <button
-                    className="hire-btn"
-                    disabled={maxed || state.money < trainCost}
-                    onClick={() => onStartTraining(s.id)}
-                  >
-                    {maxed
-                      ? `Max Lv ${MAX_STAFF_LEVEL}`
-                      : `Lv ${s.level + 1} · ${trainWeeks}wk · $${(trainCost / 1000).toFixed(0)}k`}
-                  </button>
-                )}
-              </div>
-            )
-          })}
-        </div>
-      )}
     </div>
   )
 }

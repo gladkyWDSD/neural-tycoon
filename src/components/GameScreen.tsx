@@ -243,7 +243,7 @@ export function GameScreen({
         </div>
 
         {panel === 'hire' && (
-          <HirePanel state={state} onHire={onHire} onStartTraining={onStartTraining} onClose={() => setPanel(null)} />
+          <HirePanel state={state} onHire={onHire} onClose={() => setPanel(null)} />
         )}
         {panel === 'research' && (
           <ResearchPanel state={state} onStartResearch={onStartResearch} onClose={() => setPanel(null)} />
