@@ -1,4 +1,4 @@
-import { drawDepth } from './artDepth'
+import { drawContactShadow, drawDepth, drawSurfaceLight } from './artDepth'
 import type { Staff } from '../game/types'
 
 // Furniture and desk hardware for the office view.
@@ -36,6 +36,8 @@ function shade(hex: string, amount: number): string {
 
 function drawChair(ctx: CanvasRenderingContext2D, ox: number, oy: number) {
   const y = oy + FT // the chair sits on the tile below the desk, behind its occupant
+  drawContactShadow(ctx, ox + 14, y + 30, 36, 5)
+  drawDepth(ctx, ox + 14, y + 2, 36, 21, 4, '#66748a', '#151e2c', '#8d9caf')
   px(ctx, ox + 14, y + 2, 36, 21, '#171a23') // backrest shell
   px(ctx, ox + 16, y + 4, 32, 17, '#333a4d') // mesh pad
   px(ctx, ox + 16, y + 4, 32, 2, '#4a5268') // top highlight
@@ -49,6 +51,7 @@ function drawChair(ctx: CanvasRenderingContext2D, ox: number, oy: number) {
   px(ctx, ox + 18, y + 29, 28, 2, '#14161d') // star base
   px(ctx, ox + 16, y + 30, 3, 2, '#0e1015') // casters
   px(ctx, ox + 45, y + 30, 3, 2, '#0e1015')
+  drawSurfaceLight(ctx, ox + 16, y + 4, 32, 17)
 }
 
 export function drawDesk(ctx: CanvasRenderingContext2D, dx: number, dy: number) {
@@ -57,8 +60,7 @@ export function drawDesk(ctx: CanvasRenderingContext2D, dx: number, dy: number) 
 
   drawChair(ctx, ox, oy)
 
-  px(ctx, ox + 3, oy + 5, 64, 30, 'rgba(6,10,18,0.3)')
-  drawDepth(ctx, ox, oy + 2, 64, 30, 4, '#bf9869', '#4e3526', '#dfb780')
+  drawDepth(ctx, ox, oy, 64, 32, 8, '#bf9869', '#4e3526', '#dfb780')
   px(ctx, ox, oy, 64, 32, '#3a2a1c') // carcass
   px(ctx, ox, oy + 2, 64, 24, '#8a6038') // table top
   px(ctx, ox, oy + 2, 64, 2, '#a87a4a') // back edge catches the ceiling light
@@ -77,12 +79,15 @@ export function drawDesk(ctx: CanvasRenderingContext2D, dx: number, dy: number) 
   px(ctx, ox + 3, oy + 28, 58, 1, '#99704b')
   px(ctx, ox + 4, oy + 30, 4, 3, '#202631')
   px(ctx, ox + 56, oy + 30, 4, 3, '#202631')
+  drawSurfaceLight(ctx, ox, oy + 2, 64, 28)
 }
 
 /** Corner washroom, placed by tile so it can follow the wall as the room grows. */
 export function drawToilet(ctx: CanvasRenderingContext2D, dx: number, dy: number) {
   const x = dx * FT + 8
   const y = dy * FT + 16
+  drawContactShadow(ctx, x, y + 23, 16, 4)
+  drawDepth(ctx, x + 3, y, 10, 9, 3, '#f3f7ff', '#6e8197', '#ffffff')
   px(ctx, x + 3, y, 10, 9, '#aab1c4') // cistern
   px(ctx, x + 4, y + 1, 8, 6, '#e8ecf6')
   px(ctx, x + 9, y + 2, 2, 2, '#9aa0b4') // flush button
@@ -124,6 +129,7 @@ function drawMonitor(
   px(ctx, x + 2, y + 2, 28, 12, '#05070c') // panel well
   screen(x + 3, y + 3, 26, 10)
   // A narrow glass reflection preserves the legibility of the live screen.
+  drawSurfaceLight(ctx, x + 2, y + 2, 28, 12, 'glass')
   px(ctx, x + 3, y + 3, 1, 9, 'rgba(197,227,255,0.18)')
   px(ctx, x + 4, y + 3, 10, 1, 'rgba(197,227,255,0.12)')
   px(ctx, x + 2, y + 2, 28, 1, '#000000') // inner bezel shadow
@@ -304,6 +310,7 @@ function drawPapers(ctx: CanvasRenderingContext2D, x: number, y: number, text = 
 
 /** Mid-tower with a mesh front, drive bay, ports and a glowing RGB fan. */
 function drawTower(ctx: CanvasRenderingContext2D, x: number, y: number, now: number) {
+  drawDepth(ctx, x, y, 12, 24, 4, '#4d6178', '#111b28', '#8396a8')
   px(ctx, x, y, 12, 24, '#0d0f15') // case
   px(ctx, x, y, 12, 1, '#2a2f3d') // top panel
   px(ctx, x, y, 1, 24, '#1c212c') // lit edge
@@ -337,15 +344,18 @@ function drawTower(ctx: CanvasRenderingContext2D, x: number, y: number, now: num
   ]
   for (const [bx, by] of blades[Math.floor(now / 90) % 4]) px(ctx, fx + bx, fy + by, 1, 1, glow)
   px(ctx, fx + 3, fy + 3, 1, 1, '#39405a') // hub
+  drawSurfaceLight(ctx, x, y, 12, 24, 'metal')
 }
 
 /** Open laptop: lid with a webcam, hinge, palm rest with keys and a trackpad. */
 function drawLaptop(ctx: CanvasRenderingContext2D, x: number, y: number, screen: ScreenFn) {
+  drawDepth(ctx, x, y, SCREEN_W, 16, 2, '#8b9bb0', '#2b3648', '#bdcbd7')
   px(ctx, x, y, SCREEN_W, 16, '#565e75') // lid
   px(ctx, x, y, SCREEN_W, 1, '#7c8499')
   px(ctx, x + 2, y + 2, 28, 12, '#05070c') // panel
   screen(x + 3, y + 3, 26, 10)
   px(ctx, x + 15, y + 1, 1, 1, '#0a0c11') // webcam
+  drawSurfaceLight(ctx, x + 2, y + 2, 28, 12, 'glass')
   px(ctx, x + 13, y + 14, 6, 1, '#3f465a') // brand strip
   px(ctx, x - 2, y + 16, SCREEN_W + 4, 2, '#3f465a') // hinge
   px(ctx, x - 2, y + 18, SCREEN_W + 4, 5, '#565e75') // palm rest

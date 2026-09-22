@@ -1,4 +1,4 @@
-import { drawDepth } from './artDepth'
+import { drawDepth, drawRoomLight, drawSurfaceLight } from './artDepth'
 import { px } from './officeArt'
 
 // Inside a datacenter: rows of racks, and in the racks the cards themselves.
@@ -35,6 +35,7 @@ export function drawHallFloor(ctx: CanvasRenderingContext2D): void {
   px(ctx, 0, 0, HALL_COLS * FT, FT, WALL)
   px(ctx, 0, 0, HALL_COLS * FT, 3, '#252b38')
   px(ctx, 0, (HALL_ROWS - 1) * FT, HALL_COLS * FT, FT, WALL)
+  drawRoomLight(ctx, HALL_COLS * FT, HALL_ROWS * FT, FT)
 }
 
 /** Cable trays overhead, running the length of the hall. */
@@ -72,7 +73,7 @@ export function drawRack(
   const h = FT * 5
   const SLOTS = 8
 
-  drawDepth(ctx, x, y, w, h, 12, '#566579', '#141e2b', '#8a9db0')
+  drawDepth(ctx, x, y, w, h, 18, '#566579', '#243549', '#8a9db0')
 
   px(ctx, x + 4, y + h, w, 8, 'rgba(0,0,0,0.45)') // shadow on the floor
   px(ctx, x, y, w, h, '#12141c') // cabinet
@@ -125,6 +126,7 @@ export function drawRack(
 
   // the spine the cables run into
   px(ctx, x + w - 3, y + 6, 3, h - 12, '#2b3141')
+  drawSurfaceLight(ctx, x, y, w, h, 'metal')
 }
 
 /** The end of a row: the cooling wall, breathing cold into the aisle. */
@@ -159,6 +161,7 @@ export function drawCooler(ctx: CanvasRenderingContext2D, tx: number, ty: number
     px(ctx, cx + Math.min(0, bx) - 1, cy + Math.min(0, by) - 1, Math.abs(bx) + 3, Math.abs(by) + 3, '#5d6376')
   }
   px(ctx, cx - 4, cy - 4, 8, 8, '#8e94a8')
+  drawSurfaceLight(ctx, x, y, w, h, 'metal')
 
   // the cold it pushes into the aisle
   for (let i = 0; i < 3; i++) {

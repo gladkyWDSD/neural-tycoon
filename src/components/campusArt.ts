@@ -1,4 +1,4 @@
-import { drawDepth } from './artDepth'
+import { drawContactShadow, drawDepth, drawSurfaceLight } from './artDepth'
 import { px } from './officeArt'
 
 // Outside. Everything you have bought, standing in a field: the office you work
@@ -117,7 +117,7 @@ export function drawOffice(
   const w = cols * FT
   const h = rows * FT
 
-  drawDepth(ctx, x, y, w, h, 24, '#63768a', '#252f42', '#a0afbb')
+  drawDepth(ctx, x, y, w, h, 32, '#63768a', '#35475e', '#a0afbb')
 
   px(ctx, x + 10, y + 12, w, h - 6, 'rgba(8,17,24,0.22)')
   px(ctx, x + 6, y + h - 10, w, 16, 'rgba(0,0,0,0.35)') // shadow on the grass
@@ -165,6 +165,7 @@ export function drawOffice(
   for (let vent = 0; vent < 6; vent++) px(ctx, x + w - 80 + vent * 6, y - 8, 3, 5, '#283748')
 
   // aerials on the roof
+  drawSurfaceLight(ctx, x, y, w, h)
   px(ctx, x + 20, y - 14, 2, 14, '#8e94a8')
   px(ctx, x + 16, y - 16, 10, 2, '#8e94a8')
   const blink = Math.sin(now / 500) > 0
@@ -219,6 +220,7 @@ export function drawDatacenter(
     px(ctx, x + w - 40, y + h - 20, 14, 8, '#8a6038')
     px(ctx, x + w - 40, y + h - 20, 14, 2, '#a8763f')
   }
+  drawSurfaceLight(ctx, x, y, w, h, 'metal')
 }
 
 /** A fab: taller, with a cleanroom block and a stack breathing steam. */
@@ -255,6 +257,7 @@ export function drawFab(ctx: CanvasRenderingContext2D, tx: number, ty: number, n
   }
 
   // the stack, with steam rising off it
+  drawSurfaceLight(ctx, x, y, w, h, 'metal')
   px(ctx, x + w - 30, y - 26, 14, 30, '#4a4658')
   px(ctx, x + w - 30, y - 26, 14, 3, '#6b6680')
   for (let i = 0; i < 4; i++) {
@@ -328,25 +331,35 @@ export function drawLab(ctx: CanvasRenderingContext2D, tx: number, ty: number, n
   px(ctx, x + 14, y + 10, 42, 4, '#3ddc84')
 
   // a skylight, and the vents beside it
+  drawSurfaceLight(ctx, x, y, w, h, 'metal')
+  drawSurfaceLight(ctx, x + 10, y + 22, w - 20, 44, 'glass')
   px(ctx, x + w - 60, y - 10, 40, 12, '#bfe6ff')
   px(ctx, x + w - 60, y - 10, 40, 3, '#eef1f8')
   px(ctx, x + 20, y - 8, 14, 10, '#8e94a8')
 }
 
 export function drawTree(ctx: CanvasRenderingContext2D, x: number, y: number, seed: number): void {
-  px(ctx, x + 14, y + 58, 20, 5, 'rgba(0,0,0,0.3)')
+  drawContactShadow(ctx, x + 8, y + 59, 34, 8)
   px(ctx, x + 19, y + 32, 9, 28, '#4a3626')
   px(ctx, x + 19, y + 32, 3, 28, '#5c4630')
   const spread = seed % 2 === 0 ? 0 : 4
-  px(ctx, x + 4 - spread, y + 10, 38 + spread * 2, 26, '#2f6f3f')
-  px(ctx, x + 10, y, 26, 16, '#3a8a4d')
-  px(ctx, x + 14, y + 3, 12, 8, '#4bad60')
-  px(ctx, x + 6, y + 32, 34, 5, '#245732')
+  // Overlapping painted lobes give the canopy volume inside its 2D silhouette.
+  for (const [cx, cy, rx, ry] of [[15, 25, 14 + spread, 14], [32, 23, 14, 15], [23, 12, 15, 15]]) {
+    const leaf = ctx.createRadialGradient(x + cx - 5, y + cy - 6, 1, x + cx, y + cy, rx)
+    leaf.addColorStop(0, '#6f9e60')
+    leaf.addColorStop(0.45, '#427b4e')
+    leaf.addColorStop(1, '#204a37')
+    ctx.fillStyle = leaf
+    ctx.beginPath()
+    ctx.ellipse(x + cx, y + cy, rx, ry, 0, 0, Math.PI * 2)
+    ctx.fill()
+  }
 }
 
 /** Cars come and go along the road at the bottom. */
 export function drawCar(ctx: CanvasRenderingContext2D, x: number, y: number, colour: string, flip: boolean): void {
-  px(ctx, x, y + 14, 44, 4, 'rgba(0,0,0,0.35)')
+  drawContactShadow(ctx, x, y + 15, 44, 4)
+  drawDepth(ctx, x + 2, y, 40, 14, 4, colour, '#243447', '#c2d6e2')
   px(ctx, x + 2, y, 40, 14, colour)
   px(ctx, x + 2, y, 40, 3, '#ffffff22')
   px(ctx, x + (flip ? 8 : 14), y + 2, 18, 8, '#16304a')
@@ -355,6 +368,7 @@ export function drawCar(ctx: CanvasRenderingContext2D, x: number, y: number, col
   px(ctx, x + (flip ? 0 : 42), y + 5, 2, 4, '#ffd166') // headlights lead the way
   px(ctx, x + 7, y + 13, 8, 4, '#14161d')
   px(ctx, x + 29, y + 13, 8, 4, '#14161d')
+  drawSurfaceLight(ctx, x + 2, y, 40, 13, 'metal')
 }
 
 /** The way back inside: a sign by the office door. */

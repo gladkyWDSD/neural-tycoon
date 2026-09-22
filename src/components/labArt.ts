@@ -1,4 +1,4 @@
-import { drawDepth } from './artDepth'
+import { drawDepth, drawRoomLight, drawSurfaceLight } from './artDepth'
 import { px } from './officeArt'
 
 // The research lab. Nobody but researchers works in here, and it is meant to
@@ -49,6 +49,7 @@ export function drawLabRoom(ctx: CanvasRenderingContext2D, now: number): void {
   px(ctx, (LAB_COLS - 1) * FT, 0, FT, LAB_ROWS * FT, '#1b2029')
 
   // strip lights in the ceiling, throwing a pool of light on the floor
+  drawRoomLight(ctx, LAB_COLS * FT, LAB_ROWS * FT, FT)
   for (let i = 0; i < 5; i++) {
     const x = 3 * FT + i * 5 * FT
     px(ctx, x, FT - 6, FT * 3, 5, '#dfe6f5')
@@ -92,6 +93,8 @@ export function drawTestRig(ctx: CanvasRenderingContext2D, tx: number, ty: numbe
   px(ctx, x + 24, y + 6, 3, h - 38, 'rgba(211,244,255,0.42)')
   px(ctx, x + 29, y + 6, 5, h - 38, 'rgba(152,220,255,0.13)')
   px(ctx, x + w - 36, y + 4, 14, h - 32, 'rgba(3,14,30,0.38)')
+  drawSurfaceLight(ctx, x + 20, y, w - 40, h - 24, 'glass')
+  drawSurfaceLight(ctx, x, y + h - 26, w, 26, 'metal')
 
   // instruments around the base
   for (let i = 0; i < 4; i++) {
@@ -116,6 +119,7 @@ export function drawWhiteboardWall(ctx: CanvasRenderingContext2D, tx: number, ty
   const y = ty * FT
   const w = FT * 5
   const h = FT * 2 + 16
+  drawDepth(ctx, x, y, w, h, 5, '#c6d3df', '#566479', '#eef6ff')
   px(ctx, x, y, w, h, '#8e94a8')
   px(ctx, x + 3, y + 3, w - 6, h - 6, '#eef1f8')
   // lines of working, a few of which get rewritten
@@ -141,6 +145,7 @@ export function drawWhiteboardWall(ctx: CanvasRenderingContext2D, tx: number, ty
 export function drawScreenWall(ctx: CanvasRenderingContext2D, tx: number, ty: number, now: number): void {
   const x = tx * FT
   const y = ty * FT
+  drawDepth(ctx, x, y, FT * 4, FT * 2, 5, '#64778e', '#152031', '#9aafc3')
   px(ctx, x, y, FT * 4, FT * 2, '#12141c')
   for (let i = 0; i < 4; i++) {
     const sx = x + 4 + (i % 2) * 62
@@ -181,9 +186,11 @@ export function drawScreenWall(ctx: CanvasRenderingContext2D, tx: number, ty: nu
 export function drawLabBench(ctx: CanvasRenderingContext2D, tx: number, ty: number, now: number, seed: number): void {
   const x = tx * FT
   const y = ty * FT
+  drawDepth(ctx, x, y + 8, FT * 2, 26, 6, '#e3eaf2', '#69788f', '#ffffff')
   px(ctx, x, y + 8, FT * 2, 22, '#c9cddb') // the white worktop
   px(ctx, x, y + 8, FT * 2, 3, '#eef1f8')
   px(ctx, x, y + 30, FT * 2, 4, '#8e94a8')
+  drawSurfaceLight(ctx, x, y + 8, FT * 2, 26, 'metal')
   drawDepth(ctx, x + 14, y - 12, 34, 22, 4, '#657589', '#101b28', '#b0c2ce')
   // a terminal on it
   px(ctx, x + 14, y - 12, 34, 22, '#20242f')
@@ -212,6 +219,7 @@ export function drawLabFridge(ctx: CanvasRenderingContext2D, tx: number, ty: num
   px(ctx, x + 4, y + FT + 4, FT - 8, FT - 12, '#8e94a8')
   px(ctx, x + FT - 9, y + 20, 4, 10, '#454b5e') // handle
   px(ctx, x + 6, y + 3, 6, 2, Math.sin(now / 700) > 0 ? '#3ddc84' : '#14361f')
+  drawSurfaceLight(ctx, x, y, FT, FT * 2, 'metal')
 }
 
 /**
@@ -228,11 +236,14 @@ export function drawHardwareBench(
   const x = tx * FT
   const y = ty * FT
   // steel worktop, not the white one the researchers get
+  drawDepth(ctx, x, y + 8, FT * 2, 26, 6, '#c3cddb', '#4d5a70', '#eef3ff')
   px(ctx, x, y + 8, FT * 2, 22, '#8e94a8')
   px(ctx, x, y + 8, FT * 2, 3, '#c9cddb')
   px(ctx, x, y + 30, FT * 2, 4, '#5d6376')
+  drawSurfaceLight(ctx, x, y + 8, FT * 2, 26, 'metal')
 
   // the scope, standing on the bench
+  drawDepth(ctx, x + 2, y - 14, 30, 24, 4, '#60758a', '#142131', '#9eb3c6')
   px(ctx, x + 2, y - 14, 30, 24, '#20242f')
   px(ctx, x + 4, y - 12, 26, 18, '#0b1a12')
   for (let i = 0; i < 24; i++) {

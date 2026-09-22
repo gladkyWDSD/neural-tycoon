@@ -1,4 +1,5 @@
 import type { Staff } from '../game/types'
+import { drawContactShadow } from './artDepth'
 
 const SKIN_TONES = ['#e8b98a', '#d69a6b', '#c98a5a', '#a96f4a', '#8d5a3a']
 const HAIR_COLORS = ['#2a2019', '#4a3626', '#14100c', '#6b4a2f', '#8a6038']
@@ -340,8 +341,12 @@ function paintLit(
     light: shade(colour, 1.18),
     dark: shade(colour, 0.76),
     mid: shade(colour, 0.86),
-    center: shade(colour, 1.08),
     shadow: shade(colour, 0.66),
+    // A continuous round cross-section, sampled into the existing 2D sprite.
+    round: Array.from({ length: SPRITE_W * 2 }, (_, x) => {
+      const distance = (x - 9) / 14
+      return shade(colour, 0.68 + 0.48 * Math.sqrt(Math.max(0, 1 - distance * distance)))
+    }),
   }]))
   const at = (x: number, y: number) => (x < 0 || y < 0 || x >= SPRITE_W || y >= SPRITE_H ? '.' : g[y][x])
   const px = (x: number, y: number, w: number, h: number, c: string) => {
@@ -401,21 +406,19 @@ function paintLit(
           const tone = tones[ch]
           if (tone) {
             // Broad light and shade describe rounded heads, sleeves and torsos.
-            if (x >= 4 && x <= 5) colour = tone.center
-            if (x >= 7) colour = tone.mid
-            if (x >= 9) colour = tone.dark
+            colour = tone.round[X + qx]
             if (ch === 'S' && at(x, y - 1) === 'H') colour = tone.mid
             if (ch === 'P' && (x === 5 || x === 6)) colour = tone.shadow
             if ((qy === 0 && endEmpty) || (qx === 0 && sideEmpty)) colour = tone.light
             if ((qy === 1 && endEmpty) || (qx === 1 && sideEmpty)) colour = tone.dark
             // Subtle strands and seams at art-pixel resolution.
-            if (ch === 'H' && qx === 0 && (x + y) % 3 === 0) colour = tone.light
+            if (ch === 'H' && qy === 0 && at(x, y - 1) === '.') colour = tone.light
             if (ch === 'C' && qy === 1 && at(x, y + 1) === 'D') colour = tone.dark
           }
           px(X + qx, Y + qy, 1, 1, colour)
           // the outline hugs whatever was actually painted
-          if (endEmpty) px(X + qx, Y + qy + (qy === 0 ? -1 : 1), 1, 1, OUTLINE)
-          if (sideEmpty) px(X + qx + (qx === 0 ? -1 : 1), Y + qy, 1, 1, OUTLINE)
+          if (endEmpty) px(X + qx, Y + qy + (qy === 0 ? -1 : 1), 1, 1, qy === 0 ? '#455064' : OUTLINE)
+          if (sideEmpty) px(X + qx + (qx === 0 ? -1 : 1), Y + qy, 1, 1, qx === 0 ? '#455064' : OUTLINE)
         }
       }
     }
@@ -475,12 +478,7 @@ export function drawCharacter(
   // pixels like the sprite, so it can taper at the ends instead of being a bar.
   const ax = x * 2
   const ay = y * 2
-  ctx.fillStyle = 'rgba(0,0,0,0.28)'
-  ctx.fillRect(ax + 4, ay + 31, 16, 2)
-  ctx.fillRect(ax + 6, ay + 30, 12, 1)
-  ctx.fillStyle = 'rgba(0,0,0,0.16)'
-  ctx.fillRect(ax + 2, ay + 31, 2, 2)
-  ctx.fillRect(ax + 20, ay + 31, 2, 2)
+  drawContactShadow(ctx, ax + 3, ay + 31, 19, 3.5)
 
   const key = `${staff.id}|${staff.role}|${bob}|${blink ? 1 : 0}|${typing ?? 'n'}|${walk ?? 'n'}|${idle.action}|${Math.floor(idle.t * 8)}`
   const sprite = cachedSprite(key, g, look.palette)

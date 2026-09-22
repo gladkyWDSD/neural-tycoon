@@ -1,4 +1,5 @@
 import { px } from './officeArt'
+import { drawContactShadow, drawDepth, drawSurfaceLight } from './artDepth'
 import { hash } from './sprites'
 
 // Furniture for the parts of the office nobody works in: the margins either
@@ -37,6 +38,7 @@ function drawRug(ctx: CanvasRenderingContext2D, tx: number, ty: number, tw: numb
 function drawSofa(ctx: CanvasRenderingContext2D, tx: number, ty: number) {
   const x = tx * FT
   const y = ty * FT
+  drawDepth(ctx, x + 1, y + 1, 62, 32, 6, '#8398be', '#283751', '#a7b9d6')
   px(ctx, x + 1, y + 1, 62, 32, '#1b2233') // outline, so it reads against the floor
   px(ctx, x + 3, y + 3, 58, 16, '#4a5c86') // backrest
   px(ctx, x + 3, y + 3, 58, 3, '#7286b5') // top light
@@ -52,16 +54,20 @@ function drawSofa(ctx: CanvasRenderingContext2D, tx: number, ty: number) {
   px(ctx, x + 11, y + 29, 42, 2, '#2c3855') // shadow under the seat
   px(ctx, x + 7, y + 31, 4, 3, '#1d1409') // legs
   px(ctx, x + 53, y + 31, 4, 3, '#1d1409')
+  drawSurfaceLight(ctx, x + 3, y + 3, 58, 27)
 }
 
 function drawCoffeeTable(ctx: CanvasRenderingContext2D, tx: number, ty: number) {
   const x = tx * FT
   const y = ty * FT
+  drawContactShadow(ctx, x + 4, y + 26, 40, 5)
+  drawDepth(ctx, x + 4, y + 8, 40, 13, 5, '#c09a67', '#503823', '#dfbe89')
   px(ctx, x + 4, y + 8, 40, 10, '#8a6038') // top
   px(ctx, x + 4, y + 8, 40, 2, '#a8763f')
   px(ctx, x + 4, y + 18, 40, 3, '#5c3f22') // edge
   px(ctx, x + 7, y + 21, 3, 6, '#4a3218') // legs
   px(ctx, x + 38, y + 21, 3, 6, '#4a3218')
+  drawSurfaceLight(ctx, x + 4, y + 8, 40, 13)
   px(ctx, x + 10, y + 4, 9, 5, '#e8ecf6') // a magazine
   px(ctx, x + 11, y + 5, 7, 1, '#9aa0b4')
   px(ctx, x + 11, y + 7, 5, 1, '#9aa0b4')
@@ -73,6 +79,7 @@ function drawCoffeeTable(ctx: CanvasRenderingContext2D, tx: number, ty: number) 
 function drawFloorPlant(ctx: CanvasRenderingContext2D, tx: number, ty: number) {
   const x = tx * FT + 6
   const y = ty * FT
+  drawContactShadow(ctx, x + 2, y + 34, 16, 4)
   // leaves first, so the pot sits in front of them
   px(ctx, x + 8, y + 2, 4, 14, '#2f7d4f') // central stem
   const frond = (fx: number, fy: number, dir: number, len: number, c: string) => {
@@ -90,11 +97,13 @@ function drawFloorPlant(ctx: CanvasRenderingContext2D, tx: number, ty: number) {
   px(ctx, x + 2, y + 23, 16, 10, '#8a4a2f') // pot
   px(ctx, x + 3, y + 23, 3, 10, '#a35c3a') // pot highlight
   px(ctx, x + 4, y + 33, 12, 2, '#1a1c25') // shadow
+  drawSurfaceLight(ctx, x + 2, y + 23, 16, 10)
 }
 
 function drawServerRack(ctx: CanvasRenderingContext2D, tx: number, ty: number) {
   const x = tx * FT + 4
   const y = ty * FT + 2
+  drawDepth(ctx, x, y, 24, 56, 6, '#566a80', '#152131', '#899caf')
   px(ctx, x, y, 24, 56, '#12141c') // cabinet
   px(ctx, x + 1, y + 1, 22, 54, '#1d212c')
   px(ctx, x + 1, y + 1, 22, 2, '#2b3141') // top light
@@ -105,6 +114,7 @@ function drawServerRack(ctx: CanvasRenderingContext2D, tx: number, ty: number) {
     for (let v = 0; v < 5; v++) px(ctx, x + 5 + v * 2, sy + 3, 1, 2, '#171b24') // vents
   }
   px(ctx, x + 2, y + 54, 20, 2, '#0c0e14') // plinth
+  drawSurfaceLight(ctx, x, y, 24, 56, 'metal')
 }
 
 /** The blinking half of the rack, drawn live over the cached cabinet. */

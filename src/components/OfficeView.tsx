@@ -5,6 +5,7 @@ import { playWorkSfx } from '../game/audio'
 import { AMENITY_MAP } from '../game/amenities'
 import { ROLES } from '../game/constants'
 import { SPRITE_H, SPRITE_W, drawCharacter, hash } from './sprites'
+import { drawRoomLight } from './artDepth'
 import { Chatter, drawBubble } from './bubbles'
 import type { WorkKind } from './officeArt'
 import { SCALE, TILE, drawBurst, drawDesk, drawDeskProp, drawToilet, drawWorkIcon, drawWorkToken } from './officeArt'
@@ -322,6 +323,7 @@ export function OfficeView({ staff, state, desks, jobs, amenities, week, load, o
     bgx.fillRect(0, h - TILE, w, 2)
     bgx.fillRect(TILE - 2, TILE, 2, h - TILE * 2)
     bgx.fillRect(w - TILE, TILE, 2, h - TILE * 2)
+    drawRoomLight(bgx, w, h, TILE)
     bgx.setTransform(1, 0, 0, 1, 0, 0)
     drawToilet(bgx, layout.roomCols - 3, 1)
     drawDecor(bgx, layout)
