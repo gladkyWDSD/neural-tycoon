@@ -729,6 +729,11 @@ export function cardsTraining(state: GameState): number {
   return state.models.reduce((sum, m) => sum + (m.status === 'training' ? m.gpus : 0), 0)
 }
 
+/** Keep roughly half the fleet serving customers while models are trained. */
+export function trainingCardLimit(state: GameState): number {
+  return Math.max(1, Math.floor(activeCards(state) / 2))
+}
+
 export function cardsFree(state: GameState): number {
   return Math.max(0, activeCards(state) - cardsTraining(state))
 }
@@ -2610,6 +2615,7 @@ export function reducer(state: GameState, action: Action): GameState {
       // quality, but there is no stored-data quota to begin or publish a model.
       const needCards = action.model.gpus
       if (needCards > cardsFree(state)) return state
+      if (cardsTraining(state) + needCards > trainingCardLimit(state)) return state
       const dataCost = action.model.dataTier ? (DATA_TIER_MAP[action.model.dataTier]?.cost ?? 0) : 0
       let teacherCost = 0
       if (action.model.distilledFrom) {

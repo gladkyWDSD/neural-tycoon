@@ -20,7 +20,7 @@ import {
   distillTrainWeeks,
   isDistillUnlocked,
 } from '../game/distill'
-import { assigned, cardsFree, chipPower, effectiveCards, globalWeek } from '../game/state'
+import { assigned, cardsFree, cardsTraining, chipPower, effectiveCards, globalWeek, trainingCardLimit } from '../game/state'
 import { dataQualityOf } from '../game/data'
 import { stateOfTheArt } from '../game/competitors'
 import './Game.css'
@@ -233,7 +233,9 @@ function ModelRow({
 export function BuildPanel({ state, onStartModel, onPublish, onStartPromo, onBuyBook, onEditModel, onClose }: Props) {
   const unlockedTypes = MODEL_TYPES.filter((t) => isTypeUnlocked(t.id, state.researched))
   // only cards that are not already tied up in a run can be committed to a new one
-  const maxGpus = cardsFree(state)
+  // Training gets at most half the active fleet, so the other half can keep
+  // serving customers while a model is running.
+  const maxGpus = Math.max(0, Math.min(cardsFree(state), trainingCardLimit(state) - cardsTraining(state)))
   const [typeId, setTypeId] = useState(unlockedTypes[0]?.id ?? '')
   const [name, setName] = useState('')
   const [gpus, setGpus] = useState(() => Math.max(1, maxGpus))
@@ -361,7 +363,7 @@ export function BuildPanel({ state, onStartModel, onPublish, onStartPromo, onBuy
         </div>
 
         <div className="filter-group">
-          <label>GPUs to allocate ({maxGpus} available)</label>
+          <label>GPUs to allocate ({maxGpus} available for training)</label>
           {maxGpus === 0 ? (
             <p className="placeholder">No GPUs. Buy cards and build a datacenter first.</p>
           ) : (
@@ -382,6 +384,7 @@ export function BuildPanel({ state, onStartModel, onPublish, onStartPromo, onBuy
               </span>
             </div>
           )}
+          <p className="hint">Half of your active GPUs are reserved for serving customers.</p>
         </div>
 
         <div className="filter-group">
