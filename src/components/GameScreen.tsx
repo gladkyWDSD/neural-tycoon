@@ -8,7 +8,6 @@ import { DatacenterView } from './DatacenterView'
 import type { Job } from './OfficeView'
 import { StaffMenu } from './StaffMenu'
 import { RunReport } from './RunReport'
-import { Standings } from './Standings'
 import type { LobbyPlayer } from '../game/multiplayer'
 import type { AttackKind, StaffCard, TradeKind } from '../game/types'
 import { BidModal } from './BidModal'
@@ -239,7 +238,6 @@ export function GameScreen({
             onLeave={() => setPlace('campus')}
           />
           )}
-          {race && <Standings players={race.players} selfId={race.selfId} isHost={race.isHost} />}
         </div>
 
         {panel === 'hire' && (
