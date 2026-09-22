@@ -186,15 +186,21 @@ function codeScreen(ctx: CanvasRenderingContext2D, now: number): ScreenFn {
 function researchMathScreen(ctx: CanvasRenderingContext2D, now: number): ScreenFn {
   return (sx, sy, sw, sh) => {
     px(ctx, sx, sy, sw, sh, '#080d14')
-    windowChrome(ctx, sx, sy, sw, '#162334')
-    // These are equations to work through, rather than graphs or analytics.
-    const problems = ['x² + 4 = 20', '2x + 7 = 19', '∫ x dx = ?']
+    // The whole screen is a dense research worksheet — no dashboard chrome,
+    // charts, or analytics competing with the problems.
+    const problems = [
+      '∂L/∂θ=Σ(ŷ-y)x',
+      '∫₀∞e^-x²dx=√π/2',
+      'H=-Σpᵢlog₂pᵢ',
+      '∇²ψ+λψ=0',
+      'P(A|B)=P(B|A)P(A)/P(B)',
+    ]
     ctx.save()
-    ctx.font = '3px monospace'
+    ctx.font = '2px monospace'
     ctx.textBaseline = 'top'
     problems.forEach((problem, row) => {
-      ctx.fillStyle = row === Math.floor(now / 1800) % problems.length ? '#e8f5ff' : '#78a8d4'
-      ctx.fillText(problem, sx + 1, sy + 4 + row * 2)
+      ctx.fillStyle = row === Math.floor(now / 1100) % problems.length ? '#f2f8ff' : '#78a8d4'
+      ctx.fillText(problem, sx, sy + row * 2)
     })
     ctx.restore()
   }
