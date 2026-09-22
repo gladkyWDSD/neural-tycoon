@@ -182,52 +182,21 @@ function codeScreen(ctx: CanvasRenderingContext2D, now: number): ScreenFn {
   }
 }
 
-/** A frontier-model research desk: matrices, gradients, and attention maps.
- *
- * This intentionally does not look like a friendly dashboard. Researchers see
- * the loss curve sometimes, but most of their day is spent inside dense model
- * maths, so the display is all notation and intermediate results.
- */
+/** A researcher's open worksheet, filled with actual maths problems. */
 function researchMathScreen(ctx: CanvasRenderingContext2D, now: number): ScreenFn {
   return (sx, sy, sw, sh) => {
     px(ctx, sx, sy, sw, sh, '#080d14')
     windowChrome(ctx, sx, sy, sw, '#162334')
-
-    // Q · Kᵀ / √d: four small tensors, bracketed so they read as real maths
-    // rather than a generic terminal. Their values shift as an optimization
-    // pass moves across the screen.
-    const pulse = Math.floor(now / 240) % 4
-    const matrix = (x: number, y: number, tint: string, shift: number) => {
-      px(ctx, x, y, 1, 5, '#9bb3c9')
-      px(ctx, x + 4, y, 1, 5, '#9bb3c9')
-      for (let r = 0; r < 3; r++) {
-        for (let c = 0; c < 3; c++) {
-          const live = (r + c + shift) % 4 === pulse
-          px(ctx, x + 1 + c, y + 1 + r, 1, 1, live ? '#e8f5ff' : tint)
-        }
-      }
-    }
-    matrix(sx + 1, sy + 4, '#4aa3ff', 0)
-    px(ctx, sx + 6, sy + 6, 1, 1, '#f2f4fb') // multiplication dot
-    matrix(sx + 8, sy + 4, '#c084fc', 1)
-    px(ctx, sx + 13, sy + 5, 1, 1, '#ffd166') // divide bar
-    px(ctx, sx + 13, sy + 7, 3, 1, '#ffd166')
-    px(ctx, sx + 14, sy + 6, 1, 1, '#ffd166')
-
-    // A narrow attention heatmap on the right, its bright cell travelling as
-    // the model compares tokens against one another.
-    for (let r = 0; r < 4; r++) {
-      for (let c = 0; c < 4; c++) {
-        const hot = (r * 3 + c + pulse) % 7 === 0
-        px(ctx, sx + 19 + c, sy + 4 + r, 1, 1, hot ? '#ffe6a8' : (r + c) % 2 ? '#24507a' : '#173552')
-      }
-    }
-
-    // Gradient descent equation along the bottom, with a blinking cursor on
-    // the parameter update: ∇θ ← ∇θ − η∂L.
-    const equation = ['#3ddc84', '#3ddc84', '#f2f4fb', '#4aa3ff', '#f2f4fb', '#ff7b72', '#ffd166', '#c084fc']
-    equation.forEach((colour, i) => px(ctx, sx + 1 + i * 2, sy + 9, i === 2 || i === 4 ? 2 : 1, 1, colour))
-    if (Math.floor(now / 380) % 2 === 0) px(ctx, sx + 18, sy + 9, 1, 1, '#f2f4fb')
+    // These are equations to work through, rather than graphs or analytics.
+    const problems = ['x² + 4 = 20', '2x + 7 = 19', '∫ x dx = ?']
+    ctx.save()
+    ctx.font = '3px monospace'
+    ctx.textBaseline = 'top'
+    problems.forEach((problem, row) => {
+      ctx.fillStyle = row === Math.floor(now / 1800) % problems.length ? '#e8f5ff' : '#78a8d4'
+      ctx.fillText(problem, sx + 1, sy + 4 + row * 2)
+    })
+    ctx.restore()
   }
 }
 
