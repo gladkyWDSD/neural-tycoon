@@ -312,6 +312,7 @@ export interface PendingEvent {
 export interface GameState {
   screen: Screen
   companyName: string
+  aiName: string
   money: number
   date: GameDate
   staff: Staff[]

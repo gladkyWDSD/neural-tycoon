@@ -10,6 +10,7 @@ import {
   FREE_TRIAL_CONVERSION,
   FREE_TRIAL_COST,
   FREE_TRIAL_DURATION,
+  MAX_MODEL_VERSIONS,
   SUCCESSOR_MIGRATION,
 } from '../game/constants'
 import { validateCompanyName } from '../game/profanity'
@@ -268,12 +269,11 @@ export function BuildPanel({ state, onStartModel, onPublish, onStartPromo, onBuy
   const canAfford = state.money >= totalCost
 
   // anything live of the same kind hands its users on when this one ships
-  const predecessors = modelType
-    ? state.models.filter((m) => m.status === 'published' && m.typeId === modelType.id)
-    : []
+  const predecessors = state.models.filter((m) => m.status === 'published')
+  const hasVersionSlot = state.models.length < MAX_MODEL_VERSIONS
 
   const canStart =
-    Boolean(modelType) && name.trim().length > 0 && hasEngineer && hasGpu && canAfford
+    Boolean(modelType) && name.trim().length > 0 && hasEngineer && hasGpu && canAfford && hasVersionSlot
 
   function start() {
     if (!modelType) return
@@ -311,7 +311,7 @@ export function BuildPanel({ state, onStartModel, onPublish, onStartPromo, onBuy
   return (
     <div className="panel">
       <div className="panel-header">
-        <h3 className="panel-title">Build AI</h3>
+        <h3 className="panel-title">Update {state.aiName || 'your AI'}</h3>
         <button className="close-btn" onClick={onClose}>
           ✕
         </button>
@@ -342,11 +342,11 @@ export function BuildPanel({ state, onStartModel, onPublish, onStartPromo, onBuy
         )}
 
         <div className="filter-group">
-          <label>AI name</label>
+          <label>Model version name ({state.models.length}/{MAX_MODEL_VERSIONS})</label>
           <input
             value={name}
             maxLength={24}
-            placeholder="Name your AI..."
+            placeholder={`${state.aiName || 'AI'} version name...`}
             onChange={(e) => {
               setName(e.target.value)
               setError(null)
@@ -479,7 +479,7 @@ export function BuildPanel({ state, onStartModel, onPublish, onStartPromo, onBuy
 
         {predecessors.length > 0 && modelType && (
           <p className="hint">
-            This ships as a successor to{' '}
+            This updates{' '}
             {predecessors.map((m) => m.name).join(', ')}. When you publish it,{' '}
             {Math.round(SUCCESSOR_MIGRATION * 100)}% of the{' '}
             {predecessors.reduce((sum, m) => sum + m.customers + m.freeCustomers, 0).toLocaleString()} people
@@ -497,7 +497,9 @@ export function BuildPanel({ state, onStartModel, onPublish, onStartPromo, onBuy
               ? 'Research a model type to unlock training.'
               : !name.trim()
                 ? 'Enter a name for your AI.'
-                : !hasEngineer
+                  : !hasVersionSlot
+                    ? `You have built all ${MAX_MODEL_VERSIONS} model versions for ${state.aiName || 'your AI'}.`
+                  : !hasEngineer
                   ? 'Hire an engineer to build the model.'
                   : !hasGpu
                     ? 'Every card you own is already serving or training. Buy more, or wait for a run to land.'
@@ -508,7 +510,7 @@ export function BuildPanel({ state, onStartModel, onPublish, onStartPromo, onBuy
 
       {state.models.length > 0 && (
         <div className="model-list">
-          <h4 className="model-list-title">Your AI Models</h4>
+          <h4 className="model-list-title">{state.aiName || 'Your AI'} model versions</h4>
           {state.models.map((m) => (
             <ModelRow
               key={m.id}

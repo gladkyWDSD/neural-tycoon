@@ -5,13 +5,14 @@ import { validateCompanyName } from '../game/profanity'
 import './Screens.css'
 
 interface Props {
-  onFound: (name: string) => void
+  onFound: (companyName: string, aiName: string) => void
   difficulty: Difficulty
   onPickDifficulty: (d: Difficulty) => void
 }
 
 export function NamingScreen({ onFound, difficulty, onPickDifficulty }: Props) {
   const [name, setName] = useState('')
+  const [aiName, setAiName] = useState('')
   const [error, setError] = useState<string | null>(null)
 
   function submit(value: string) {
@@ -20,7 +21,7 @@ export function NamingScreen({ onFound, difficulty, onPickDifficulty }: Props) {
       setError(err)
       return
     }
-    onFound(value.trim())
+    onFound(value.trim(), aiName.trim() || `${value.trim()} AI`)
   }
 
   return (
@@ -37,6 +38,13 @@ export function NamingScreen({ onFound, difficulty, onPickDifficulty }: Props) {
           }}
           onKeyDown={(e) => e.key === 'Enter' && submit(name)}
           placeholder="Enter company name..."
+        />
+        <input
+          value={aiName}
+          maxLength={24}
+          onChange={(e) => setAiName(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && submit(name)}
+          placeholder="Name your AI product..."
         />
         {error && <p className="error">{error}</p>}
         <div className="default-names">

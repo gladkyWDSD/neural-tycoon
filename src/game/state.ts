@@ -88,6 +88,7 @@ import {
   LOBBY_REPEAL_CHANCE,
   LOBBY_RISK_REDUCTION,
   MAX_ACTIVE_REGULATIONS,
+  MAX_MODEL_VERSIONS,
   MAX_OFFICE_LEVEL,
   DEFAULT_DIFFICULTY,
   DIFFICULTY_MAP,
@@ -229,6 +230,7 @@ export function initialState(): GameState {
   return {
     screen: 'title',
     companyName: '',
+    aiName: '',
     money: START_MONEY,
     date: { ...START_DATE },
     staff: [],
@@ -296,7 +298,7 @@ export function initialState(): GameState {
 export type Action =
   | { type: 'NEW_GAME' }
   | { type: 'LOAD_STATE'; state: GameState }
-  | { type: 'SET_COMPANY_NAME'; name: string }
+  | { type: 'SET_COMPANY_NAME'; name: string; aiName: string }
   | { type: 'SET_SCREEN'; screen: GameState['screen'] }
   | { type: 'SET_DIFFICULTY'; difficulty: Difficulty }
   | { type: 'START_GAME'; name: string; difficulty: Difficulty }
@@ -460,6 +462,7 @@ export function migrateState(raw: Partial<GameState>): GameState {
   return {
     ...base,
     ...raw,
+    aiName: raw.aiName ?? raw.companyName ?? 'Your AI',
     date: raw.date ?? base.date,
     // levels arrived after launch: everyone in an older save starts at 1
     staff: (raw.staff ?? base.staff).map((s) => ({
@@ -1818,7 +1821,7 @@ export function reducer(state: GameState, action: Action): GameState {
     case 'LOAD_STATE':
       return migrateState(action.state)
     case 'SET_COMPANY_NAME':
-      return { ...state, companyName: action.name, screen: 'main' }
+      return { ...state, companyName: action.name, aiName: action.aiName, screen: 'main' }
     case 'ATTACK_PLAYER': {
       // Aimed at a real person rather than an AI rival. The cost, cooldown and
       // risk of being traced are the same as the single-player versions; what is
@@ -2358,7 +2361,14 @@ export function reducer(state: GameState, action: Action): GameState {
       return { ...state, difficulty: action.difficulty }
     case 'START_GAME':
       // a fresh company on the agreed settings, used when a lobby starts a race
-      return { ...initialState(), companyName: action.name, difficulty: action.difficulty, inRace: true, screen: 'main' }
+      return {
+        ...initialState(),
+        companyName: action.name,
+        aiName: `${action.name} AI`,
+        difficulty: action.difficulty,
+        inRace: true,
+        screen: 'main',
+      }
     case 'TOGGLE_PAUSE':
       return { ...state, paused: !state.paused }
     case 'SET_PAUSED':
@@ -2614,6 +2624,7 @@ export function reducer(state: GameState, action: Action): GameState {
       // A run takes cards that are not serving anyone. Data sources affect
       // quality, but there is no stored-data quota to begin or publish a model.
       const needCards = action.model.gpus
+      if (state.models.length >= MAX_MODEL_VERSIONS) return state
       if (needCards > cardsFree(state)) return state
       if (cardsTraining(state) + needCards > trainingCardLimit(state)) return state
       const dataCost = action.model.dataTier ? (DATA_TIER_MAP[action.model.dataTier]?.cost ?? 0) : 0
@@ -3108,7 +3119,7 @@ export function reducer(state: GameState, action: Action): GameState {
         let inheritedPaying = 0
         let inheritedTrial = 0
         published = published.map((m) => {
-          if (m.id === action.id || m.status !== 'published' || m.typeId !== model.typeId) return m
+          if (m.id === action.id || m.status !== 'published') return m
           const moving = Math.round((m.customers + m.freeCustomers) * SUCCESSOR_MIGRATION)
           if (moving <= 0) return m
           const fromPaying = Math.min(m.customers, Math.round(m.customers * SUCCESSOR_MIGRATION))

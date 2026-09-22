@@ -149,6 +149,8 @@ export const DIFFICULTY_MAP: Record<Difficulty, DifficultySetting> = Object.from
 
 export const DEFAULT_DIFFICULTY: Difficulty = 'long'
 
+export const MAX_MODEL_VERSIONS = 4
+
 // How fast the world takes up AI: each model category's market grows by this
 // share of its base size every week. It is the ceiling everyone competes under,
 // so it sets the pace of the whole game more than any other number.

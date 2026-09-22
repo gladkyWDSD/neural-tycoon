@@ -328,7 +328,7 @@ export default function App() {
         <NamingScreen
           difficulty={state.difficulty}
           onPickDifficulty={(difficulty) => dispatch({ type: 'SET_DIFFICULTY', difficulty })}
-          onFound={(name) => dispatch({ type: 'SET_COMPANY_NAME', name })}
+          onFound={(name, aiName) => dispatch({ type: 'SET_COMPANY_NAME', name, aiName })}
         />
       )}
       {state.screen === 'main' && (
