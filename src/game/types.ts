@@ -225,6 +225,8 @@ export interface AIModel {
   sotaAtPublish?: number // the best model in the world on the day it shipped
   benchmarkRank?: number // where it placed against the world when it shipped
   benchmarkField?: number // how many models it was ranked against
+  /** The existing model line this training run replaces. Only present while training. */
+  upgradeOf?: string
 }
 
 export interface CompetitorModel {

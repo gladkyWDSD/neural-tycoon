@@ -946,9 +946,12 @@ function advanceJobs(state: GameState, delta: number): GameState {
       ...m,
       status: 'ready' as const,
       weeksRemaining: 0,
-      customers: 0,
-      freeCustomers: 0,
-      quality: computeQuality(withResearch, m.gpus, m.dataTier, m.distillQuality),
+      // A model-line upgrade keeps its audience. A brand-new line starts at zero.
+      customers: m.upgradeOf ? m.customers : 0,
+      freeCustomers: m.upgradeOf ? m.freeCustomers : 0,
+      // Never make an established model worse by retraining it. Better staff,
+      // data, hardware and research are what turn a new run into an improvement.
+      quality: Math.max(m.quality, computeQuality(withResearch, m.gpus, m.dataTier, m.distillQuality)),
     }
   })
 
@@ -2624,7 +2627,13 @@ export function reducer(state: GameState, action: Action): GameState {
       // A run takes cards that are not serving anyone. Data sources affect
       // quality, but there is no stored-data quota to begin or publish a model.
       const needCards = action.model.gpus
-      if (state.models.length >= MAX_MODEL_VERSIONS) return state
+      const upgrading = action.model.upgradeOf
+        ? state.models.find((m) => m.id === action.model.upgradeOf)
+        : undefined
+      // Four is the number of model lines, not the number of releases. Once
+      // the roster is full, a new training run must improve one of those lines.
+      if (!upgrading && state.models.length >= MAX_MODEL_VERSIONS) return state
+      if (upgrading && (upgrading.status === 'training' || upgrading.typeId !== action.model.typeId)) return state
       if (needCards > cardsFree(state)) return state
       if (cardsTraining(state) + needCards > trainingCardLimit(state)) return state
       const dataCost = action.model.dataTier ? (DATA_TIER_MAP[action.model.dataTier]?.cost ?? 0) : 0
@@ -2635,14 +2644,27 @@ export function reducer(state: GameState, action: Action): GameState {
       }
       const cost = dataCost + teacherCost
       if (cost > 0 && state.money < cost) return state
+      const trainingModel: AIModel = upgrading
+        ? {
+            ...action.model,
+            id: upgrading.id,
+            quality: upgrading.quality,
+            customers: upgrading.customers,
+            freeCustomers: upgrading.freeCustomers,
+            pricing: upgrading.pricing,
+            upgradeOf: upgrading.id,
+          }
+        : action.model
       return {
         ...state,
-        models: [...state.models, action.model],
+        models: upgrading
+          ? state.models.map((m) => (m.id === upgrading.id ? trainingModel : m))
+          : [...state.models, trainingModel],
         money: state.money - cost,
         events: [
           {
             id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-            text: `${action.model.name} is training on ${needCards} card${needCards > 1 ? 's' : ''}. Those cards are not serving anyone until it lands.`,
+            text: `${trainingModel.name} is ${upgrading ? 'upgrading' : 'training'} on ${needCards} card${needCards > 1 ? 's' : ''}. Those cards are not serving anyone until it lands.`,
             week: globalWeek(state),
           },
           ...state.events,
@@ -3115,11 +3137,12 @@ export function reducer(state: GameState, action: Action): GameState {
         const rank = better + 1
         const total = field.length + 1
 
-        // users of your own older models of the same kind upgrade to the new one
+        // Users move only when a *new* model line replaces an older model of
+        // the same kind. An in-place upgrade already carries its own audience.
         let inheritedPaying = 0
         let inheritedTrial = 0
         published = published.map((m) => {
-          if (m.id === action.id || m.status !== 'published') return m
+          if (m.id === action.id || m.status !== 'published' || m.typeId !== model.typeId) return m
           const moving = Math.round((m.customers + m.freeCustomers) * SUCCESSOR_MIGRATION)
           if (moving <= 0) return m
           const fromPaying = Math.min(m.customers, Math.round(m.customers * SUCCESSOR_MIGRATION))
@@ -3138,6 +3161,7 @@ export function reducer(state: GameState, action: Action): GameState {
                 sotaAtPublish: stateOfTheArt(state.competitors, week),
                 benchmarkRank: rank,
                 benchmarkField: total,
+                upgradeOf: undefined,
               } as AIModel)
             : m,
         )

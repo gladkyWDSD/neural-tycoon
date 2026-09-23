@@ -11,7 +11,6 @@ import {
   FREE_TRIAL_COST,
   FREE_TRIAL_DURATION,
   MAX_MODEL_VERSIONS,
-  SUCCESSOR_MIGRATION,
 } from '../game/constants'
 import { validateCompanyName } from '../game/profanity'
 import {
@@ -241,6 +240,7 @@ export function BuildPanel({ state, onStartModel, onPublish, onStartPromo, onBuy
   const [name, setName] = useState('')
   const [gpus, setGpus] = useState(() => Math.max(1, maxGpus))
   const [teacherId, setTeacherId] = useState<string | null>(null)
+  const [upgradeId, setUpgradeId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   // the bar the rest of the world has set, so a model can show how dated it is
@@ -268,12 +268,12 @@ export function BuildPanel({ state, onStartModel, onPublish, onStartPromo, onBuy
   const totalCost = teacher ? distillCost(teacher.quality) : 0
   const canAfford = state.money >= totalCost
 
-  // anything live of the same kind hands its users on when this one ships
-  const predecessors = state.models.filter((m) => m.status === 'published')
+  const upgradeTarget = state.models.find((m) => m.id === upgradeId) ?? null
   const hasVersionSlot = state.models.length < MAX_MODEL_VERSIONS
+  const isImproving = Boolean(upgradeTarget)
 
   const canStart =
-    Boolean(modelType) && name.trim().length > 0 && hasEngineer && hasGpu && canAfford && hasVersionSlot
+    Boolean(modelType) && name.trim().length > 0 && hasEngineer && hasGpu && canAfford && (hasVersionSlot || isImproving)
 
   function start() {
     if (!modelType) return
@@ -294,6 +294,7 @@ export function BuildPanel({ state, onStartModel, onPublish, onStartPromo, onBuy
       customers: 0,
       freeCustomers: 0,
       dataTier: undefined,
+      ...(upgradeTarget ? { upgradeOf: upgradeTarget.id } : {}),
       ...(teacher
         ? {
             distilledFrom: teacher.modelId,
@@ -332,6 +333,7 @@ export function BuildPanel({ state, onStartModel, onPublish, onStartPromo, onBuy
                 <button
                   key={t.id}
                   className={`filter-btn ${activeTypeId === t.id ? 'active' : ''}`}
+                  disabled={isImproving && t.id !== upgradeTarget?.typeId}
                   onClick={() => setTypeId(t.id)}
                 >
                   {t.icon} {t.name}
@@ -342,7 +344,37 @@ export function BuildPanel({ state, onStartModel, onPublish, onStartPromo, onBuy
         )}
 
         <div className="filter-group">
-          <label>Model version name ({state.models.length}/{MAX_MODEL_VERSIONS})</label>
+          <label>Model line ({state.models.length}/{MAX_MODEL_VERSIONS})</label>
+          <div className="filter-buttons">
+            {hasVersionSlot && (
+              <button className={`filter-btn ${!isImproving ? 'active' : ''}`} onClick={() => setUpgradeId(null)}>
+                ✨ New model line
+              </button>
+            )}
+            {state.models.map((m) => (
+              <button
+                key={m.id}
+                className={`filter-btn ${upgradeId === m.id ? 'active' : ''}`}
+                disabled={m.status === 'training'}
+                onClick={() => {
+                  setUpgradeId(m.id)
+                  setTypeId(m.typeId)
+                }}
+                title={m.status === 'training' ? 'This model line is already training.' : `Improve ${m.name} and keep its customers.`}
+              >
+                {MODEL_TYPES.find((t) => t.id === m.typeId)?.icon} Improve {m.name}
+              </button>
+            ))}
+          </div>
+          <p className="hint">
+            {isImproving
+              ? `Improving ${upgradeTarget!.name} keeps its customers and upgrades its quality when training finishes.`
+              : 'You can operate up to four model lines. Improve them over time instead of creating more products.'}
+          </p>
+        </div>
+
+        <div className="filter-group">
+          <label>{isImproving ? 'Improved version name' : 'Model name'}</label>
           <input
             value={name}
             maxLength={24}
@@ -477,19 +509,8 @@ export function BuildPanel({ state, onStartModel, onPublish, onStartPromo, onBuy
           </span>
         </div>
 
-        {predecessors.length > 0 && modelType && (
-          <p className="hint">
-            This updates{' '}
-            {predecessors.map((m) => m.name).join(', ')}. When you publish it,{' '}
-            {Math.round(SUCCESSOR_MIGRATION * 100)}% of the{' '}
-            {predecessors.reduce((sum, m) => sum + m.customers + m.freeCustomers, 0).toLocaleString()} people
-            on {predecessors.length === 1 ? 'it' : 'them'} move across on day one. Name it like a version
-            and they will follow it.
-          </p>
-        )}
-
         <button className="big-button" disabled={!canStart} onClick={start}>
-          Start Training
+          {isImproving ? 'Train Upgrade' : 'Start Training'}
         </button>
         {!canStart && (
           <p className="hint">
@@ -498,7 +519,7 @@ export function BuildPanel({ state, onStartModel, onPublish, onStartPromo, onBuy
               : !name.trim()
                 ? 'Enter a name for your AI.'
                   : !hasVersionSlot
-                    ? `You have built all ${MAX_MODEL_VERSIONS} model versions for ${state.aiName || 'your AI'}.`
+                    ? `Choose one of your ${MAX_MODEL_VERSIONS} model lines to improve.`
                   : !hasEngineer
                   ? 'Hire an engineer to build the model.'
                   : !hasGpu
@@ -510,7 +531,7 @@ export function BuildPanel({ state, onStartModel, onPublish, onStartPromo, onBuy
 
       {state.models.length > 0 && (
         <div className="model-list">
-          <h4 className="model-list-title">{state.aiName || 'Your AI'} model versions</h4>
+          <h4 className="model-list-title">{state.aiName || 'Your AI'} model lines</h4>
           {state.models.map((m) => (
             <ModelRow
               key={m.id}
