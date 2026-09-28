@@ -43,6 +43,15 @@ export function drawGround(ctx: CanvasRenderingContext2D, season: number): void 
     px(ctx, x, y, 2, 1, '#456b4a')
     px(ctx, x + 1, y - 1, 1, 1, '#456b4a')
   }
+  // Tiny wildflowers and darker soil patches stop the grounds from looking
+  // like a repeated carpet once the company grows into a campus.
+  for (let i = 0; i < 58; i++) {
+    const x = (i * 149 + 37) % (CAMPUS_COLS * FT)
+    const y = (i * 83 + 19) % ((CAMPUS_ROWS - 4) * FT)
+    const colour = i % 3 === 0 ? '#e3c867' : i % 3 === 1 ? '#d97a8c' : '#b4d8e9'
+    px(ctx, x, y, 2, 2, colour)
+    px(ctx, x + 1, y - 1, 1, 1, '#d9f1d1')
+  }
 }
 
 export function drawRoad(ctx: CanvasRenderingContext2D): void {
@@ -52,6 +61,12 @@ export function drawRoad(ctx: CanvasRenderingContext2D): void {
   px(ctx, 0, y + FT * 3 - 3, CAMPUS_COLS * FT, 3, '#1d2029')
   for (let x = 8; x < CAMPUS_COLS * FT; x += 40) {
     px(ctx, x, y + FT * 1.5, 18, 3, ROAD_LINE)
+  }
+  // Cat's eyes and a subtle edge line lend the road the same care as the
+  // buildings, especially when traffic is moving across it.
+  px(ctx, 0, y + FT - 2, CAMPUS_COLS * FT, 1, '#3d4352')
+  for (let x = 22; x < CAMPUS_COLS * FT; x += 80) {
+    px(ctx, x, y + FT * 1.5 - 2, 3, 2, '#c8b66e')
   }
 }
 

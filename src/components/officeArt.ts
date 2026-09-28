@@ -186,22 +186,36 @@ function codeScreen(ctx: CanvasRenderingContext2D, now: number): ScreenFn {
 function researchMathScreen(ctx: CanvasRenderingContext2D, now: number): ScreenFn {
   return (sx, sy, sw, sh) => {
     px(ctx, sx, sy, sw, sh, '#080d14')
+    windowChrome(ctx, sx, sy, sw, '#173148')
     // The whole screen is a dense research worksheet — no dashboard chrome,
-    // charts, or analytics competing with the problems.
+    // charts, or analytics competing with the problems. The short equations
+    // stay legible on a 26px panel, while the large notebook in Research shows
+    // the full derivation.
     const problems = [
-      '∂L/∂θ=Σ(ŷ-y)x',
-      '∫₀∞e^-x²dx=√π/2',
-      'H=-Σpᵢlog₂pᵢ',
-      '∇²ψ+λψ=0',
-      'P(A|B)=P(B|A)P(A)/P(B)',
+      '∇L = Σg',
+      '∫ e⁻ˣ²',
+      'H = −Σp',
+      '∇²ψ + λ',
+      'P(θ | D)',
     ]
     ctx.save()
     ctx.font = '2px monospace'
     ctx.textBaseline = 'top'
     problems.forEach((problem, row) => {
-      ctx.fillStyle = row === Math.floor(now / 1100) % problems.length ? '#f2f8ff' : '#78a8d4'
-      ctx.fillText(problem, sx, sy + row * 2)
+      const active = row === Math.floor(now / 1100) % problems.length
+      ctx.fillStyle = active ? '#173b53' : '#0b1520'
+      ctx.fillRect(sx + 1, sy + 3 + row, sw - 2, 1)
+      ctx.fillStyle = active ? '#f2f8ff' : '#78a8d4'
+      ctx.fillText(problem, sx + 2, sy + 3 + row)
     })
+    // A miniature attention matrix next to the worksheet is the one piece of
+    // colour that moves as the researcher iterates.
+    for (let r = 0; r < 3; r++) {
+      for (let c = 0; c < 3; c++) {
+        const hot = (Math.floor(now / 360) + r * 2 + c) % 5 === 0
+        px(ctx, sx + sw - 5 + c, sy + 4 + r * 2, 1, 1, hot ? '#d5f3ff' : '#2f6f9e')
+      }
+    }
     ctx.restore()
   }
 }
